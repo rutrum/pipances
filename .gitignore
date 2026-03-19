@@ -3,3 +3,12 @@
 .github
 .opencode
 __pycache__
+
+# Nix-managed symlink
+daisyui.css
+
+# Tailwind build output
+static/css/style.css
+
+# Database
+*.db

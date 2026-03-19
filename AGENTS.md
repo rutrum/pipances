@@ -31,3 +31,9 @@
 - HTMX — loaded via CDN
 - Tailwind CSS — standalone CLI (no Node.js required)
 - DaisyUI — Tailwind plugin for component classes (btn, card, table, modal, etc.)
+
+# Agent Preferences
+
+When speaking with the user
+- If you mention multiple statements/ideas that the user will respond to, number them if possible to keep things easy to match with.
+- When a discussion defers a topic for later, add it to `TODO.md` with enough context to pick it up again.

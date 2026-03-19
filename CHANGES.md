@@ -9,27 +9,18 @@ Incremental, end-to-end changes to build the financial pipeline app. Each change
 - ~~Set up `src/financial_pipeline/` package structure~~
 - ~~`uv sync` works, `nix develop` drops into a working shell~~
 
-## 2. Hello world FastAPI app
+## ~~2+3. Hello world FastAPI app + Tailwind/DaisyUI~~ DONE
 
-- `main.py` with a FastAPI app and a single index route
-- `base.html` Jinja2 template loading HTMX (CDN) and DaisyUI (CDN for now)
-- Static file serving configured
-- **Verify:** `uv run python -m financial_pipeline.main` serves a styled page at localhost:8000
+- ~~FastAPI app with Jinja2 templates, HTMX (CDN), static file serving~~
+- ~~Tailwind v4 standalone CLI + DaisyUI v5 CSS (flake input, no Node.js)~~
+- ~~Compiled CSS build: `tailwindcss -i input.css -o static/css/style.css`~~
 
-## 3. Tailwind + DaisyUI build pipeline
+## ~~4. Database and models~~ DONE
 
-- `tailwind.config.js` with DaisyUI plugin, content paths to templates
-- Input CSS with `@tailwind` directives
-- Replace CDN with compiled CSS output
-- **Verify:** Tailwind builds, DaisyUI classes render correctly in the browser
-
-## 4. Database and models
-
-- `db.py` — async SQLite engine and session factory
-- `models.py` — `Source` and `Transaction` SQLAlchemy models
-- App startup creates tables automatically
-- Seed a few source accounts (checking, savings, credit card) via a script or startup
-- **Verify:** App starts, `financial_pipeline.db` is created with correct tables
+- ~~`db.py` — async SQLite engine and session factory~~
+- ~~`models.py` — Account, Import, Transaction models (unified accounts table, integer cents, dual description)~~
+- ~~App startup creates tables automatically via lifespan handler~~
+- ~~Seed example internal accounts (placeholder for user config module)~~
 
 ## 5. CSV parsing with Polars
 

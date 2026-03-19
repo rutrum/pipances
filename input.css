@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "./daisyui.css";
+
+@source "./src/financial_pipeline/templates/**/*.html";

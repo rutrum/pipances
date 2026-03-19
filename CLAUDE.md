@@ -25,3 +25,5 @@ Some features I don't want for an initial release, despite them being good ideas
 - machine learning for auto filling in descriptions
 - semantic search
 - defining source accounts in the web UI
+
+@AGENTS.md
