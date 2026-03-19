@@ -22,12 +22,12 @@ Incremental, end-to-end changes to build the financial pipeline app. Each change
 - ~~App startup creates tables automatically via lifespan handler~~
 - ~~Seed example internal accounts (placeholder for user config module)~~
 
-## 5. CSV parsing with Polars
+## ~~5. CSV parsing with Polars~~ DONE
 
-- `schemas.py` — define parsing schemas as polars expressions for different CSV formats
-- `ingest.py` — load CSV, apply schema, return a polars DataFrame of parsed transactions
-- Deduplication logic: detect transactions already in the database
-- **Verify:** Write a test or script that parses a sample CSV and prints the resulting DataFrame
+- ~~`schemas.py` — `ImportedTransaction` patito model (date, amount as Decimal, description)~~
+- ~~`ingest.py` — importer discovery via importlib, `ingest()` writes validated DataFrames to DB~~
+- ~~`importers/` directory convention — user-managed Python modules with `IMPORTER_NAME` + `parse(blob)`~~
+- ~~Deduplication deferred (see TODO.md)~~
 
 ## 6. CSV upload and inbox
 

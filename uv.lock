@@ -114,6 +114,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "itsdangerous" },
     { name = "jinja2" },
+    { name = "patito" },
     { name = "polars" },
     { name = "python-multipart" },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -127,6 +128,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.135.1" },
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "patito", specifier = ">=0.8.6" },
     { name = "polars", specifier = ">=1.39.2" },
     { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.48" },
@@ -350,6 +352,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/65/ee/299d360cdc32edc7d2cf530f3accf79c4fca01e96ffc950d8a52213bd8e4/packaging-26.0.tar.gz", hash = "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4", size = 143416, upload-time = "2026-01-21T20:50:39.064Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/b9/c538f279a4e237a006a2c98387d081e9eb060d203d8ed34467cc0f0b9b53/packaging-26.0-py3-none-any.whl", hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529", size = 74366, upload-time = "2026-01-21T20:50:37.788Z" },
+]
+
+[[package]]
+name = "patito"
+version = "0.8.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "polars" },
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/6a/232af838aaad14b58860cafa60309f026a3fb0c8df9043a2e4ec4d144ff5/patito-0.8.6.tar.gz", hash = "sha256:0ce3fcff07b9f20f82a4d26ade77151d6251c4b13d37889c39527e44bfc9b01f", size = 216424, upload-time = "2026-02-04T07:44:41.935Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/c6/9e76a75b99339367c9fdc8eb27bdc3ed73f8a4944a7484025072dd45e388/patito-0.8.6-py3-none-any.whl", hash = "sha256:f8e1a28e72e3b35e7fe8849672d3f22b3cfcdc928834f05738d5d0bea56ce09d", size = 43250, upload-time = "2026-02-04T07:44:40.504Z" },
 ]
 
 [[package]]
