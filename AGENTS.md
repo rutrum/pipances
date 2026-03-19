@@ -37,3 +37,10 @@
 When speaking with the user
 - If you mention multiple statements/ideas that the user will respond to, number them if possible to keep things easy to match with.
 - When a discussion defers a topic for later, add it to `TODO.md` with enough context to pick it up again.
+
+## Self Improvement
+
+If the user corrects you on something, consider adding it to AGENTS.md.  
+- But VERIFY WITH THE USER FIRST.  
+- Do this alongside the existing conversion.
+- Do not suggest an addition or modification in isolation unless its the end of a discussion.

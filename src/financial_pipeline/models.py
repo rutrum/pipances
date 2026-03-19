@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -46,6 +46,7 @@ class Transaction(Base):
     date: Mapped[date] = mapped_column(Date, nullable=False)
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    marked_for_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     import_record: Mapped[Import] = relationship(back_populates="transactions")
     internal: Mapped[Account] = relationship(foreign_keys=[internal_id])

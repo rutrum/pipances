@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Inbox - Financial Pipeline{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-6">
+  {% if not transactions %}
+    <div class="alert alert-info">
+      <span>No pending transactions.</span>
+      <a href="/upload" class="link link-primary">Upload transactions</a>
+    </div>
+  {% else %}
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-bold">Inbox</h1>
+      <button class="btn btn-primary"
+        hx-post="/inbox/commit"
+        hx-target="#inbox-table"
+        hx-swap="innerHTML">
+        Commit
+      </button>
+    </div>
+    <div id="inbox-message"></div>
+    <div class="overflow-x-auto">
+      <table class="table table-zebra w-full">
+        <thead>
+          <tr>
+            <th>Approve</th>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Raw Description</th>
+            <th>Description</th>
+            <th>External</th>
+            <th>Internal</th>
+          </tr>
+        </thead>
+        <tbody id="inbox-table">
+          {% for txn in transactions %}
+            {% include "_inbox_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

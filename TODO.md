@@ -21,5 +21,11 @@ When syncing internal accounts from config module to DB:
 - Upsert-only (create if missing, skip if exists) is safest
 - What happens if an account is removed from config but has transactions referencing it? Can't delete due to FK constraints. Soft-delete? Ignore?
 
+## Inbox table refactoring
+Consider extracting shared transaction table elements (row partials, column rendering) between the inbox editing view and the read-only transactions view. The inbox has interactive elements (checkboxes, click-to-edit) that the transactions page doesn't need, but the base column rendering (date, amount formatting, account names) could be shared. Revisit after the transactions page is built to see if the overlap justifies extraction.
+
+## Agent browser testing with Nix
+Get Chrome DevTools MCP working within the Nix dev environment. May need to build/package the MCP server. Consider migrating the flake to numtide/blueprint to manage it cleanly.
+
 ## Institution identifier convention
 `imports.institution` should match identifiers used in the config module's per-institution parsing schemas. No FK enforcement yet, but worth keeping consistent as a convention.

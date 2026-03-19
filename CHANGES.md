@@ -29,20 +29,13 @@ Incremental, end-to-end changes to build the financial pipeline app. Each change
 - ~~`importers/` directory convention — user-managed Python modules with `IMPORTER_NAME` + `parse(blob)`~~
 - ~~Deduplication deferred (see TODO.md)~~
 
-## 6. CSV upload and inbox
+## ~~6+7. CSV upload, inbox, and transaction review~~ DONE
 
-- Upload route: accept CSV file, parse with polars, store transactions as "pending" in DB
-- Inbox page: table showing pending transactions using DaisyUI table component
-- HTMX: upload form submits without full page reload
-- **Verify:** Upload a CSV via the browser, see parsed transactions appear in the inbox table
-
-## 7. Transaction review and approval
-
-- Inbox table rows have an "approve" button
-- Approving a transaction moves it from pending to approved (status field)
-- Bulk approve option (select all / select multiple)
-- HTMX: approve actions update the table without full reload
-- **Verify:** Upload CSV, review inbox, approve individual and bulk transactions
+- ~~Upload page with importer/account dropdowns, HTMX form submission~~
+- ~~Inbox page with pending transactions table, inline editing (description, external account)~~
+- ~~Approval workflow: checkbox toggle + commit button for bulk approval~~
+- ~~Navigation bar on all pages~~
+- ~~Orphaned external account pruning on commit~~
 
 ## 8. View all transactions
 
@@ -51,7 +44,7 @@ Incremental, end-to-end changes to build the financial pipeline app. Each change
 - Filter by source, date range
 - **Verify:** Approved transactions appear on the transactions page with working filters
 
-## 9. Simple auth
+## 9. Simple auth (DEFERRED)
 
 - Login page with single-user password (configured via environment variable)
 - Session cookie via `itsdangerous`
