@@ -19,7 +19,7 @@ The app can ingest and approve transactions, but there's no way to browse approv
 - `navigation`: Global navigation bar with links to all major sections (extracted from inbox-review)
 
 ### Modified Capabilities
-None.
+- `inbox-review`: Remove navigation requirement (moved to `navigation` capability)
 
 ## Impact
 

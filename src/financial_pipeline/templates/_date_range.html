@@ -1,0 +1,36 @@
+<div class="mb-4">
+  <div class="join">
+    <button class="btn join-item {% if preset == 'ytd' %}btn-active{% endif %}"
+      hx-get="/transactions"
+      hx-target="#txn-table-wrapper"
+      hx-include="#txn-filters"
+      hx-vals='{"preset": "ytd", "page": "1"}'
+      >YTD</button>
+    <button class="btn join-item {% if preset == 'last_month' %}btn-active{% endif %}"
+      hx-get="/transactions"
+      hx-target="#txn-table-wrapper"
+      hx-include="#txn-filters"
+      hx-vals='{"preset": "last_month", "page": "1"}'
+      >Last Month</button>
+    <button class="btn join-item {% if preset == 'last_3_months' %}btn-active{% endif %}"
+      hx-get="/transactions"
+      hx-target="#txn-table-wrapper"
+      hx-include="#txn-filters"
+      hx-vals='{"preset": "last_3_months", "page": "1"}'
+      >Last 3 Months</button>
+    <button class="btn join-item {% if preset == 'custom' %}btn-active{% endif %}"
+      onclick="document.getElementById('custom-range').classList.toggle('hidden')"
+      >Custom</button>
+  </div>
+  <div id="custom-range" class="{% if preset != 'custom' %}hidden{% endif %} mt-2 flex items-center gap-2">
+    <input type="date" name="date_from" value="{{ date_from }}" class="input input-bordered input-sm">
+    <span>to</span>
+    <input type="date" name="date_to" value="{{ date_to }}" class="input input-bordered input-sm">
+    <button class="btn btn-sm btn-primary"
+      hx-get="/transactions"
+      hx-target="#txn-table-wrapper"
+      hx-include="#txn-filters, #custom-range"
+      hx-vals='{"preset": "custom", "page": "1"}'
+      >Apply</button>
+  </div>
+</div>

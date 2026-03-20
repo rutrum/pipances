@@ -1,5 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import date, timedelta
+from math import ceil
 from pathlib import Path
 
 import uvicorn
@@ -8,9 +10,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+import polars as pl
+
+from financial_pipeline.charts import (
+    compute_stats,
+    monthly_income_expenses_chart,
+    top_expenses_chart,
+    weekly_spending_chart,
+)
 from financial_pipeline.db import async_session, create_tables, seed_accounts
 from financial_pipeline.ingest import _resolve_account, discover_importers, ingest
 from financial_pipeline.models import Account, Transaction
@@ -35,6 +45,43 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 @app.get("/")
 async def index():
     return RedirectResponse(url="/inbox")
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request):
+    async with async_session() as session:
+        result = await session.execute(
+            select(Transaction)
+            .where(Transaction.status == "approved")
+            .options(selectinload(Transaction.internal), selectinload(Transaction.external))
+        )
+        transactions = result.scalars().all()
+
+    if not transactions:
+        return templates.TemplateResponse(request, "dashboard.html", {
+            "has_data": False,
+        })
+
+    df = pl.DataFrame({
+        "date": [t.date for t in transactions],
+        "amount_cents": [t.amount_cents for t in transactions],
+        "description": [t.description or t.raw_description for t in transactions],
+        "external_name": [t.external.name for t in transactions],
+        "internal_name": [t.internal.name for t in transactions],
+    })
+
+    stats = compute_stats(df)
+    monthly_chart = monthly_income_expenses_chart(df)
+    top_chart = top_expenses_chart(df)
+    weekly_chart = weekly_spending_chart(df)
+
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "has_data": True,
+        "stats": stats,
+        "monthly_chart": monthly_chart,
+        "top_chart": top_chart,
+        "weekly_chart": weekly_chart,
+    })
 
 
 @app.get("/upload", response_class=HTMLResponse)
@@ -186,6 +233,122 @@ async def commit_inbox(request: Request):
     for txn in transactions:
         rows += templates.get_template("_inbox_row.html").render({"txn": txn})
     return HTMLResponse(rows)
+
+
+def _compute_date_range(preset: str, date_from: str | None, date_to: str | None) -> tuple[date, date]:
+    today = date.today()
+    if preset == "last_month":
+        first_of_this_month = today.replace(day=1)
+        last_month_end = first_of_this_month - timedelta(days=1)
+        return last_month_end.replace(day=1), last_month_end
+    elif preset == "last_3_months":
+        three_months_ago = today.replace(day=1)
+        for _ in range(3):
+            three_months_ago = (three_months_ago - timedelta(days=1)).replace(day=1)
+        return three_months_ago, today
+    elif preset == "custom" and date_from and date_to:
+        return date.fromisoformat(date_from), date.fromisoformat(date_to)
+    # Default: YTD
+    return today.replace(month=1, day=1), today
+
+
+SORT_COLUMNS = {
+    "date": Transaction.date,
+    "amount": Transaction.amount_cents,
+    "description": Transaction.raw_description,
+}
+
+
+@app.get("/transactions", response_class=HTMLResponse)
+async def transactions_page(request: Request):
+    params = request.query_params
+
+    preset = params.get("preset", "ytd")
+    date_from_str = params.get("date_from")
+    date_to_str = params.get("date_to")
+    sort_col = params.get("sort", "date")
+    sort_dir = params.get("dir", "desc")
+    internal_filter = params.get("internal", "")
+    external_filter = params.get("external", "")
+    page = int(params.get("page", "1"))
+    page_size = int(params.get("page_size", "25"))
+
+    date_from, date_to = _compute_date_range(preset, date_from_str, date_to_str)
+
+    async with async_session() as session:
+        query = (
+            select(Transaction)
+            .where(Transaction.status == "approved")
+            .where(Transaction.date >= date_from)
+            .where(Transaction.date <= date_to)
+            .options(selectinload(Transaction.internal), selectinload(Transaction.external))
+        )
+
+        if internal_filter:
+            query = query.join(Transaction.internal).where(Account.name == internal_filter)
+        if external_filter:
+            query = query.join(Transaction.external).where(Account.name == external_filter)
+
+        col = SORT_COLUMNS.get(sort_col, Transaction.date)
+        if sort_dir == "asc":
+            query = query.order_by(col.asc())
+        else:
+            query = query.order_by(col.desc())
+
+        # Count total for pagination
+        count_query = (
+            select(func.count())
+            .select_from(Transaction)
+            .where(Transaction.status == "approved")
+            .where(Transaction.date >= date_from)
+            .where(Transaction.date <= date_to)
+        )
+        if internal_filter:
+            count_query = count_query.join(Transaction.internal).where(Account.name == internal_filter)
+        if external_filter:
+            count_query = count_query.join(Transaction.external).where(Account.name == external_filter)
+        total_count = await session.scalar(count_query)
+
+        total_pages = max(1, ceil(total_count / page_size))
+        page = min(page, total_pages)
+        offset = (page - 1) * page_size
+
+        result = await session.execute(query.offset(offset).limit(page_size))
+        transactions = result.scalars().all()
+
+        # Get account lists for filter dropdowns
+        int_result = await session.execute(
+            select(Account.name).where(Account.kind != "external").order_by(Account.name)
+        )
+        internal_accounts = [r[0] for r in int_result]
+
+        ext_result = await session.execute(
+            select(Account.name).where(Account.kind == "external").order_by(Account.name)
+        )
+        external_accounts = [r[0] for r in ext_result]
+
+    ctx = {
+        "request": request,
+        "transactions": transactions,
+        "preset": preset,
+        "date_from": str(date_from),
+        "date_to": str(date_to),
+        "sort": sort_col,
+        "dir": sort_dir,
+        "internal_filter": internal_filter,
+        "external_filter": external_filter,
+        "internal_accounts": internal_accounts,
+        "external_accounts": external_accounts,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "total_count": total_count,
+    }
+
+    is_htmx = request.headers.get("HX-Request") == "true"
+    if is_htmx:
+        return templates.TemplateResponse(request, "_txn_table_body.html", ctx)
+    return templates.TemplateResponse(request, "transactions.html", ctx)
 
 
 if __name__ == "__main__":

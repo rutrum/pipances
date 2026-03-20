@@ -27,5 +27,14 @@ Consider extracting shared transaction table elements (row partials, column rend
 ## Agent browser testing with Nix
 Get Chrome DevTools MCP working within the Nix dev environment. May need to build/package the MCP server. Consider migrating the flake to numtide/blueprint to manage it cleanly.
 
+## Transaction categories
+Add a category/tagging system for transactions. External accounts currently serve as a rough proxy for "where money goes," but proper categories (groceries, utilities, entertainment, etc.) would enable better chart breakdowns on the dashboard and more meaningful filtering.
+
+## Starting balances for accounts
+Internal accounts need a starting balance so we can compute a meaningful "net total" / running balance. Without this, totals only reflect the delta from imported transactions, not actual account state.
+
+## Embed CDN dependencies
+Consider self-hosting or bundling CDN dependencies (HTMX, Vega-Embed, Vega-Lite, Vega) instead of loading from unpkg/cdn.jsdelivr. Would make the app fully self-contained for offline/air-gapped use.
+
 ## Institution identifier convention
 `imports.institution` should match identifiers used in the config module's per-institution parsing schemas. No FK enforcement yet, but worth keeping consistent as a convention.

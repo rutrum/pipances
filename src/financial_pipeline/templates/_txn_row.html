@@ -1,0 +1,9 @@
+<tr>
+  <td>{{ txn.date }}</td>
+  <td class="{% if txn.amount_cents < 0 %}text-error{% else %}text-success{% endif %}">
+    ${{ "%.2f"|format(txn.amount_cents / 100) }}
+  </td>
+  <td>{{ txn.description or txn.raw_description }}</td>
+  <td>{{ txn.external.name }}</td>
+  <td>{{ txn.internal.name }}</td>
+</tr>

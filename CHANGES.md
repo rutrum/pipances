@@ -37,12 +37,13 @@ Incremental, end-to-end changes to build the financial pipeline app. Each change
 - ~~Navigation bar on all pages~~
 - ~~Orphaned external account pruning on commit~~
 
-## 8. View all transactions
+## ~~8. View all transactions~~ DONE
 
-- Transactions page showing all approved transactions in a sortable/filterable table
-- Pagination or infinite scroll for large datasets
-- Filter by source, date range
-- **Verify:** Approved transactions appear on the transactions page with working filters
+- ~~Transactions page with server-side sorting, filtering, and pagination~~
+- ~~Date range widget with presets (YTD, Last Month, Last 3 Months, Custom)~~
+- ~~Sortable column headers, account filter dropdowns~~
+- ~~Reusable partials: `_date_range.html`, `_pagination.html`, `_txn_row.html`~~
+- ~~Navigation extracted to its own capability~~
 
 ## 9. Simple auth (DEFERRED)
 

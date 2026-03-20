@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Transactions - Financial Pipeline{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-6">
+  <h1 class="text-2xl font-bold mb-4">Transactions</h1>
+
+  {% include "_date_range.html" %}
+
+  {# Hidden inputs carrying current filter/sort state for HTMX includes #}
+  <div id="txn-filters">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="dir" value="{{ dir }}">
+    <input type="hidden" name="page_size" value="{{ page_size }}">
+    {% if internal_filter %}
+    <input type="hidden" name="internal" value="{{ internal_filter }}">
+    {% endif %}
+    {% if external_filter %}
+    <input type="hidden" name="external" value="{{ external_filter }}">
+    {% endif %}
+  </div>
+
+  <div id="txn-table-wrapper">
+    {% include "_txn_table_body.html" %}
+  </div>
+</div>
+{% endblock %}
