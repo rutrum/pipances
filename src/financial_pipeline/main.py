@@ -44,7 +44,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @app.get("/")
 async def index():
-    return RedirectResponse(url="/inbox")
+    return RedirectResponse(url="/dashboard")
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
