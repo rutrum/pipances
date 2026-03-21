@@ -1,7 +1,7 @@
 import importlib.util
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 import patito as pt
 from sqlalchemy import select
@@ -54,7 +54,9 @@ def discover_importers() -> dict[str, ImporterInfo]:
     return importers
 
 
-async def _resolve_account(session: AsyncSession, name: str, kind: str = "external") -> Account:
+async def _resolve_account(
+    session: AsyncSession, name: str, kind: str = "external"
+) -> Account:
     account = await session.scalar(select(Account).where(Account.name == name))
     if account is None:
         account = Account(name=name, kind=kind)

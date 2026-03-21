@@ -44,7 +44,10 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
     )
 
     data = monthly.unpivot(
-        index="month", on=["income", "expenses"], variable_name="type", value_name="amount"
+        index="month",
+        on=["income", "expenses"],
+        variable_name="type",
+        value_name="amount",
     ).to_pandas()
 
     chart = (
@@ -62,7 +65,11 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
                 ),
             ),
             xOffset="type:N",
-            tooltip=["yearmonth(month):T", "type:N", alt.Tooltip("amount:Q", format="$,.2f")],
+            tooltip=[
+                "yearmonth(month):T",
+                "type:N",
+                alt.Tooltip("amount:Q", format="$,.2f"),
+            ],
         )
         .properties(title="Monthly Income vs Expenses", width="container", height=300)
     )

@@ -20,9 +20,9 @@
 
 ## 5. Apply Initial Formatting
 
-- [ ] 5.1 Run `just fmt` to apply initial formatting to all files
-- [ ] 5.2 Run `just lint` to check for remaining issues and fix or ignore as appropriate
+- [x] 5.1 Run `just fmt` to apply initial formatting to all files
+- [x] 5.2 Run `just lint` to check for remaining issues and fix or ignore as appropriate
 
 ## 6. Documentation
 
-- [ ] 6.1 Update `AGENTS.md` build/run section to document new `lint`, `fmt`, and `check` recipes
+- [x] 6.1 Update `AGENTS.md` build/run section to document new `lint`, `fmt`, and `check` recipes

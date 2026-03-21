@@ -34,6 +34,10 @@ The project uses uv for Python dependency management, just for task running, and
 
 **Target Python version**: `py312` (matches pyproject.toml `requires-python`).
 
+**Ignored rules**:
+- `E501` (line too long) — ruff format handles code line length; remaining violations are string literals where breaking hurts readability
+- `E712` (`== True` comparisons) — required for SQLAlchemy column expressions
+
 ### 2. djLint configuration
 
 **Decision**: Use djLint with `jinja` profile. Start with default rules and tune if needed.
@@ -42,7 +46,7 @@ The project uses uv for Python dependency management, just for task running, and
 - `profile = "jinja"` — understands `{% %}` / `{{ }}` blocks
 - `indent = 2` — standard HTML indentation
 - `max_line_length = 120` — HTML lines tend to be longer than Python, especially with `hx-*` attributes
-- `ignore` — we'll add specific rule ignores as we discover false positives during initial run
+- `ignore = "J018,J004,H030,H031,T028"` — J018/J004 (url_for patterns not used with FastAPI), H030/H031 (meta description/keywords not needed for self-hosted), T028 (spaceless tags not relevant)
 
 ### 3. Just recipes
 

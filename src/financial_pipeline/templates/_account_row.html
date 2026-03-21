@@ -1,4 +1,5 @@
-<tr id="account-{{ account.id }}" class="{% if not account.active %}opacity-50{% endif %}">
+<tr id="account-{{ account.id }}"
+    class="{% if not account.active %}opacity-50{% endif %}">
   <td>
     <span class="cursor-pointer hover:underline"
           hx-get="/accounts/{{ account.id }}/edit-name"

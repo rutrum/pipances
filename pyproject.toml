@@ -46,6 +46,10 @@ select = [
     "B",   # bugbear
     "S",   # bandit (security)
 ]
+ignore = [
+    "E501",  # line too long — handled by formatter for code; string literals stay readable
+    "E712",  # == True comparisons — required for SQLAlchemy column expressions
+]
 
 [tool.ruff.lint.per-file-ignores]
 "importers/*" = ["S"]

@@ -4,11 +4,8 @@ This serves as a reference for writing institution-specific importers.
 """
 
 import io
-from decimal import Decimal
 
 import polars as pl
-
-from financial_pipeline.schemas import ImportedTransaction
 
 IMPORTER_NAME = "Example Bank"
 

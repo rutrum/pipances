@@ -4,17 +4,15 @@ from datetime import date, timedelta
 from math import ceil
 from pathlib import Path
 
+import polars as pl
 import uvicorn
 from fastapi import FastAPI, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
-
-import polars as pl
 
 from financial_pipeline.charts import (
     compute_stats,
@@ -45,7 +43,9 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 async def shared_context(active_page: str, session) -> dict:
     """Return shared template context: active page and inbox count."""
     count = await session.scalar(
-        select(func.count()).select_from(Transaction).where(Transaction.status == "pending")
+        select(func.count())
+        .select_from(Transaction)
+        .where(Transaction.status == "pending")
     )
     return {"active_page": active_page, "inbox_count": count}
 
@@ -62,37 +62,49 @@ async def dashboard_page(request: Request):
         result = await session.execute(
             select(Transaction)
             .where(Transaction.status == "approved")
-            .options(selectinload(Transaction.internal), selectinload(Transaction.external))
+            .options(
+                selectinload(Transaction.internal), selectinload(Transaction.external)
+            )
         )
         transactions = result.scalars().all()
 
     if not transactions:
-        return templates.TemplateResponse(request, "dashboard.html", {
-            "has_data": False,
-            **shared,
-        })
+        return templates.TemplateResponse(
+            request,
+            "dashboard.html",
+            {
+                "has_data": False,
+                **shared,
+            },
+        )
 
-    df = pl.DataFrame({
-        "date": [t.date for t in transactions],
-        "amount_cents": [t.amount_cents for t in transactions],
-        "description": [t.description or t.raw_description for t in transactions],
-        "external_name": [t.external.name for t in transactions],
-        "internal_name": [t.internal.name for t in transactions],
-    })
+    df = pl.DataFrame(
+        {
+            "date": [t.date for t in transactions],
+            "amount_cents": [t.amount_cents for t in transactions],
+            "description": [t.description or t.raw_description for t in transactions],
+            "external_name": [t.external.name for t in transactions],
+            "internal_name": [t.internal.name for t in transactions],
+        }
+    )
 
     stats = compute_stats(df)
     monthly_chart = monthly_income_expenses_chart(df)
     top_chart = top_expenses_chart(df)
     weekly_chart = weekly_spending_chart(df)
 
-    return templates.TemplateResponse(request, "dashboard.html", {
-        "has_data": True,
-        "stats": stats,
-        "monthly_chart": monthly_chart,
-        "top_chart": top_chart,
-        "weekly_chart": weekly_chart,
-        **shared,
-    })
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "has_data": True,
+            "stats": stats,
+            "monthly_chart": monthly_chart,
+            "top_chart": top_chart,
+            "weekly_chart": weekly_chart,
+            **shared,
+        },
+    )
 
 
 @app.get("/upload", response_class=HTMLResponse)
@@ -100,13 +112,19 @@ async def upload_page(request: Request):
     importers = discover_importers()
     async with async_session() as session:
         shared = await shared_context("upload", session)
-        result = await session.execute(select(Account).where(Account.kind != "external", Account.active == True))
+        result = await session.execute(
+            select(Account).where(Account.kind != "external", Account.active == True)
+        )
         accounts = result.scalars().all()
-    return templates.TemplateResponse(request, "upload.html", {
-        "importers": importers,
-        "accounts": accounts,
-        **shared,
-    })
+    return templates.TemplateResponse(
+        request,
+        "upload.html",
+        {
+            "importers": importers,
+            "accounts": accounts,
+            **shared,
+        },
+    )
 
 
 @app.post("/upload")
@@ -125,9 +143,16 @@ async def upload_file(request: Request):
         blob = await file.read()
         df = importer_info.parse(blob)
         df = ImportedTransaction.validate(df)
-        await ingest(df, internal_account=account, importer_name=importer_info.name, filename=file.filename)
+        await ingest(
+            df,
+            internal_account=account,
+            importer_name=importer_info.name,
+            filename=file.filename,
+        )
 
-        return Response(status_code=200, headers={"HX-Redirect": "/inbox?toast=upload_success"})
+        return Response(
+            status_code=200, headers={"HX-Redirect": "/inbox?toast=upload_success"}
+        )
     except Exception as e:
         return HTMLResponse(
             f'<div class="alert alert-error">{e}</div>',
@@ -155,16 +180,22 @@ async def settings_accounts_page(request: Request):
     if is_htmx:
         rows = ""
         for account in accounts:
-            rows += templates.get_template("_account_row.html").render({"account": account, "show_closed": show_closed})
+            rows += templates.get_template("_account_row.html").render(
+                {"account": account, "show_closed": show_closed}
+            )
         rows += templates.get_template("_account_input_row.html").render()
         return HTMLResponse(rows)
 
-    return templates.TemplateResponse(request, "settings_accounts.html", {
-        "accounts": accounts,
-        "settings_tab": "accounts",
-        "show_closed": show_closed,
-        **shared,
-    })
+    return templates.TemplateResponse(
+        request,
+        "settings_accounts.html",
+        {
+            "accounts": accounts,
+            "settings_tab": "accounts",
+            "show_closed": show_closed,
+            **shared,
+        },
+    )
 
 
 @app.post("/settings/accounts", response_class=HTMLResponse)
@@ -270,7 +301,9 @@ async def update_account(account_id: int, request: Request):
         return HTMLResponse("")
 
     return HTMLResponse(
-        templates.get_template("_account_row.html").render({"account": account, "show_closed": show_closed})
+        templates.get_template("_account_row.html").render(
+            {"account": account, "show_closed": show_closed}
+        )
     )
 
 
@@ -282,7 +315,7 @@ async def edit_account_name(account_id: int):
         f'<input type="text" class="input input-bordered input-sm w-full" '
         f'name="name" value="{account.name}" '
         f'hx-patch="/accounts/{account_id}" hx-target="#account-{account_id}" hx-swap="outerHTML" '
-        f'hx-trigger="blur, keyup[key==\'Enter\']" autofocus>'
+        f"hx-trigger=\"blur, keyup[key=='Enter']\" autofocus>"
     )
 
 
@@ -294,7 +327,7 @@ async def edit_account_type(account_id: int):
         f'<input type="text" class="input input-bordered input-sm w-full" '
         f'name="kind" value="{account.kind}" '
         f'hx-patch="/accounts/{account_id}" hx-target="#account-{account_id}" hx-swap="outerHTML" '
-        f'hx-trigger="blur, keyup[key==\'Enter\']" autofocus>'
+        f"hx-trigger=\"blur, keyup[key=='Enter']\" autofocus>"
     )
 
 
@@ -307,7 +340,7 @@ async def edit_account_balance(account_id: int):
         f'<input type="number" step="0.01" class="input input-bordered input-sm w-full" '
         f'name="starting_balance" value="{value}" '
         f'hx-patch="/accounts/{account_id}" hx-target="#account-{account_id}" hx-swap="outerHTML" '
-        f'hx-trigger="blur, keyup[key==\'Enter\']" autofocus>'
+        f"hx-trigger=\"blur, keyup[key=='Enter']\" autofocus>"
     )
 
 
@@ -331,23 +364,36 @@ async def inbox_page(request: Request):
         result = await session.execute(
             select(Transaction)
             .where(Transaction.status == "pending")
-            .options(selectinload(Transaction.internal), selectinload(Transaction.external))
+            .options(
+                selectinload(Transaction.internal), selectinload(Transaction.external)
+            )
             .order_by(Transaction.date)
         )
         transactions = result.scalars().all()
     toast = request.query_params.get("toast")
-    return templates.TemplateResponse(request, "inbox.html", {
-        "transactions": transactions,
-        "toast": toast,
-        **shared,
-    })
+    return templates.TemplateResponse(
+        request,
+        "inbox.html",
+        {
+            "transactions": transactions,
+            "toast": toast,
+            **shared,
+        },
+    )
 
 
 @app.patch("/transactions/{txn_id}", response_class=HTMLResponse)
 async def update_transaction(txn_id: int, request: Request):
     form = await request.form()
     async with async_session() as session:
-        txn = await session.get(Transaction, txn_id, options=[selectinload(Transaction.internal), selectinload(Transaction.external)])
+        txn = await session.get(
+            Transaction,
+            txn_id,
+            options=[
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+            ],
+        )
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 
@@ -377,7 +423,7 @@ async def edit_description(txn_id: int):
     async with async_session() as session:
         txn = await session.get(Transaction, txn_id)
     return HTMLResponse(f'''<input type="text" class="input input-bordered input-sm w-full"
-        name="description" value="{txn.description or ''}"
+        name="description" value="{txn.description or ""}"
         hx-patch="/transactions/{txn_id}" hx-target="#txn-{txn_id}" hx-swap="outerHTML"
         hx-trigger="blur, keyup[key=='Enter']" autofocus>''')
 
@@ -385,7 +431,9 @@ async def edit_description(txn_id: int):
 @app.get("/transactions/{txn_id}/edit-external", response_class=HTMLResponse)
 async def edit_external(txn_id: int):
     async with async_session() as session:
-        txn = await session.get(Transaction, txn_id, options=[selectinload(Transaction.external)])
+        txn = await session.get(
+            Transaction, txn_id, options=[selectinload(Transaction.external)]
+        )
     return HTMLResponse(f'''<input type="text" class="input input-bordered input-sm w-full"
         name="external" value="{txn.external.name}"
         hx-patch="/transactions/{txn_id}" hx-target="#txn-{txn_id}" hx-swap="outerHTML"
@@ -408,7 +456,10 @@ async def commit_inbox(request: Request):
             remaining = await session.execute(
                 select(Transaction)
                 .where(Transaction.status == "pending")
-                .options(selectinload(Transaction.internal), selectinload(Transaction.external))
+                .options(
+                    selectinload(Transaction.internal),
+                    selectinload(Transaction.external),
+                )
                 .order_by(Transaction.date)
             )
             rows = ""
@@ -424,13 +475,28 @@ async def commit_inbox(request: Request):
 
         # Prune orphaned external accounts
         from sqlalchemy import exists as sa_exists
-        orphans = (await session.execute(
-            select(Account).where(
-                Account.kind == "external",
-                ~sa_exists(select(Transaction.id).where(Transaction.external_id == Account.id)),
-                ~sa_exists(select(Transaction.id).where(Transaction.internal_id == Account.id)),
+
+        orphans = (
+            (
+                await session.execute(
+                    select(Account).where(
+                        Account.kind == "external",
+                        ~sa_exists(
+                            select(Transaction.id).where(
+                                Transaction.external_id == Account.id
+                            )
+                        ),
+                        ~sa_exists(
+                            select(Transaction.id).where(
+                                Transaction.internal_id == Account.id
+                            )
+                        ),
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
         for orphan in orphans:
             await session.delete(orphan)
         await session.commit()
@@ -440,19 +506,27 @@ async def commit_inbox(request: Request):
         result = await session.execute(
             select(Transaction)
             .where(Transaction.status == "pending")
-            .options(selectinload(Transaction.internal), selectinload(Transaction.external))
+            .options(
+                selectinload(Transaction.internal), selectinload(Transaction.external)
+            )
             .order_by(Transaction.date)
         )
         transactions = result.scalars().all()
 
     remaining_count = len(transactions)
-    badge_html = f'<span class="badge badge-sm badge-primary">{remaining_count}</span>' if remaining_count else ''
+    badge_html = (
+        f'<span class="badge badge-sm badge-primary">{remaining_count}</span>'
+        if remaining_count
+        else ""
+    )
     badge_oob = f'<span id="inbox-badge" hx-swap-oob="innerHTML:#inbox-badge">{badge_html}</span>'
     toast = f'<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-success"><span>Committed {committed_count} transaction{"s" if committed_count != 1 else ""}.</span></div></div>'
     oob = toast + badge_oob
 
     if not transactions:
-        return HTMLResponse(f'<tr><td colspan="7" class="text-center py-8">Inbox is empty. <a href="/upload" class="link link-primary">Upload transactions</a></td></tr>{oob}')
+        return HTMLResponse(
+            f'<tr><td colspan="7" class="text-center py-8">Inbox is empty. <a href="/upload" class="link link-primary">Upload transactions</a></td></tr>{oob}'
+        )
 
     rows = ""
     for txn in transactions:
@@ -460,7 +534,9 @@ async def commit_inbox(request: Request):
     return HTMLResponse(rows + oob)
 
 
-def _compute_date_range(preset: str, date_from: str | None, date_to: str | None) -> tuple[date, date]:
+def _compute_date_range(
+    preset: str, date_from: str | None, date_to: str | None
+) -> tuple[date, date]:
     today = date.today()
     if preset == "last_month":
         first_of_this_month = today.replace(day=1)
@@ -506,13 +582,19 @@ async def transactions_page(request: Request):
             .where(Transaction.status == "approved")
             .where(Transaction.date >= date_from)
             .where(Transaction.date <= date_to)
-            .options(selectinload(Transaction.internal), selectinload(Transaction.external))
+            .options(
+                selectinload(Transaction.internal), selectinload(Transaction.external)
+            )
         )
 
         if internal_filter:
-            query = query.join(Transaction.internal).where(Account.name == internal_filter)
+            query = query.join(Transaction.internal).where(
+                Account.name == internal_filter
+            )
         if external_filter:
-            query = query.join(Transaction.external).where(Account.name == external_filter)
+            query = query.join(Transaction.external).where(
+                Account.name == external_filter
+            )
 
         col = SORT_COLUMNS.get(sort_col, Transaction.date)
         if sort_dir == "asc":
@@ -529,9 +611,13 @@ async def transactions_page(request: Request):
             .where(Transaction.date <= date_to)
         )
         if internal_filter:
-            count_query = count_query.join(Transaction.internal).where(Account.name == internal_filter)
+            count_query = count_query.join(Transaction.internal).where(
+                Account.name == internal_filter
+            )
         if external_filter:
-            count_query = count_query.join(Transaction.external).where(Account.name == external_filter)
+            count_query = count_query.join(Transaction.external).where(
+                Account.name == external_filter
+            )
         total_count = await session.scalar(count_query)
 
         total_pages = max(1, ceil(total_count / page_size))
@@ -543,12 +629,16 @@ async def transactions_page(request: Request):
 
         # Get account lists for filter dropdowns
         int_result = await session.execute(
-            select(Account.name).where(Account.kind != "external").order_by(Account.name)
+            select(Account.name)
+            .where(Account.kind != "external")
+            .order_by(Account.name)
         )
         internal_accounts = [r[0] for r in int_result]
 
         ext_result = await session.execute(
-            select(Account.name).where(Account.kind == "external").order_by(Account.name)
+            select(Account.name)
+            .where(Account.kind == "external")
+            .order_by(Account.name)
         )
         external_accounts = [r[0] for r in ext_result]
 

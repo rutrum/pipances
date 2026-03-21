@@ -41,6 +41,9 @@ When speaking with the user
 
 - Use `just --list` to see available build/test/run commands before guessing
 - Common recipes: `just serve` (dev server on 8097), `just css` (build CSS), `just css-watch` (watch mode), `just sync` (install deps)
+- Code quality recipes: `just lint` (check Python + templates), `just fmt` (auto-format Python + templates), `just check` (CI-style strict check)
+- Run `just fmt` after making changes to keep formatting consistent
+- Ruff handles Python linting/formatting; djLint handles Jinja2/HTML templates
 
 ## Browser Testing
 

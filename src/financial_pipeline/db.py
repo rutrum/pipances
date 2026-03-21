@@ -19,11 +19,21 @@ async def create_tables():
         result = await conn.execute(text("PRAGMA table_info(accounts)"))
         columns = {row[1] for row in result}
         if "starting_balance_cents" not in columns:
-            await conn.execute(text("ALTER TABLE accounts ADD COLUMN starting_balance_cents INTEGER NOT NULL DEFAULT 0"))
+            await conn.execute(
+                text(
+                    "ALTER TABLE accounts ADD COLUMN starting_balance_cents INTEGER NOT NULL DEFAULT 0"
+                )
+            )
         if "balance_date" not in columns:
-            await conn.execute(text("ALTER TABLE accounts ADD COLUMN balance_date DATE"))
+            await conn.execute(
+                text("ALTER TABLE accounts ADD COLUMN balance_date DATE")
+            )
         if "active" not in columns:
-            await conn.execute(text("ALTER TABLE accounts ADD COLUMN active BOOLEAN NOT NULL DEFAULT 1"))
+            await conn.execute(
+                text(
+                    "ALTER TABLE accounts ADD COLUMN active BOOLEAN NOT NULL DEFAULT 1"
+                )
+            )
 
 
 async def get_session():

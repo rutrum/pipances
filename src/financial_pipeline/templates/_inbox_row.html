@@ -1,11 +1,13 @@
-<tr id="txn-{{ txn.id }}" {% if txn.marked_for_approval %}class="bg-success/10"{% endif %}>
+<tr id="txn-{{ txn.id }}"
+    {% if txn.marked_for_approval %}class="bg-success/10"{% endif %}>
   <td>
-    <input type="checkbox" class="checkbox"
-      {% if txn.marked_for_approval %}checked{% endif %}
-      hx-patch="/transactions/{{ txn.id }}"
-      hx-vals='{"marked_for_approval": "toggle"}'
-      hx-target="#txn-{{ txn.id }}"
-      hx-swap="outerHTML">
+    <input type="checkbox"
+           class="checkbox"
+           {% if txn.marked_for_approval %}checked{% endif %}
+           hx-patch="/transactions/{{ txn.id }}"
+           hx-vals='{"marked_for_approval": "toggle"}'
+           hx-target="#txn-{{ txn.id }}"
+           hx-swap="outerHTML">
   </td>
   <td>{{ txn.date }}</td>
   <td class="{% if txn.amount_cents < 0 %}text-error{% else %}text-success{% endif %}">
@@ -14,19 +16,21 @@
   <td>{{ txn.raw_description }}</td>
   <td>
     <span class="cursor-pointer hover:underline"
-      hx-get="/transactions/{{ txn.id }}/edit-description"
-      hx-target="this"
-      hx-swap="innerHTML">
-      {% if txn.description %}{{ txn.description }}{% else %}<span class="badge badge-ghost badge-sm">click to edit</span>{% endif %}
+          hx-get="/transactions/{{ txn.id }}/edit-description"
+          hx-target="this"
+          hx-swap="innerHTML">
+      {% if txn.description %}
+        {{ txn.description }}
+      {% else %}
+        <span class="badge badge-ghost badge-sm">click to edit</span>
+      {% endif %}
     </span>
   </td>
   <td>
     <span class="cursor-pointer hover:underline"
-      hx-get="/transactions/{{ txn.id }}/edit-external"
-      hx-target="this"
-      hx-swap="innerHTML">
-      {{ txn.external.name }}
-    </span>
+          hx-get="/transactions/{{ txn.id }}/edit-external"
+          hx-target="this"
+          hx-swap="innerHTML">{{ txn.external.name }}</span>
   </td>
   <td>{{ txn.internal.name }}</td>
 </tr>

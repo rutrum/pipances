@@ -1,51 +1,58 @@
 {% macro sort_header(column, label) %}
-<th class="cursor-pointer select-none"
-  hx-get="/transactions"
-  hx-target="#txn-table-wrapper"
-  hx-include="#txn-filters"
-  hx-vals='{"sort": "{{ column }}", "dir": "{% if sort == column and dir == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
-  {{ label }}
-  {% if sort == column %}
-    {% if dir == 'asc' %}▲{% else %}▼{% endif %}
-  {% endif %}
-</th>
-{% endmacro %}
-
-{% macro filter_header(column, label, accounts, current_filter) %}
-<th>
-  <div class="dropdown">
-    <div tabindex="0" role="button" class="flex items-center gap-1 cursor-pointer select-none">
-      {{ label }}
-      {% if current_filter %}
-        <span class="badge badge-sm badge-primary">{{ current_filter }}</span>
+  <th class="cursor-pointer select-none"
+      hx-get="/transactions"
+      hx-target="#txn-table-wrapper"
+      hx-include="#txn-filters"
+      hx-vals='{"sort": "{{ column }}", "dir": "{% if sort == column and dir == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
+    {{ label }}
+    {% if sort == column %}
+      {% if dir == 'asc' %}
+        ▲
       {% else %}
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+        ▼
       {% endif %}
-    </div>
-    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-sm">
-      <li>
-        <a hx-get="/transactions"
-          hx-target="#txn-table-wrapper"
-          hx-include="#txn-filters"
-          hx-vals='{"{{ column }}": "", "page": "1"}'>
-          All
-        </a>
-      </li>
-      {% for acct in accounts %}
-      <li>
-        <a hx-get="/transactions"
-          hx-target="#txn-table-wrapper"
-          hx-include="#txn-filters"
-          hx-vals='{"{{ column }}": "{{ acct }}", "page": "1"}'>
-          {{ acct }}
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-</th>
+    {% endif %}
+  </th>
 {% endmacro %}
-
+{% macro filter_header(column, label, accounts, current_filter) %}
+  <th>
+    <div class="dropdown">
+      <div tabindex="0"
+           role="button"
+           class="flex items-center gap-1 cursor-pointer select-none">
+        {{ label }}
+        {% if current_filter %}
+          <span class="badge badge-sm badge-primary">{{ current_filter }}</span>
+        {% else %}
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="h-3 w-3 opacity-50"
+               fill="none"
+               viewBox="0 0 24 24"
+               stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+        {% endif %}
+      </div>
+      <ul tabindex="0"
+          class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-sm">
+        <li>
+          <a hx-get="/transactions"
+             hx-target="#txn-table-wrapper"
+             hx-include="#txn-filters"
+             hx-vals='{"{{ column }}": "", "page": "1"}'>All</a>
+        </li>
+        {% for acct in accounts %}
+          <li>
+            <a hx-get="/transactions"
+               hx-target="#txn-table-wrapper"
+               hx-include="#txn-filters"
+               hx-vals='{"{{ column }}": "{{ acct }}", "page": "1"}'>{{ acct }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </th>
+{% endmacro %}
 {% if not transactions %}
   <div class="alert alert-info mt-4">
     <span>No transactions found for the selected filters.</span>

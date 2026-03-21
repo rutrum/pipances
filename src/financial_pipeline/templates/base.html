@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="silk">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Financial Pipeline{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-  <script src="https://unpkg.com/htmx-ext-response-targets@2.0.2/response-targets.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body class="min-h-screen bg-base-200" hx-ext="response-targets">
-  {% include "_navbar.html" %}
-  {% block content %}{% endblock %}
-  <div id="toast-container" class="toast toast-end toast-bottom"></div>
-  <script>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+      {% block title %}Financial Pipeline{% endblock title %}
+    </title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx-ext-response-targets@2.0.2/response-targets.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body class="min-h-screen bg-base-200" hx-ext="response-targets">
+    {% include "_navbar.html" %}
+    {% block content %}{% endblock content %}
+    <div id="toast-container" class="toast toast-end toast-bottom"></div>
+    <script>
     function dismissToast(el) {
       el.style.transition = 'opacity 0.3s';
       el.style.opacity = '0';
@@ -31,6 +33,6 @@
     });
     document.querySelectorAll('#toast-container .alert').forEach(autoToast);
     lucide.createIcons();
-  </script>
-</body>
+    </script>
+  </body>
 </html>
