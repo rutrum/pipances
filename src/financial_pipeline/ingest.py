@@ -1,4 +1,5 @@
 import importlib.util
+import logging
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -8,10 +9,14 @@ from pathlib import Path
 import patito as pt
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from financial_pipeline.db import async_session
 from financial_pipeline.models import Account, Import, Transaction
+from financial_pipeline.predict import TransactionPredictor
 from financial_pipeline.schemas import ImportedTransaction
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 IMPORTERS_DIR = PROJECT_ROOT / "importers"
@@ -134,6 +139,7 @@ async def ingest(
         inserted_count = 0
         inserted_per_key: Counter[tuple] = Counter()
         all_dates: list[date] = []
+        new_txn_ids: list[int] = []
 
         for row in rows:
             key = (row["date"], row["amount_cents"], row["description"])
@@ -152,11 +158,17 @@ async def ingest(
                 status="pending",
             )
             session.add(txn)
+            await session.flush()
+            new_txn_ids.append(txn.id)
             inserted_per_key[key] += 1
             inserted_count += 1
             all_dates.append(row["date"])
 
         await session.commit()
+
+    # Run ML predictions on newly inserted transactions
+    if new_txn_ids:
+        await _predict_for_transactions(new_txn_ids)
 
     duplicate_count = len(rows) - inserted_count
     return IngestResult(
@@ -166,3 +178,84 @@ async def ingest(
         date_max=max(all_dates) if all_dates else None,
         internal_account_name=internal_account,
     )
+
+
+async def _predict_for_transactions(txn_ids: list[int]) -> None:
+    """Run ML predictions on the given transaction IDs."""
+    async with async_session() as session:
+        # Load approved transactions as training data
+        result = await session.execute(
+            select(Transaction)
+            .where(Transaction.status == "approved")
+            .options(selectinload(Transaction.import_record))
+        )
+        approved = result.scalars().all()
+
+        if not approved:
+            logger.info("No approved transactions; skipping ML predictions")
+            return
+
+        # Build training data
+        train_raw = [t.raw_description for t in approved]
+        train_amounts = [t.amount_cents for t in approved]
+        train_dow = [t.date.weekday() for t in approved]
+        train_dom = [t.date.day for t in approved]
+        train_internal = [str(t.internal_id) for t in approved]
+        train_institution = [t.import_record.institution for t in approved]
+        train_desc = [t.description for t in approved]
+        train_cat = [t.category_id for t in approved]
+        train_ext = [t.external_id for t in approved]
+
+        predictor = TransactionPredictor()
+        predictor.fit(
+            train_raw,
+            train_amounts,
+            train_dow,
+            train_dom,
+            train_internal,
+            train_institution,
+            train_desc,
+            train_cat,
+            train_ext,
+        )
+
+        # Load new pending transactions
+        result = await session.execute(
+            select(Transaction)
+            .where(Transaction.id.in_(txn_ids))
+            .options(selectinload(Transaction.import_record))
+        )
+        pending = result.scalars().all()
+
+        if not pending:
+            return
+
+        pred_raw = [t.raw_description for t in pending]
+        pred_amounts = [t.amount_cents for t in pending]
+        pred_dow = [t.date.weekday() for t in pending]
+        pred_dom = [t.date.day for t in pending]
+        pred_internal = [str(t.internal_id) for t in pending]
+        pred_institution = [t.import_record.institution for t in pending]
+
+        predictions = predictor.predict(
+            pred_raw,
+            pred_amounts,
+            pred_dow,
+            pred_dom,
+            pred_internal,
+            pred_institution,
+        )
+
+        # Apply predictions
+        for txn, pred in zip(pending, predictions, strict=True):
+            if pred.description:
+                txn.description = pred.description.value
+                txn.ml_confidence_description = pred.description.confidence
+            if pred.category_id:
+                txn.category_id = pred.category_id.value
+                txn.ml_confidence_category = pred.category_id.confidence
+            if pred.external_id:
+                txn.external_id = pred.external_id.value
+                txn.ml_confidence_external = pred.external_id.confidence
+
+        await session.commit()

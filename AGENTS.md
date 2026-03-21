@@ -38,6 +38,7 @@ When speaking with the user
 - If you mention multiple statements/ideas that the user will respond to, number them if possible to keep things easy to match with.
 - Do NOT use hyphens for printing in bash, use equal signs instead (i.e. echo "===")
 - Prefer `jq` over `python -c "import json;..."`
+- Do NOT write bash statements over multiples lines; use && or ; instead
 
 ## Build and Run
 

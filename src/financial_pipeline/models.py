@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -72,6 +72,15 @@ class Transaction(Base):
     )
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
+    ml_confidence_description: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None
+    )
+    ml_confidence_category: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None
+    )
+    ml_confidence_external: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None
     )
 
     import_record: Mapped[Import] = relationship(back_populates="transactions")

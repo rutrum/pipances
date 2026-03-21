@@ -16,7 +16,8 @@
   </td>
   <td>
     <div>
-      <span class="cursor-pointer hover:underline"
+      <span class="cursor-pointer hover:underline{% if txn.ml_confidence_description %} bg-info/10 rounded px-1{% endif %}"
+            {% if txn.ml_confidence_description %}title="ML suggested ({{ (txn.ml_confidence_description * 100)|round|int }}% confidence)"{% endif %}
             hx-get="/transactions/{{ txn.id }}/edit-description"
             hx-target="this"
             hx-swap="innerHTML">
@@ -30,7 +31,8 @@
     <div class="text-xs opacity-50">{{ txn.raw_description }}</div>
   </td>
   <td>
-    <span class="cursor-pointer hover:underline"
+    <span class="cursor-pointer hover:underline{% if txn.ml_confidence_category %} bg-info/10 rounded px-1{% endif %}"
+          {% if txn.ml_confidence_category %}title="ML suggested ({{ (txn.ml_confidence_category * 100)|round|int }}% confidence)"{% endif %}
           hx-get="/transactions/{{ txn.id }}/edit-category"
           hx-target="this"
           hx-swap="innerHTML">
@@ -42,7 +44,8 @@
     </span>
   </td>
   <td>
-    <span class="cursor-pointer hover:underline"
+    <span class="cursor-pointer hover:underline{% if txn.ml_confidence_external %} bg-info/10 rounded px-1{% endif %}"
+          {% if txn.ml_confidence_external %}title="ML suggested ({{ (txn.ml_confidence_external * 100)|round|int }}% confidence)"{% endif %}
           hx-get="/transactions/{{ txn.id }}/edit-external"
           hx-target="this"
           hx-swap="innerHTML">{{ txn.external.name }}</span>

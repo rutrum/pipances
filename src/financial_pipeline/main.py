@@ -886,12 +886,15 @@ async def bulk_update_transactions(request: Request):
         for txn in transactions:
             if description:
                 txn.description = description
+                txn.ml_confidence_description = None
             if category_obj:
                 txn.category_id = category_obj.id
                 txn.category = category_obj
+                txn.ml_confidence_category = None
             if external_obj:
                 txn.external_id = external_obj.id
                 txn.external = external_obj
+                txn.ml_confidence_external = None
             if approve == "true" and txn.description:
                 txn.marked_for_approval = True
 
@@ -940,6 +943,7 @@ async def update_transaction(txn_id: int, request: Request):
 
         if "description" in form:
             txn.description = form["description"] or None
+            txn.ml_confidence_description = None
 
         if "external" in form:
             new_name = form["external"].strip()
@@ -947,8 +951,10 @@ async def update_transaction(txn_id: int, request: Request):
                 account = await _resolve_account(session, new_name)
                 txn.external_id = account.id
                 txn.external = account
+            txn.ml_confidence_external = None
 
         if "category" in form:
+            txn.ml_confidence_category = None
             cat_name = form["category"].strip()
             if cat_name:
                 result = await session.execute(
