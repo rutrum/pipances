@@ -5,7 +5,7 @@
 {% block content %}
   <div class="container mx-auto p-6">
     <h1 class="text-2xl font-bold mb-4">Transactions</h1>
-    {% include "_date_range.html" %}
+    {% include "_txn_date_range.html" %}
     {# Hidden inputs carrying current filter/sort state for HTMX includes #}
     <div id="txn-filters">
       <input type="hidden" name="sort" value="{{ sort }}">

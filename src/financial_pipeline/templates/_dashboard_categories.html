@@ -1,0 +1,73 @@
+{% if has_expenses %}
+  <div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+      <div id="category-pie-chart"></div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      const embedOpts = {actions: false, renderer: "svg"};
+      vegaEmbed('#category-pie-chart', {{ pie_chart | safe }}, embedOpts);
+    })();
+  </script>
+{% endif %}
+{# Category Drill-Down Selector #}
+<div class="mb-4">
+  <label class="label font-semibold">Category</label>
+  <select class="select select-bordered w-full max-w-xs"
+          hx-get="/dashboard/content"
+          hx-target="#dashboard-content"
+          hx-include="#dashboard-state"
+          hx-vals='{"active_tab": "categories"}'
+          name="category_id">
+    <option value="">Select a category...</option>
+    {% for cat in categories %}
+      <option value="{{ cat.id }}"
+              {% if selected_category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+    {% endfor %}
+    {% if has_uncategorized %}
+      <option value="uncategorized"
+              {% if selected_category_id == 'uncategorized' %}selected{% endif %}>Uncategorized</option>
+    {% endif %}
+  </select>
+</div>
+{# Drill-Down Content #}
+{% if drilldown %}
+  <div class="stats shadow w-full mb-6">
+    <div class="stat">
+      <div class="stat-title">Income</div>
+      <div class="stat-value text-success">${{ "%.2f"|format(drilldown.income / 100) }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Expenses</div>
+      <div class="stat-value text-error">${{ "%.2f"|format(drilldown.expenses / 100) }}</div>
+    </div>
+  </div>
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h3 class="card-title text-sm">Top Transactions</h3>
+      <div class="overflow-x-auto max-h-96">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th class="text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for txn in drilldown.transactions %}
+              <tr>
+                <td>{{ txn.date }}</td>
+                <td>{{ txn.description }}</td>
+                <td class="text-right {% if txn.amount_cents >= 0 %}text-success{% else %}text-error{% endif %}">
+                  ${{ "%.2f"|format(txn.amount_cents / 100) }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endif %}

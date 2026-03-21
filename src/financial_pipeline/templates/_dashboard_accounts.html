@@ -1,0 +1,60 @@
+{# Account Selector #}
+<div class="mb-4">
+  <label class="label font-semibold">Account</label>
+  <select class="select select-bordered w-full max-w-xs"
+          hx-get="/dashboard/content"
+          hx-target="#dashboard-content"
+          hx-include="#dashboard-state"
+          hx-vals='{"active_tab": "accounts"}'
+          name="account_id">
+    <option value="">Select an account...</option>
+    {% for acct in accounts %}
+      <option value="{{ acct.id }}"
+              {% if selected_account_id == acct.id %}selected{% endif %}>{{ acct.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+{# Drill-Down Content #}
+{% if drilldown %}
+  <div class="stats shadow w-full mb-6">
+    <div class="stat">
+      <div class="stat-title">Balance (end of period)</div>
+      <div class="stat-value {% if drilldown.balance >= 0 %}text-success{% else %}text-error{% endif %}">
+        ${{ "%.2f"|format(drilldown.balance / 100) }}
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Income</div>
+      <div class="stat-value text-success">${{ "%.2f"|format(drilldown.income / 100) }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Expenses</div>
+      <div class="stat-value text-error">${{ "%.2f"|format(drilldown.expenses / 100) }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Net</div>
+      <div class="stat-value {% if drilldown.net >= 0 %}text-success{% else %}text-error{% endif %}">
+        ${{ "%.2f"|format(drilldown.net / 100) }}
+      </div>
+    </div>
+  </div>
+  {% if drilldown.monthly_chart is defined %}
+    <div class="card bg-base-100 shadow mb-6">
+      <div class="card-body">
+        <div id="account-monthly-chart"></div>
+      </div>
+    </div>
+    <div class="card bg-base-100 shadow mb-6">
+      <div class="card-body">
+        <div id="account-top-externals-chart"></div>
+      </div>
+    </div>
+    <script>
+      (function() {
+        const embedOpts = {actions: false, renderer: "svg"};
+        vegaEmbed('#account-monthly-chart', {{ drilldown.monthly_chart | safe }}, embedOpts);
+        vegaEmbed('#account-top-externals-chart', {{ drilldown.top_externals_chart | safe }}, embedOpts);
+      })();
+    </script>
+  {% endif %}
+{% endif %}

@@ -11,58 +11,45 @@
         <a href="/upload" class="link link-primary">Upload transactions</a>
       </div>
     {% else %}
-      {# Summary Stats #}
-      <div class="stats shadow w-full mb-6">
-        <div class="stat">
-          <div class="stat-title">Income</div>
-          <div class="stat-value text-success">${{ "%.2f"|format(stats.total_income / 100) }}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-title">Expenses</div>
-          <div class="stat-value text-error">${{ "%.2f"|format(stats.total_expenses / 100) }}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-title">Net</div>
-          <div class="stat-value {% if stats.net >= 0 %}text-success{% else %}text-error{% endif %}">
-            ${{ "%.2f"|format(stats.net / 100) }}
-          </div>
-        </div>
-        <div class="stat">
-          <div class="stat-title">Net Total</div>
-          <div class="stat-value {% if stats.net_total >= 0 %}text-success{% else %}text-error{% endif %}">
-            ${{ "%.2f"|format(stats.net_total / 100) }}
-          </div>
-        </div>
+      {# Hidden state for HTMX includes #}
+      <div id="dashboard-state">
+        <input type="hidden" name="preset" value="{{ preset }}">
+        <input type="hidden" name="date_from" value="{{ date_from }}">
+        <input type="hidden" name="date_to" value="{{ date_to }}">
+        <input type="hidden" name="active_tab" value="{{ active_tab }}">
       </div>
-      {# Monthly Income vs Expenses — full width #}
-      <div class="card bg-base-100 shadow mb-6">
-        <div class="card-body">
-          <div id="monthly-chart"></div>
-        </div>
+      {# Time Range Filter #}
+      {% include "_dashboard_date_range.html" %}
+      {# Tab Bar #}
+      <div role="tablist" class="tabs tabs-border mb-6">
+        <a role="tab"
+           class="tab {% if active_tab == 'summary' %}tab-active{% endif %}"
+           hx-get="/dashboard/content"
+           hx-target="#dashboard-content"
+           hx-include="#dashboard-state"
+           hx-vals='{"active_tab": "summary"}'
+           hx-on::after-request=" document.querySelectorAll('[role=tab]').forEach(t => t.classList.remove('tab-active')); this.classList.add('tab-active'); document.querySelector('#dashboard-state input[name=active_tab]').value = 'summary'; ">Summary</a>
+        <a role="tab"
+           class="tab {% if active_tab == 'categories' %}tab-active{% endif %}"
+           hx-get="/dashboard/content"
+           hx-target="#dashboard-content"
+           hx-include="#dashboard-state"
+           hx-vals='{"active_tab": "categories"}'
+           hx-on::after-request=" document.querySelectorAll('[role=tab]').forEach(t => t.classList.remove('tab-active')); this.classList.add('tab-active'); document.querySelector('#dashboard-state input[name=active_tab]').value = 'categories'; ">Categories</a>
+        <a role="tab"
+           class="tab {% if active_tab == 'accounts' %}tab-active{% endif %}"
+           hx-get="/dashboard/content"
+           hx-target="#dashboard-content"
+           hx-include="#dashboard-state"
+           hx-vals='{"active_tab": "accounts"}'
+           hx-on::after-request=" document.querySelectorAll('[role=tab]').forEach(t => t.classList.remove('tab-active')); this.classList.add('tab-active'); document.querySelector('#dashboard-state input[name=active_tab]').value = 'accounts'; ">By Account</a>
       </div>
-      {# Two-column grid: Top Expenses + Weekly Trend #}
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="card bg-base-100 shadow">
-          <div class="card-body">
-            <div id="top-expenses-chart"></div>
-          </div>
-        </div>
-        <div class="card bg-base-100 shadow">
-          <div class="card-body">
-            <div id="weekly-chart"></div>
-          </div>
-        </div>
-      </div>
-      {# Vega-Embed scripts #}
+      {# Vega-Embed scripts — available for all tabs #}
       <script src="/static/js/vega.min.js"></script>
       <script src="/static/js/vega-lite.min.js"></script>
       <script src="/static/js/vega-embed.min.js"></script>
-      <script>
-      const embedOpts = {actions: false, renderer: "svg"};
-      vegaEmbed('#monthly-chart', {{ monthly_chart | safe }}, embedOpts);
-      vegaEmbed('#top-expenses-chart', {{ top_chart | safe }}, embedOpts);
-      vegaEmbed('#weekly-chart', {{ weekly_chart | safe }}, embedOpts);
-      </script>
+      {# Tab content area #}
+      <div id="dashboard-content">{% include "_dashboard_summary.html" %}</div>
     {% endif %}
   </div>
 {% endblock content %}
