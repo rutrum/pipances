@@ -4,8 +4,9 @@
 .opencode
 __pycache__
 
-# Nix-managed symlink
+# Nix-managed symlinks
 daisyui.css
+static/js/
 
 # Tailwind build output
 static/css/style.css

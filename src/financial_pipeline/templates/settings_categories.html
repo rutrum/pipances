@@ -1,0 +1,26 @@
+{% extends "settings.html" %}
+{% block settings_content %}
+  <h2 class="text-lg font-semibold mb-4">Categories</h2>
+  {% if not categories %}
+    <div class="alert alert-info mb-4">
+      <span>No categories yet. Add your first category below.</span>
+    </div>
+  {% endif %}
+  <div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="categories-table-body">
+        {% for category in categories %}
+          {% include "_category_row.html" %}
+        {% endfor %}
+        {% include "_category_input_row.html" %}
+      </tbody>
+    </table>
+  </div>
+  <div id="category-error" class="mt-2"></div>
+{% endblock settings_content %}

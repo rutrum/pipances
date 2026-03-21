@@ -12,7 +12,7 @@ The app SHALL have a settings page at `/settings` with a tab navigation bar. The
 
 #### Scenario: Tab layout displayed
 - **WHEN** user is on any /settings/* page
-- **THEN** a tab bar SHALL be visible showing available settings sections
+- **THEN** a tab bar SHALL be visible showing available settings sections including "Accounts" and "Categories"
 - **THEN** the active tab SHALL be visually distinguished
 
 ### Requirement: List internal accounts

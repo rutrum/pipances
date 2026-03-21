@@ -1,0 +1,19 @@
+{% for item in items %}
+  <div data-combo-item
+       class="px-3 py-2 cursor-pointer hover:bg-base-200 text-sm"
+       hx-patch="/transactions/{{ txn_id }}"
+       hx-target="#txn-{{ txn_id }}"
+       hx-swap="outerHTML"
+       hx-vals='{"{{ field_name }}": "{{ item.name }}"}'>{{ item.name }}</div>
+{% endfor %}
+{% if query and not exact_match %}
+  <div data-combo-item
+       class="px-3 py-2 cursor-pointer hover:bg-base-200 text-sm border-t border-base-300 flex items-center gap-1"
+       hx-patch="/transactions/{{ txn_id }}"
+       hx-target="#txn-{{ txn_id }}"
+       hx-swap="outerHTML"
+       hx-vals='{"{{ field_name }}": "{{ query }}"}'>
+    <span class="text-success font-bold">+</span> Create "{{ query }}"
+  </div>
+{% endif %}
+{% if not items and not query %}<div class="px-3 py-2 text-sm text-base-content/50">No items</div>{% endif %}

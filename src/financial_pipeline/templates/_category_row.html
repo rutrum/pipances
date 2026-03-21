@@ -1,0 +1,17 @@
+<tr id="category-{{ category.id }}">
+  <td>
+    <span class="cursor-pointer hover:underline"
+          hx-get="/categories/{{ category.id }}/edit-name"
+          hx-target="this"
+          hx-swap="innerHTML">{{ category.name }}</span>
+  </td>
+  <td>
+    <button class="btn btn-ghost btn-xs text-error"
+            hx-delete="/categories/{{ category.id }}"
+            hx-target="#category-{{ category.id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Delete category '{{ category.name }}'? Transactions using it will become uncategorized.">
+      Delete
+    </button>
+  </td>
+</tr>

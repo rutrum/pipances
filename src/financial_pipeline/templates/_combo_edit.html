@@ -1,0 +1,91 @@
+<div class="combo-box relative">
+  <input type="text"
+         class="input input-bordered input-sm w-full"
+         value="{{ current_value }}"
+         autocomplete="off"
+         hx-get="/api/combo/{{ entity }}?txn_id={{ txn_id }}&field={{ field_name }}"
+         hx-trigger="input changed delay:200ms, focus"
+         hx-target="#combo-results-{{ txn_id }}-{{ field_name }}"
+         hx-include="this"
+         name="q"
+         autofocus>
+  <div id="combo-results-{{ txn_id }}-{{ field_name }}"
+       class="absolute z-50 w-full bg-base-100 border border-base-300 rounded-box shadow-lg mt-1 max-h-48 overflow-y-auto">
+  </div>
+  <script>
+    (function() {
+      const wrapper = document.getElementById('combo-results-{{ txn_id }}-{{ field_name }}').parentElement;
+      const input = wrapper.querySelector('input');
+      const resultsId = 'combo-results-{{ txn_id }}-{{ field_name }}';
+      let highlightIndex = -1;
+
+      function getItems() {
+        const results = document.getElementById(resultsId);
+        return results ? results.querySelectorAll('[data-combo-item]') : [];
+      }
+
+      function updateHighlight() {
+        const items = getItems();
+        items.forEach(function(item, i) {
+          if (i === highlightIndex) {
+            item.classList.add('bg-primary', 'text-primary-content');
+          } else {
+            item.classList.remove('bg-primary', 'text-primary-content');
+          }
+        });
+      }
+
+      function revert() {
+        // Re-render the whole row to restore original state
+        htmx.ajax('PATCH', '/transactions/{{ txn_id }}', {
+          target: '#txn-{{ txn_id }}',
+          swap: 'outerHTML',
+          values: {}
+        });
+      }
+
+      input.addEventListener('keydown', function(e) {
+        const items = getItems();
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (!items.length) return;
+          highlightIndex = (highlightIndex + 1) % items.length;
+          updateHighlight();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (!items.length) return;
+          highlightIndex = (highlightIndex - 1 + items.length) % items.length;
+          updateHighlight();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (highlightIndex >= 0 && highlightIndex < items.length) {
+            items[highlightIndex].click();
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          revert();
+        }
+      });
+
+      // Reset highlight when results update
+      new MutationObserver(function() { highlightIndex = -1; })
+        .observe(document.getElementById(resultsId), {childList: true});
+
+      // Cancel on blur (delayed to allow click on dropdown items)
+      let blurTimeout;
+      input.addEventListener('blur', function() {
+        blurTimeout = setTimeout(function() {
+          revert();
+        }, 200);
+      });
+
+      // Prevent blur-revert when clicking a dropdown item
+      wrapper.addEventListener('mousedown', function(e) {
+        if (e.target !== input) {
+          clearTimeout(blurTimeout);
+        }
+      });
+    })();
+  </script>
+</div>

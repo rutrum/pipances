@@ -34,6 +34,15 @@ async def create_tables():
                     "ALTER TABLE accounts ADD COLUMN active BOOLEAN NOT NULL DEFAULT 1"
                 )
             )
+        # Migrate existing transactions table if missing category_id
+        result = await conn.execute(text("PRAGMA table_info(transactions)"))
+        txn_columns = {row[1] for row in result}
+        if "category_id" not in txn_columns:
+            await conn.execute(
+                text(
+                    "ALTER TABLE transactions ADD COLUMN category_id INTEGER REFERENCES categories(id)"
+                )
+            )
 
 
 async def get_session():

@@ -4,6 +4,7 @@
     ${{ "%.2f"|format(txn.amount_cents / 100) }}
   </td>
   <td>{{ txn.description or txn.raw_description }}</td>
+  <td>{{ txn.category.name if txn.category else '—' }}</td>
   <td>{{ txn.external.name }}</td>
   <td>{{ txn.internal.name }}</td>
 </tr>

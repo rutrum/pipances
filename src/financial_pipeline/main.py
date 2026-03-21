@@ -22,7 +22,7 @@ from financial_pipeline.charts import (
 )
 from financial_pipeline.db import async_session, create_tables
 from financial_pipeline.ingest import _resolve_account, discover_importers, ingest
-from financial_pipeline.models import Account, Transaction
+from financial_pipeline.models import Account, Category, Transaction
 from financial_pipeline.schemas import ImportedTransaction
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -36,7 +36,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=PROJECT_ROOT / "static", follow_symlink=True),
+    name="static",
+)
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
@@ -357,6 +361,155 @@ async def edit_account_balance_date(account_id: int):
     )
 
 
+@app.get("/settings/categories", response_class=HTMLResponse)
+async def settings_categories_page(request: Request):
+    async with async_session() as session:
+        shared = await shared_context("settings", session)
+        result = await session.execute(select(Category).order_by(Category.name))
+        categories = result.scalars().all()
+
+    return templates.TemplateResponse(
+        request,
+        "settings_categories.html",
+        {
+            "categories": categories,
+            "settings_tab": "categories",
+            **shared,
+        },
+    )
+
+
+@app.post("/settings/categories", response_class=HTMLResponse)
+async def create_category(request: Request):
+    form = await request.form()
+    name = form.get("name", "").strip()
+
+    if not name:
+        return HTMLResponse(
+            '<div class="alert alert-error alert-sm">Name is required.</div>',
+            status_code=422,
+        )
+
+    async with async_session() as session:
+        category = Category(name=name)
+        session.add(category)
+        try:
+            await session.commit()
+        except IntegrityError:
+            return HTMLResponse(
+                '<div class="alert alert-error alert-sm">A category with that name already exists.</div>',
+                status_code=422,
+            )
+        await session.refresh(category)
+
+    return HTMLResponse(
+        templates.get_template("_category_row.html").render({"category": category})
+    )
+
+
+@app.patch("/categories/{category_id}", response_class=HTMLResponse)
+async def update_category(category_id: int, request: Request):
+    form = await request.form()
+    async with async_session() as session:
+        category = await session.get(Category, category_id)
+        if category is None:
+            return HTMLResponse("Not found", status_code=404)
+
+        if "name" in form:
+            new_name = form["name"].strip()
+            if new_name:
+                category.name = new_name
+
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            return HTMLResponse(
+                '<div class="alert alert-error alert-sm">A category with that name already exists.</div>',
+                status_code=422,
+            )
+        await session.refresh(category)
+
+    return HTMLResponse(
+        templates.get_template("_category_row.html").render({"category": category})
+    )
+
+
+@app.delete("/categories/{category_id}", response_class=HTMLResponse)
+async def delete_category(category_id: int):
+    async with async_session() as session:
+        category = await session.get(Category, category_id)
+        if category is None:
+            return HTMLResponse("Not found", status_code=404)
+
+        # Set NULL on transactions referencing this category
+        await session.execute(
+            Transaction.__table__.update()
+            .where(Transaction.category_id == category_id)
+            .values(category_id=None)
+        )
+        await session.delete(category)
+        await session.commit()
+
+    return HTMLResponse("")
+
+
+@app.get("/categories/{category_id}/edit-name", response_class=HTMLResponse)
+async def edit_category_name(category_id: int):
+    async with async_session() as session:
+        category = await session.get(Category, category_id)
+    return HTMLResponse(
+        f'<input type="text" class="input input-bordered input-sm w-full" '
+        f'name="name" value="{category.name}" '
+        f'hx-patch="/categories/{category_id}" hx-target="#category-{category_id}" hx-swap="outerHTML" '
+        f"hx-trigger=\"blur, keyup[key=='Enter']\" autofocus>"
+    )
+
+
+@app.get("/api/combo/{entity}", response_class=HTMLResponse)
+async def combo_search(entity: str, request: Request):
+    q = request.query_params.get("q", "").strip()
+    txn_id = request.query_params.get("txn_id", "")
+    field_name = request.query_params.get("field", "")
+
+    async with async_session() as session:
+        if entity == "categories":
+            query = select(Category).order_by(Category.name)
+            if q:
+                query = query.where(Category.name.ilike(f"%{q}%"))
+            result = await session.execute(query.limit(5))
+            items = [{"id": c.id, "name": c.name} for c in result.scalars().all()]
+            exact_match = (
+                any(item["name"].lower() == q.lower() for item in items) if q else True
+            )
+        elif entity == "external-accounts":
+            query = (
+                select(Account).where(Account.kind == "external").order_by(Account.name)
+            )
+            if q:
+                query = query.where(Account.name.ilike(f"%{q}%"))
+            result = await session.execute(query.limit(5))
+            items = [{"id": a.id, "name": a.name} for a in result.scalars().all()]
+            exact_match = (
+                any(item["name"].lower() == q.lower() for item in items) if q else True
+            )
+        else:
+            return HTMLResponse("Unknown entity", status_code=404)
+
+    return templates.TemplateResponse(
+        request,
+        "_combo_results.html",
+        {
+            "items": items,
+            "query": q,
+            "exact_match": exact_match,
+            "txn_id": txn_id,
+            "field_name": field_name,
+            "entity": entity,
+        },
+    )
+
+
 @app.get("/inbox", response_class=HTMLResponse)
 async def inbox_page(request: Request):
     async with async_session() as session:
@@ -365,7 +518,9 @@ async def inbox_page(request: Request):
             select(Transaction)
             .where(Transaction.status == "pending")
             .options(
-                selectinload(Transaction.internal), selectinload(Transaction.external)
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
             )
             .order_by(Transaction.date)
         )
@@ -392,6 +547,7 @@ async def update_transaction(txn_id: int, request: Request):
             options=[
                 selectinload(Transaction.internal),
                 selectinload(Transaction.external),
+                selectinload(Transaction.category),
             ],
         )
         if txn is None:
@@ -407,6 +563,25 @@ async def update_transaction(txn_id: int, request: Request):
                 txn.external_id = account.id
                 txn.external = account
 
+        if "category" in form:
+            cat_name = form["category"].strip()
+            if cat_name:
+                result = await session.execute(
+                    select(Category).where(
+                        func.lower(Category.name) == cat_name.lower()
+                    )
+                )
+                category = result.scalar_one_or_none()
+                if category is None:
+                    category = Category(name=cat_name)
+                    session.add(category)
+                    await session.flush()
+                txn.category_id = category.id
+                txn.category = category
+            else:
+                txn.category_id = None
+                txn.category = None
+
         if "marked_for_approval" in form:
             if form["marked_for_approval"] == "toggle":
                 txn.marked_for_approval = not txn.marked_for_approval
@@ -414,7 +589,7 @@ async def update_transaction(txn_id: int, request: Request):
                 txn.marked_for_approval = form["marked_for_approval"] == "true"
 
         await session.commit()
-        await session.refresh(txn, ["internal", "external"])
+        await session.refresh(txn, ["internal", "external", "category"])
         return templates.TemplateResponse(request, "_inbox_row.html", {"txn": txn})
 
 
@@ -429,15 +604,40 @@ async def edit_description(txn_id: int):
 
 
 @app.get("/transactions/{txn_id}/edit-external", response_class=HTMLResponse)
-async def edit_external(txn_id: int):
+async def edit_external(txn_id: int, request: Request):
     async with async_session() as session:
         txn = await session.get(
             Transaction, txn_id, options=[selectinload(Transaction.external)]
         )
-    return HTMLResponse(f'''<input type="text" class="input input-bordered input-sm w-full"
-        name="external" value="{txn.external.name}"
-        hx-patch="/transactions/{txn_id}" hx-target="#txn-{txn_id}" hx-swap="outerHTML"
-        hx-trigger="blur, keyup[key=='Enter']" autofocus>''')
+    return templates.TemplateResponse(
+        request,
+        "_combo_edit.html",
+        {
+            "current_value": txn.external.name,
+            "entity": "external-accounts",
+            "txn_id": txn_id,
+            "field_name": "external",
+        },
+    )
+
+
+@app.get("/transactions/{txn_id}/edit-category", response_class=HTMLResponse)
+async def edit_category(txn_id: int, request: Request):
+    async with async_session() as session:
+        txn = await session.get(
+            Transaction, txn_id, options=[selectinload(Transaction.category)]
+        )
+    current_value = txn.category.name if txn.category else ""
+    return templates.TemplateResponse(
+        request,
+        "_combo_edit.html",
+        {
+            "current_value": current_value,
+            "entity": "categories",
+            "txn_id": txn_id,
+            "field_name": "category",
+        },
+    )
 
 
 @app.post("/inbox/commit", response_class=HTMLResponse)
@@ -459,6 +659,7 @@ async def commit_inbox(request: Request):
                 .options(
                     selectinload(Transaction.internal),
                     selectinload(Transaction.external),
+                    selectinload(Transaction.category),
                 )
                 .order_by(Transaction.date)
             )
@@ -507,7 +708,9 @@ async def commit_inbox(request: Request):
             select(Transaction)
             .where(Transaction.status == "pending")
             .options(
-                selectinload(Transaction.internal), selectinload(Transaction.external)
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
             )
             .order_by(Transaction.date)
         )
@@ -525,7 +728,7 @@ async def commit_inbox(request: Request):
 
     if not transactions:
         return HTMLResponse(
-            f'<tr><td colspan="7" class="text-center py-8">Inbox is empty. <a href="/upload" class="link link-primary">Upload transactions</a></td></tr>{oob}'
+            f'<tr><td colspan="8" class="text-center py-8">Inbox is empty. <a href="/upload" class="link link-primary">Upload transactions</a></td></tr>{oob}'
         )
 
     rows = ""
@@ -571,6 +774,7 @@ async def transactions_page(request: Request):
     sort_dir = params.get("dir", "desc")
     internal_filter = params.get("internal", "")
     external_filter = params.get("external", "")
+    category_filter = params.get("category", "")
     page = int(params.get("page", "1"))
     page_size = int(params.get("page_size", "25"))
 
@@ -583,7 +787,9 @@ async def transactions_page(request: Request):
             .where(Transaction.date >= date_from)
             .where(Transaction.date <= date_to)
             .options(
-                selectinload(Transaction.internal), selectinload(Transaction.external)
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
             )
         )
 
@@ -594,6 +800,12 @@ async def transactions_page(request: Request):
         if external_filter:
             query = query.join(Transaction.external).where(
                 Account.name == external_filter
+            )
+        if category_filter == "__uncategorized__":
+            query = query.where(Transaction.category_id.is_(None))
+        elif category_filter:
+            query = query.join(Transaction.category).where(
+                Category.name == category_filter
             )
 
         col = SORT_COLUMNS.get(sort_col, Transaction.date)
@@ -617,6 +829,12 @@ async def transactions_page(request: Request):
         if external_filter:
             count_query = count_query.join(Transaction.external).where(
                 Account.name == external_filter
+            )
+        if category_filter == "__uncategorized__":
+            count_query = count_query.where(Transaction.category_id.is_(None))
+        elif category_filter:
+            count_query = count_query.join(Transaction.category).where(
+                Category.name == category_filter
             )
         total_count = await session.scalar(count_query)
 
@@ -642,6 +860,16 @@ async def transactions_page(request: Request):
         )
         external_accounts = [r[0] for r in ext_result]
 
+        # Get category names for filter dropdown (only those with approved txns)
+        cat_result = await session.execute(
+            select(Category.name)
+            .join(Transaction, Transaction.category_id == Category.id)
+            .where(Transaction.status == "approved")
+            .distinct()
+            .order_by(Category.name)
+        )
+        category_options = [r[0] for r in cat_result]
+
         shared = await shared_context("transactions", session)
 
     ctx = {
@@ -654,8 +882,10 @@ async def transactions_page(request: Request):
         "dir": sort_dir,
         "internal_filter": internal_filter,
         "external_filter": external_filter,
+        "category_filter": category_filter,
         "internal_accounts": internal_accounts,
         "external_accounts": external_accounts,
+        "category_options": category_options,
         "page": page,
         "page_size": page_size,
         "total_pages": total_pages,

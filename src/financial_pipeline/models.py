@@ -8,6 +8,16 @@ class Base(DeclarativeBase):
     pass
 
 
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"Category(id={self.id}, name={self.name!r})"
+
+
 class Account(Base):
     __tablename__ = "accounts"
 
@@ -60,10 +70,14 @@ class Transaction(Base):
     marked_for_approval: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
 
     import_record: Mapped[Import] = relationship(back_populates="transactions")
     internal: Mapped[Account] = relationship(foreign_keys=[internal_id])
     external: Mapped[Account] = relationship(foreign_keys=[external_id])
+    category: Mapped[Category | None] = relationship()
 
     def __repr__(self) -> str:
         return f"Transaction(id={self.id}, date={self.date}, amount_cents={self.amount_cents}, status={self.status!r})"

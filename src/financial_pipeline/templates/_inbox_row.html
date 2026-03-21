@@ -28,6 +28,18 @@
   </td>
   <td>
     <span class="cursor-pointer hover:underline"
+          hx-get="/transactions/{{ txn.id }}/edit-category"
+          hx-target="this"
+          hx-swap="innerHTML">
+      {% if txn.category %}
+        {{ txn.category.name }}
+      {% else %}
+        <span class="badge badge-ghost badge-sm">click to edit</span>
+      {% endif %}
+    </span>
+  </td>
+  <td>
+    <span class="cursor-pointer hover:underline"
           hx-get="/transactions/{{ txn.id }}/edit-external"
           hx-target="this"
           hx-swap="innerHTML">{{ txn.external.name }}</span>

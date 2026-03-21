@@ -31,6 +31,42 @@
         "url": "https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css"
       }
     },
+    "htmx-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-nm6avZuEBg67SSyyZUhjpXVNstHHgUxrtBHqJgowU08=",
+        "type": "file",
+        "url": "https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"
+      }
+    },
+    "htmx-response-targets-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-VUdGsfIgtXRz8I/8Twf57Ig3mjNQM/WxEVAqJx4fl8s=",
+        "type": "file",
+        "url": "https://unpkg.com/htmx-ext-response-targets@2.0.2/response-targets.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://unpkg.com/htmx-ext-response-targets@2.0.2/response-targets.js"
+      }
+    },
+    "lucide-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-W9tg40ZpsMBHy2V9XpUiRbzRHqf/3sicHNCEsTAg59A=",
+        "type": "file",
+        "url": "https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1741513245,
@@ -67,7 +103,13 @@
       "inputs": {
         "blueprint": "blueprint",
         "daisyui-css": "daisyui-css",
-        "nixpkgs": "nixpkgs_2"
+        "htmx-js": "htmx-js",
+        "htmx-response-targets-js": "htmx-response-targets-js",
+        "lucide-js": "lucide-js",
+        "nixpkgs": "nixpkgs_2",
+        "vega-embed-js": "vega-embed-js",
+        "vega-js": "vega-js",
+        "vega-lite-js": "vega-lite-js"
       }
     },
     "systems": {
@@ -83,6 +125,42 @@
         "owner": "nix-systems",
         "repo": "default",
         "type": "github"
+      }
+    },
+    "vega-embed-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-rOzLkTwFpdItHJLjWIpVdH2voaANv+/Wm1ZBX0ZApcQ=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js"
+      }
+    },
+    "vega-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-AjCcAjVbblqPa2JjWutf+6TVf+74kyHnKhScwEXKEYI=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/vega@5.33.1/build/vega.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/vega@5.33.1/build/vega.min.js"
+      }
+    },
+    "vega-lite-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-kiBlWn//UFjjhubudlGYxiTagZ+WILsw6fd4J1uQdns=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js"
       }
     }
   },
