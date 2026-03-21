@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Allow users to browse, filter, sort, and paginate through approved transactions.
+
+## Requirements
 
 ### Requirement: Transactions page displays approved transactions
 The transactions page SHALL display all transactions with `status='approved'` in a read-only paginated table with columns: date, amount, description, external account, and internal account.

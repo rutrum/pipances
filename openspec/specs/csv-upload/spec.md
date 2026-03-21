@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Allow users to upload CSV transaction files by selecting an importer and internal account, parsing and ingesting the data into the system.
+
+## Requirements
 
 ### Requirement: Upload page presents importer and account selection
 The upload page SHALL display a dropdown of available importers (discovered at runtime from `importers/` directory) and a dropdown of internal accounts (from the database). The user MUST select both before uploading.

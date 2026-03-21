@@ -12,3 +12,5 @@ static/css/style.css
 
 # Database
 *.db
+
+.agents/skills

@@ -1,8 +1,11 @@
-## ADDED Requirements
+## Purpose
+Provide consistent navigation across all pages of the application.
+
+## Requirements
 
 ### Requirement: Global navigation bar
 The app SHALL have a navigation bar visible on all pages with links to all major sections.
 
 #### Scenario: Navigate between pages
 - **WHEN** user is on any page
-- **THEN** a navigation bar SHALL be visible with links to /upload, /inbox, and /transactions
+- **THEN** a navigation bar SHALL be visible with links to /dashboard, /upload, /inbox, and /transactions

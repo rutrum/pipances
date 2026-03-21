@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Allow users to review, edit, and approve pending transactions before they become part of the approved financial record.
+
+## Requirements
 
 ### Requirement: Inbox displays all pending transactions
 The inbox page SHALL display all transactions with `status='pending'` in a table.
