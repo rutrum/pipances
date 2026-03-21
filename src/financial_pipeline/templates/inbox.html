@@ -3,6 +3,18 @@
 {% block title %}Inbox - Financial Pipeline{% endblock %}
 
 {% block content %}
+{% if toast == 'upload_success' %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var container = document.getElementById('toast-container');
+    var el = document.createElement('div');
+    el.className = 'alert alert-success';
+    el.innerHTML = '<span>Transactions uploaded successfully.</span>';
+    container.appendChild(el);
+    autoToast(el);
+  });
+</script>
+{% endif %}
 <div class="container mx-auto p-6">
   {% if not transactions %}
     <div class="alert alert-info">

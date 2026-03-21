@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from typing import Optional
 
 
 class Base(DeclarativeBase):
@@ -14,9 +15,12 @@ class Account(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     kind: Mapped[str] = mapped_column(String, nullable=False)
+    starting_balance_cents: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    balance_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
 
     def __repr__(self) -> str:
-        return f"Account(id={self.id}, name={self.name!r}, kind={self.kind!r})"
+        return f"Account(id={self.id}, name={self.name!r}, kind={self.kind!r}, active={self.active})"
 
 
 class Import(Base):

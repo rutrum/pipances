@@ -1,14 +1,11 @@
-## Purpose
-Provide consistent navigation across all pages of the application.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Global navigation bar
 The app SHALL have a navigation bar visible on all pages with links to all major sections. The navbar SHALL indicate the currently active page and display icons alongside each link.
 
 #### Scenario: Navigate between pages
 - **WHEN** user is on any page
-- **THEN** a navigation bar SHALL be visible with links to /upload, /inbox, /transactions, /dashboard, and /settings
+- **THEN** a navigation bar SHALL be visible with links to /dashboard, /upload, /inbox, and /transactions
 - **THEN** each link SHALL display an icon alongside the link text
 - **THEN** the link corresponding to the current page SHALL be visually distinguished with an active indicator
 

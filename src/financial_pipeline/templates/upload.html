@@ -7,6 +7,12 @@
   <div class="card bg-base-100 shadow-xl w-full max-w-md">
     <div class="card-body">
       <h2 class="card-title">Upload Transactions</h2>
+
+      {% if not accounts %}
+        <div class="alert alert-warning">
+          <span>No accounts available. <a href="/settings/accounts" class="link link-primary">Create an account</a> first.</span>
+        </div>
+      {% else %}
       <form hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#upload-error">
 
         <div class="form-control w-full mb-4">
@@ -46,6 +52,7 @@
           <button type="submit" class="btn btn-primary">Upload</button>
         </div>
       </form>
+      {% endif %}
     </div>
   </div>
 </div>

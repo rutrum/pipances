@@ -1,0 +1,44 @@
+{% extends "settings.html" %}
+
+{% block settings_content %}
+<div class="flex justify-between items-center mb-4">
+  <h2 class="text-lg font-semibold">Internal Accounts</h2>
+  <label class="label cursor-pointer gap-2">
+    <span class="label-text">Show closed</span>
+    <input type="checkbox" class="toggle toggle-sm"
+           hx-get="/settings/accounts"
+           hx-target="#accounts-table-body"
+           hx-swap="innerHTML"
+           hx-vals='js:{"show_closed": event.target.checked ? "true" : "false"}'
+           {% if show_closed %}checked{% endif %}>
+  </label>
+</div>
+
+{% if not accounts and not show_closed %}
+  <div class="alert alert-info mb-4">
+    <span>No accounts yet. Add your first account below.</span>
+  </div>
+{% endif %}
+
+<div class="overflow-x-auto">
+  <table class="table table-zebra w-full">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Starting Balance</th>
+        <th>Balance Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="accounts-table-body">
+      {% for account in accounts %}
+        {% include "_account_row.html" %}
+      {% endfor %}
+      {% include "_account_input_row.html" %}
+    </tbody>
+  </table>
+</div>
+
+<div id="account-error" class="mt-2"></div>
+{% endblock %}

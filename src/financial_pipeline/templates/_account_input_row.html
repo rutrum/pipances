@@ -1,0 +1,28 @@
+<tr id="account-input-row" class="bg-base-200 border-t-2 border-dashed border-base-300">
+  <td>
+    <input type="text" name="name" placeholder="Account name" required
+           class="input input-bordered input-sm w-full" form="create-account-form">
+  </td>
+  <td>
+    <input type="text" name="kind" placeholder="e.g. checking" required
+           class="input input-bordered input-sm w-full" form="create-account-form">
+  </td>
+  <td>
+    <input type="number" name="starting_balance" placeholder="0.00" step="0.01"
+           class="input input-bordered input-sm w-full" form="create-account-form">
+  </td>
+  <td>
+    <input type="date" name="balance_date"
+           class="input input-bordered input-sm w-full" form="create-account-form">
+  </td>
+  <td>
+    <form id="create-account-form"
+          hx-post="/settings/accounts"
+          hx-target="#account-input-row"
+          hx-swap="beforebegin"
+          hx-target-422="#account-error"
+          hx-on::after-request="if(event.detail.xhr.status &lt; 300) { this.reset(); var el = document.getElementById('account-error'); if(el) el.innerHTML=''; }">
+      <button type="submit" class="btn btn-primary btn-xs">Add</button>
+    </form>
+  </td>
+</tr>

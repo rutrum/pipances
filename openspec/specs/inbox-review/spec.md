@@ -27,6 +27,11 @@ The user SHALL be able to edit a transaction's description directly in the inbox
 - **THEN** the system SHALL save the new description to the database via HTMX PATCH
 - **THEN** the cell SHALL update to show the new value without full page reload
 
+#### Scenario: Empty description placeholder
+- **WHEN** a transaction has no description set
+- **THEN** the description cell SHALL display a badge-styled placeholder indicating it is editable
+- **THEN** the placeholder SHALL be visually distinct from actual description text
+
 ### Requirement: Inline editing of external account
 The user SHALL be able to edit a transaction's external account as a free text field.
 

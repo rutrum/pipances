@@ -4,13 +4,19 @@ Allow users to upload CSV transaction files by selecting an importer and interna
 ## Requirements
 
 ### Requirement: Upload page presents importer and account selection
-The upload page SHALL display a dropdown of available importers (discovered at runtime from `importers/` directory) and a dropdown of internal accounts (from the database). The user MUST select both before uploading.
+The upload page SHALL display a dropdown of available importers (discovered at runtime from `importers/` directory) and a dropdown of active internal accounts (from the database). The user MUST select both before uploading.
 
 #### Scenario: Upload page loads with populated dropdowns
 - **WHEN** user navigates to /upload
 - **THEN** the page SHALL display a dropdown containing all discovered importer names
-- **THEN** the page SHALL display a dropdown containing all internal accounts (kind != 'external')
+- **THEN** the page SHALL display a dropdown containing all active internal accounts (kind != 'external', active = true)
 - **THEN** the page SHALL display a file input for CSV selection
+
+#### Scenario: Upload page with no internal accounts
+- **WHEN** user navigates to /upload and no active internal accounts exist
+- **THEN** the page SHALL display a message indicating no accounts are available
+- **THEN** the page SHALL link to /settings/accounts to create one
+- **THEN** the upload form SHALL NOT be submittable
 
 ### Requirement: CSV upload parses and ingests transactions
 The upload form SHALL accept a CSV file, parse it using the selected importer, validate the output, and ingest the transactions as pending into the database.
@@ -21,6 +27,7 @@ The upload form SHALL accept a CSV file, parse it using the selected importer, v
 - **THEN** the system SHALL validate the output against the ImportedTransaction schema
 - **THEN** the system SHALL ingest all transactions as `pending` with `marked_for_approval=false`
 - **THEN** the user SHALL be redirected to the inbox page
+- **THEN** a toast notification SHALL confirm the upload was successful
 
 #### Scenario: Upload with invalid CSV
 - **WHEN** user uploads a CSV that the importer cannot parse or that fails validation

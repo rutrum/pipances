@@ -1,0 +1,41 @@
+<tr id="account-{{ account.id }}" class="{% if not account.active %}opacity-50{% endif %}">
+  <td>
+    <span class="cursor-pointer hover:underline"
+          hx-get="/accounts/{{ account.id }}/edit-name"
+          hx-target="this"
+          hx-swap="innerHTML">{{ account.name }}</span>
+  </td>
+  <td>
+    <span class="cursor-pointer hover:underline"
+          hx-get="/accounts/{{ account.id }}/edit-type"
+          hx-target="this"
+          hx-swap="innerHTML">{{ account.kind }}</span>
+  </td>
+  <td>
+    <span class="cursor-pointer hover:underline"
+          hx-get="/accounts/{{ account.id }}/edit-balance"
+          hx-target="this"
+          hx-swap="innerHTML">${{ "%.2f"|format(account.starting_balance_cents / 100) }}</span>
+  </td>
+  <td>
+    <span class="cursor-pointer hover:underline"
+          hx-get="/accounts/{{ account.id }}/edit-balance-date"
+          hx-target="this"
+          hx-swap="innerHTML">{{ account.balance_date or '—' }}</span>
+  </td>
+  <td>
+    {% if account.active %}
+      <button class="btn btn-ghost btn-xs text-warning"
+              hx-patch="/accounts/{{ account.id }}?show_closed={{ show_closed | default(false) | lower }}"
+              hx-vals='{"active": "false"}'
+              hx-target="#account-{{ account.id }}"
+              hx-swap="outerHTML">Close</button>
+    {% else %}
+      <button class="btn btn-ghost btn-xs text-success"
+              hx-patch="/accounts/{{ account.id }}"
+              hx-vals='{"active": "true"}'
+              hx-target="#account-{{ account.id }}"
+              hx-swap="outerHTML">Reopen</button>
+    {% endif %}
+  </td>
+</tr>
