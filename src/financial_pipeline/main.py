@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
@@ -31,6 +32,9 @@ from financial_pipeline.schemas import ImportedTransaction
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+STATIC_DIR = Path(
+    os.environ.get("FINANCIAL_PIPELINE_STATIC_DIR", str(PROJECT_ROOT / "static"))
+)
 
 
 @asynccontextmanager
@@ -42,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(lifespan=lifespan)
 app.mount(
     "/static",
-    StaticFiles(directory=PROJECT_ROOT / "static", follow_symlink=True),
+    StaticFiles(directory=STATIC_DIR, follow_symlink=True),
     name="static",
 )
 templates = Jinja2Templates(directory=TEMPLATES_DIR)

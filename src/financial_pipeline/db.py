@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from sqlalchemy import text
@@ -6,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from financial_pipeline.models import Base
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DATABASE_URL = f"sqlite+aiosqlite:///{PROJECT_ROOT / 'financial_pipeline.db'}"
+DB_PATH = Path(
+    os.environ.get(
+        "FINANCIAL_PIPELINE_DB_PATH", str(PROJECT_ROOT / "financial_pipeline.db")
+    )
+)
+DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
 engine = create_async_engine(DATABASE_URL)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

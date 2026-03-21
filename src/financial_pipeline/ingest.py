@@ -1,5 +1,6 @@
 import importlib.util
 import logging
+import os
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -19,7 +20,9 @@ from financial_pipeline.schemas import ImportedTransaction
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-IMPORTERS_DIR = PROJECT_ROOT / "importers"
+IMPORTERS_DIR = Path(
+    os.environ.get("FINANCIAL_PIPELINE_IMPORTERS_DIR", str(PROJECT_ROOT / "importers"))
+)
 
 
 @dataclass

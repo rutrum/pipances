@@ -34,11 +34,11 @@
 
 # Agent Preferences
 
-When speaking with the user
-- If you mention multiple statements/ideas that the user will respond to, number them if possible to keep things easy to match with.
+- Do NOT write bash statements over multiple lines; use && or ; instead
 - Do NOT use hyphens for printing in bash, use equal signs instead (i.e. echo "===")
 - Prefer `jq` over `python -c "import json;..."`
-- Do NOT write bash statements over multiples lines; use && or ; instead
+- If you mention multiple statements/ideas that the user will respond to, number them if possible to keep things easy to match with.
+- Use `podman` instead of `docker` for container operations
 
 ## Build and Run
 
@@ -73,6 +73,11 @@ Use Task subagents for self-contained work that doesn't need conversation contex
 - The extension is loaded globally in `base.html` via `hx-ext="response-targets"` on `<body>`
 - When HTMX can't handle an interaction (e.g. arrow key navigation), use minimal inline `<script>` in the partial. Keep JS self-contained in an IIFE. Bridge to HTMX by triggering clicks on elements that carry `hx-*` attributes, rather than making fetch calls from JS.
 - For cancel/revert on Escape or blur, use PATCH with empty values to re-render the row (the existing PATCH endpoint returns the full row partial).
+
+## Nix
+
+- When creating new `.nix` files, always `git add` them before running `nix build` or `nix flake show` — blueprint silently ignores untracked files
+- Before writing Nix package files, read the blueprint skill for the correct function signature and conventions
 
 ## SQLAlchemy and SQLite
 

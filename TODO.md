@@ -23,4 +23,31 @@ Rebuild the TF-IDF + kNN model on every import for now. If performance becomes a
 ## ML predictions: upgrade to embedding model
 If TF-IDF char n-grams prove insufficient (e.g. can't match "WHOLEFDS" to "Whole Foods"), consider Model2Vec (numpy-only, 8-30MB) or FastEmbed (ONNX-based, ~50MB) as a drop-in upgrade for the vectorization step.
 
-## Deployment as a nix module and container (running nix?)
+## Give this a new name
+I like pipeline.  Fin-pipe.  Pipances.  Pipemoney.  |money
+
+## Random fixes
+
+- pagination on inbox
+- Sorting in inbox like in transactions
+- make the AI inferred fields better: the light blue background could be better...it also breaks the height when you edit the field...and changing the value also breaks
+- better "click to edit"
+- change Amount ($) and remove $ from records
+  - align cell right so . line up
+- When I refresh, the filters stay the same but the transactions are no longer filtered
+- the custom date filter should appear to the right (all the way), not underneath
+- the underline below selected in nav bar is weird
+
+## Drill Downs
+Need to design more generic dashboard pages.  When I click on a category in my list of categories, I should go to a dashboard page that shows a breakdown.  Similarly for accounts.
+
+## More schema pages
+I need an external account page, and even a importer page.
+In light of that, I'm wondering if transactions/accounts/categories should all be under one page.  Not call it settings but something else.
+Ideally this page would have a left sidebar thats in two sections: configurations based things, like ML parameters/options and importers, and then data-based things, like viewing all the data in the database.  Or maybe those are just two different tabs at the top.
+
+## Manual Transactions
+There should still be a way to define one-off transactions.  Like a form you fill out.  Might be nice to incorporate the ML in this too.  Problem: this removed the "raw description" parameter as being a required field.  Interesting.
+
+## Maybe we should have a test bed
+some automated UI testing might help.  We already have test data.
