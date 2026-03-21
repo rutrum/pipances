@@ -22,3 +22,20 @@ serve: css
 
 # Build CSS and sync deps (fresh checkout setup)
 setup: sync css
+
+# Lint Python (ruff) and templates (djlint)
+lint:
+    uv run ruff check src/ importers/
+    uv run djlint src/financial_pipeline/templates/ --lint
+
+# Format Python (ruff) and templates (djlint)
+fmt:
+    uv run ruff format src/ importers/
+    uv run ruff check --fix src/ importers/
+    uv run djlint src/financial_pipeline/templates/ --reformat
+
+# Full check (CI-style, exits non-zero on issues)
+check:
+    uv run ruff format --check src/ importers/
+    uv run ruff check src/ importers/
+    uv run djlint src/financial_pipeline/templates/ --lint
