@@ -22,7 +22,7 @@ from financial_pipeline.charts import (
 )
 from financial_pipeline.db import async_session, create_tables
 from financial_pipeline.ingest import _resolve_account, discover_importers, ingest
-from financial_pipeline.models import Account, Category, Transaction
+from financial_pipeline.models import Account, Category, Import, Transaction
 from financial_pipeline.schemas import ImportedTransaction
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -525,16 +525,154 @@ async def inbox_page(request: Request):
             .order_by(Transaction.date)
         )
         transactions = result.scalars().all()
+
+        # Filter dropdown data
+        internal_result = await session.execute(
+            select(Account)
+            .where(Account.kind != "external", Account.active == True)
+            .order_by(Account.name)
+        )
+        internal_accounts = internal_result.scalars().all()
+
+        import_result = await session.execute(
+            select(Import).order_by(Import.imported_at.desc())
+        )
+        imports = import_result.scalars().all()
+
     toast = request.query_params.get("toast")
     return templates.TemplateResponse(
         request,
         "inbox.html",
         {
             "transactions": transactions,
+            "internal_accounts": internal_accounts,
+            "imports": imports,
             "toast": toast,
             **shared,
         },
     )
+
+
+@app.get("/inbox/rows", response_class=HTMLResponse)
+async def inbox_rows(request: Request):
+    params = request.query_params
+    date_from = params.get("date_from", "").strip()
+    date_to = params.get("date_to", "").strip()
+    internal_id = params.get("internal_id", "").strip()
+    import_id = params.get("import_id", "").strip()
+
+    async with async_session() as session:
+        query = (
+            select(Transaction)
+            .where(Transaction.status == "pending")
+            .options(
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
+            )
+            .order_by(Transaction.date)
+        )
+
+        if date_from:
+            query = query.where(Transaction.date >= date.fromisoformat(date_from))
+        if date_to:
+            query = query.where(Transaction.date <= date.fromisoformat(date_to))
+        if internal_id:
+            query = query.where(Transaction.internal_id == int(internal_id))
+        if import_id:
+            query = query.where(Transaction.import_id == int(import_id))
+
+        result = await session.execute(query)
+        transactions = result.scalars().all()
+
+    rows = ""
+    for txn in transactions:
+        rows += templates.get_template("_inbox_row.html").render({"txn": txn})
+    return HTMLResponse(rows)
+
+
+@app.patch("/transactions/bulk", response_class=HTMLResponse)
+async def bulk_update_transactions(request: Request):
+    body = await request.json()
+    ids = body.get("ids", [])
+    if not ids:
+        return HTMLResponse("No IDs provided", status_code=400)
+
+    ids = [int(i) for i in ids]
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(Transaction)
+            .where(Transaction.id.in_(ids))
+            .options(
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
+            )
+        )
+        transactions = result.scalars().all()
+
+        # Resolve category once if provided
+        category_name = body.get("category", "").strip()
+        category_obj = None
+        if category_name:
+            cat_result = await session.execute(
+                select(Category).where(
+                    func.lower(Category.name) == category_name.lower()
+                )
+            )
+            category_obj = cat_result.scalar_one_or_none()
+            if category_obj is None:
+                category_obj = Category(name=category_name)
+                session.add(category_obj)
+                await session.flush()
+
+        # Resolve external account once if provided
+        external_name = body.get("external", "").strip()
+        external_obj = None
+        if external_name:
+            external_obj = await _resolve_account(session, external_name)
+
+        description = body.get("description", "").strip()
+        approve = body.get("marked_for_approval")
+
+        for txn in transactions:
+            if description:
+                txn.description = description
+            if category_obj:
+                txn.category_id = category_obj.id
+                txn.category = category_obj
+            if external_obj:
+                txn.external_id = external_obj.id
+                txn.external = external_obj
+            if approve == "true" and txn.description:
+                txn.marked_for_approval = True
+
+        await session.commit()
+
+        # Re-fetch to get fresh relationships
+        result = await session.execute(
+            select(Transaction)
+            .where(Transaction.id.in_(ids))
+            .options(
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
+            )
+        )
+        transactions = result.scalars().all()
+
+    # Return OOB swaps for each affected row
+    html = ""
+    for txn in transactions:
+        row = templates.get_template("_inbox_row.html").render({"txn": txn})
+        row = row.replace(
+            f'<tr id="txn-{txn.id}"',
+            f'<tr id="txn-{txn.id}" hx-swap-oob="outerHTML:#txn-{txn.id}"',
+            1,
+        )
+        html += row
+    return HTMLResponse(html)
 
 
 @app.patch("/transactions/{txn_id}", response_class=HTMLResponse)
@@ -640,6 +778,70 @@ async def edit_category(txn_id: int, request: Request):
     )
 
 
+@app.get("/inbox/commit-summary", response_class=HTMLResponse)
+async def commit_summary(request: Request):
+    async with async_session() as session:
+        result = await session.execute(
+            select(Transaction)
+            .where(
+                Transaction.status == "pending",
+                Transaction.marked_for_approval == True,
+            )
+            .options(
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
+            )
+        )
+        marked = result.scalars().all()
+
+        if not marked:
+            return HTMLResponse(
+                "<!-- empty -->"
+                '<div id="toast-container" hx-swap-oob="innerHTML:#toast-container">'
+                '<div class="alert alert-warning"><span>Nothing to commit '
+                "— no transactions are approved.</span></div></div>"
+            )
+
+        commit_count = len(marked)
+
+        # Find categories only referenced by pending transactions
+        new_category_names = set()
+        for txn in marked:
+            if txn.category:
+                cat_id = txn.category_id
+                approved_ref = await session.execute(
+                    select(Transaction.id).where(
+                        Transaction.category_id == cat_id,
+                        Transaction.status == "approved",
+                    )
+                )
+                if not approved_ref.first():
+                    new_category_names.add(txn.category.name)
+
+        # Find external accounts only referenced by pending transactions
+        new_external_names = set()
+        for txn in marked:
+            ext_id = txn.external_id
+            approved_ref = await session.execute(
+                select(Transaction.id).where(
+                    Transaction.external_id == ext_id,
+                    Transaction.status == "approved",
+                )
+            )
+            if not approved_ref.first():
+                new_external_names.add(txn.external.name)
+
+    return templates.TemplateResponse(
+        request,
+        "_commit_summary.html",
+        {
+            "commit_count": commit_count,
+            "new_categories": sorted(new_category_names),
+            "new_externals": sorted(new_external_names),
+        },
+    )
+
+
 @app.post("/inbox/commit", response_class=HTMLResponse)
 async def commit_inbox(request: Request):
     async with async_session() as session:
@@ -702,9 +904,15 @@ async def commit_inbox(request: Request):
             await session.delete(orphan)
         await session.commit()
 
-    # Re-render remaining pending transactions
+    # Re-render remaining pending transactions (with filters if present)
+    form = await request.form()
+    filter_date_from = form.get("date_from", "").strip()
+    filter_date_to = form.get("date_to", "").strip()
+    filter_internal_id = form.get("internal_id", "").strip()
+    filter_import_id = form.get("import_id", "").strip()
+
     async with async_session() as session:
-        result = await session.execute(
+        query = (
             select(Transaction)
             .where(Transaction.status == "pending")
             .options(
@@ -714,9 +922,25 @@ async def commit_inbox(request: Request):
             )
             .order_by(Transaction.date)
         )
+        if filter_date_from:
+            query = query.where(
+                Transaction.date >= date.fromisoformat(filter_date_from)
+            )
+        if filter_date_to:
+            query = query.where(Transaction.date <= date.fromisoformat(filter_date_to))
+        if filter_internal_id:
+            query = query.where(Transaction.internal_id == int(filter_internal_id))
+        if filter_import_id:
+            query = query.where(Transaction.import_id == int(filter_import_id))
+
+        result = await session.execute(query)
         transactions = result.scalars().all()
 
-    remaining_count = len(transactions)
+        # Count all remaining (unfiltered) for badge
+        total_result = await session.execute(
+            select(func.count(Transaction.id)).where(Transaction.status == "pending")
+        )
+        remaining_count = total_result.scalar() or 0
     badge_html = (
         f'<span class="badge badge-sm badge-primary">{remaining_count}</span>'
         if remaining_count
@@ -724,12 +948,19 @@ async def commit_inbox(request: Request):
     )
     badge_oob = f'<span id="inbox-badge" hx-swap-oob="innerHTML:#inbox-badge">{badge_html}</span>'
     toast = f'<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-success"><span>Committed {committed_count} transaction{"s" if committed_count != 1 else ""}.</span></div></div>'
-    oob = toast + badge_oob
+    dialog_clear = '<div id="commit-dialog-container" hx-swap-oob="innerHTML:#commit-dialog-container"></div>'
+    oob = toast + badge_oob + dialog_clear
 
     if not transactions:
-        return HTMLResponse(
-            f'<tr><td colspan="8" class="text-center py-8">Inbox is empty. <a href="/upload" class="link link-primary">Upload transactions</a></td></tr>{oob}'
+        empty = (
+            '<tr><td colspan="6">'
+            '<div class="flex flex-col items-center justify-center py-16 text-base-content/60">'
+            '<p class="text-xl font-semibold mb-2">All cleaned up!</p>'
+            '<p class="mb-4">No pending transactions to review.</p>'
+            '<a href="/upload" class="btn btn-primary">Upload transactions</a>'
+            "</div></td></tr>"
         )
+        return HTMLResponse(empty + oob)
 
     rows = ""
     for txn in transactions:
@@ -739,7 +970,9 @@ async def commit_inbox(request: Request):
 
 def _compute_date_range(
     preset: str, date_from: str | None, date_to: str | None
-) -> tuple[date, date]:
+) -> tuple[date | None, date | None]:
+    if preset == "all":
+        return None, None
     today = date.today()
     if preset == "last_month":
         first_of_this_month = today.replace(day=1)
@@ -784,14 +1017,16 @@ async def transactions_page(request: Request):
         query = (
             select(Transaction)
             .where(Transaction.status == "approved")
-            .where(Transaction.date >= date_from)
-            .where(Transaction.date <= date_to)
             .options(
                 selectinload(Transaction.internal),
                 selectinload(Transaction.external),
                 selectinload(Transaction.category),
             )
         )
+        if date_from is not None:
+            query = query.where(Transaction.date >= date_from)
+        if date_to is not None:
+            query = query.where(Transaction.date <= date_to)
 
         if internal_filter:
             query = query.join(Transaction.internal).where(
@@ -819,9 +1054,11 @@ async def transactions_page(request: Request):
             select(func.count())
             .select_from(Transaction)
             .where(Transaction.status == "approved")
-            .where(Transaction.date >= date_from)
-            .where(Transaction.date <= date_to)
         )
+        if date_from is not None:
+            count_query = count_query.where(Transaction.date >= date_from)
+        if date_to is not None:
+            count_query = count_query.where(Transaction.date <= date_to)
         if internal_filter:
             count_query = count_query.join(Transaction.internal).where(
                 Account.name == internal_filter
@@ -876,8 +1113,8 @@ async def transactions_page(request: Request):
         "request": request,
         "transactions": transactions,
         "preset": preset,
-        "date_from": str(date_from),
-        "date_to": str(date_to),
+        "date_from": str(date_from) if date_from else "",
+        "date_to": str(date_to) if date_to else "",
         "sort": sort_col,
         "dir": sort_dir,
         "internal_filter": internal_filter,

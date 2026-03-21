@@ -34,6 +34,14 @@ fmt:
     uv run ruff check --fix src/ importers/
     uv run djlint src/financial_pipeline/templates/ --reformat
 
+# Delete the database file
+reset-db:
+    rm -f financial_pipeline.db
+
+# Reset the database and seed with test data
+seed: reset-db
+    uv run python scripts/seed.py
+
 # Full check (CI-style, exits non-zero on issues)
 check:
     uv run ruff format --check src/ importers/

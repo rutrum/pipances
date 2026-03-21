@@ -37,14 +37,22 @@
 When speaking with the user
 - If you mention multiple statements/ideas that the user will respond to, number them if possible to keep things easy to match with.
 - Do NOT use hyphens for printing in bash, use equal signs instead (i.e. echo "===")
+- Prefer `jq` over `python -c "import json;..."`
 
 ## Build and Run
 
 - Use `just --list` to see available build/test/run commands before guessing
 - Common recipes: `just serve` (dev server on 8097), `just css` (build CSS), `just css-watch` (watch mode), `just sync` (install deps)
+- Test data: `just seed` (resets DB and populates with deterministic test data via `scripts/seed.py`), `just reset-db` (deletes DB only)
+- After `just seed`, the server must be restarted to pick up the new database file
+- `test_export.csv` in project root contains April 2026 data for testing the CSV import workflow
 - Code quality recipes: `just lint` (check Python + templates), `just fmt` (auto-format Python + templates), `just check` (CI-style strict check)
 - Run `just fmt` after making changes to keep formatting consistent
 - Ruff handles Python linting/formatting; djLint handles Jinja2/HTML templates
+
+## Subagents
+
+Use Task subagents for self-contained work that doesn't need conversation context, to keep the main context window clean. Good candidates: formatting/linting fixes, running verification commands, browser screenshot checks, any mechanical task with clear pass/fail.
 
 ## Browser Testing
 

@@ -1,5 +1,10 @@
 <div class="mb-4">
   <div class="join">
+    <button class="btn join-item {% if preset == 'all' %}btn-active{% endif %}"
+            hx-get="/transactions"
+            hx-target="#txn-table-wrapper"
+            hx-include="#txn-filters"
+            hx-vals='{"preset": "all", "page": "1"}'>All</button>
     <button class="btn join-item {% if preset == 'ytd' %}btn-active{% endif %}"
             hx-get="/transactions"
             hx-target="#txn-table-wrapper"

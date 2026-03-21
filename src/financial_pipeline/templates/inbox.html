@@ -17,40 +17,220 @@
   {% endif %}
   <div class="container mx-auto p-6">
     {% if not transactions %}
-      <div class="alert alert-info">
-        <span>No pending transactions.</span>
-        <a href="/upload" class="link link-primary">Upload transactions</a>
+      <div class="flex flex-col items-center justify-center py-16 text-base-content/60">
+        <i data-lucide="inbox" class="w-16 h-16 mb-4"></i>
+        <p class="text-xl font-semibold mb-2">All cleaned up!</p>
+        <p class="mb-4">No pending transactions to review.</p>
+        <a href="/upload" class="btn btn-primary">Upload transactions</a>
       </div>
     {% else %}
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-bold">Inbox</h1>
         <button class="btn btn-primary"
-                hx-post="/inbox/commit"
-                hx-target="#inbox-table"
+                hx-get="/inbox/commit-summary"
+                hx-target="#commit-dialog-container"
                 hx-swap="innerHTML">Commit</button>
       </div>
+      <div id="commit-dialog-container"></div>
       <div id="inbox-message"></div>
-      <div class="overflow-x-auto">
-        <table class="table table-zebra w-full">
-          <thead>
-            <tr>
-              <th>Approve</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Raw Description</th>
-              <th>Description</th>
-              <th>Category</th>
-              <th>External</th>
-              <th>Internal</th>
-            </tr>
-          </thead>
-          <tbody id="inbox-table">
-            {% for txn in transactions %}
-              {% include "_inbox_row.html" %}
-            {% endfor %}
-          </tbody>
-        </table>
+      <div id="filter-bar"
+           class="flex items-center gap-4 p-3 bg-base-200 rounded-lg mb-2">
+        <span class="text-sm font-semibold whitespace-nowrap">Filter:</span>
+        <input type="date"
+               id="filter-date-from"
+               name="date_from"
+               class="input input-bordered input-sm"
+               placeholder="From"
+               hx-get="/inbox/rows"
+               hx-trigger="change"
+               hx-target="#inbox-table"
+               hx-swap="innerHTML"
+               hx-include="#filter-bar">
+        <input type="date"
+               id="filter-date-to"
+               name="date_to"
+               class="input input-bordered input-sm"
+               placeholder="To"
+               hx-get="/inbox/rows"
+               hx-trigger="change"
+               hx-target="#inbox-table"
+               hx-swap="innerHTML"
+               hx-include="#filter-bar">
+        <select id="filter-internal"
+                name="internal_id"
+                class="select select-bordered select-sm"
+                hx-get="/inbox/rows"
+                hx-trigger="change"
+                hx-target="#inbox-table"
+                hx-swap="innerHTML"
+                hx-include="#filter-bar">
+          <option value="">All accounts</option>
+          {% for acct in internal_accounts %}<option value="{{ acct.id }}">{{ acct.name }}</option>{% endfor %}
+        </select>
+        <select id="filter-import"
+                name="import_id"
+                class="select select-bordered select-sm"
+                hx-get="/inbox/rows"
+                hx-trigger="change"
+                hx-target="#inbox-table"
+                hx-swap="innerHTML"
+                hx-include="#filter-bar">
+          <option value="">All imports</option>
+          {% for imp in imports %}
+            <option value="{{ imp.id }}">{{ imp.institution }} ({{ imp.imported_at.strftime("%Y-%m-%d") }})</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-sm btn-ghost"
+                onclick="document.getElementById('filter-date-from').value=''; document.getElementById('filter-date-to').value=''; document.getElementById('filter-internal').value=''; document.getElementById('filter-import').value=''; htmx.ajax('GET', '/inbox/rows', {target: '#inbox-table', swap: 'innerHTML'})">
+          Clear
+        </button>
       </div>
+      <div id="bulk-toolbar"
+           class="flex items-center gap-4 p-3 bg-base-300 rounded-lg mb-2">
+        <span id="bulk-count" class="text-sm font-semibold whitespace-nowrap">0 selected</span>
+        <input type="text"
+               id="bulk-description"
+               class="input input-bordered input-sm"
+               placeholder="Description"
+               disabled>
+        <input type="text"
+               id="bulk-category"
+               class="input input-bordered input-sm"
+               placeholder="Category"
+               disabled>
+        <input type="text"
+               id="bulk-external"
+               class="input input-bordered input-sm"
+               placeholder="External"
+               disabled>
+        <button id="bulk-apply-btn" class="btn btn-sm btn-primary" disabled>Apply</button>
+        <button id="bulk-approve-btn"
+                class="btn btn-sm btn-outline btn-success"
+                disabled>Approve Selected</button>
+      </div>
+      <table class="table table-fixed w-full">
+        <thead>
+          <tr>
+            <th class="w-[4%]">
+              <label>
+                <input type="checkbox" id="select-all" class="checkbox">
+              </label>
+            </th>
+            <th class="w-[11%]">Date</th>
+            <th class="w-[9%]">Amount</th>
+            <th class="w-[28%]">Description</th>
+            <th class="w-[15%]">Category</th>
+            <th class="w-[19%]">External</th>
+            <th class="w-[14%]"></th>
+          </tr>
+        </thead>
+        <tbody id="inbox-table">
+          {% for txn in transactions %}
+            {% include "_inbox_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+      <script>
+      (function() {
+        var selectAll = document.getElementById('select-all');
+        var toolbar = document.getElementById('bulk-toolbar');
+        var countEl = document.getElementById('bulk-count');
+        var tbody = document.getElementById('inbox-table');
+
+        function getCheckboxes() {
+          return tbody.querySelectorAll('.select-txn');
+        }
+
+        function getSelectedIds() {
+          var ids = [];
+          getCheckboxes().forEach(function(cb) {
+            if (cb.checked) ids.push(cb.dataset.txnId);
+          });
+          return ids;
+        }
+
+        var bulkInputs = toolbar.querySelectorAll('input, button');
+
+        function updateToolbar() {
+          var ids = getSelectedIds();
+          var hasSelection = ids.length > 0;
+          countEl.textContent = ids.length + ' selected';
+          bulkInputs.forEach(function(el) { el.disabled = !hasSelection; });
+          // Sync select-all state
+          var boxes = getCheckboxes();
+          selectAll.checked = boxes.length > 0 && ids.length === boxes.length;
+          selectAll.indeterminate = ids.length > 0 && ids.length < boxes.length;
+        }
+
+        selectAll.addEventListener('change', function() {
+          getCheckboxes().forEach(function(cb) {
+            cb.checked = selectAll.checked;
+          });
+          updateToolbar();
+        });
+
+        tbody.addEventListener('change', function(e) {
+          if (e.target.classList.contains('select-txn')) {
+            updateToolbar();
+          }
+        });
+
+        // Re-bind after HTMX swaps (e.g. after bulk edit or commit)
+        document.addEventListener('htmx:afterSwap', function(e) {
+          if (e.detail.target === tbody || tbody.contains(e.detail.target)) {
+            updateToolbar();
+          }
+        });
+
+        function bulkRequest(payload) {
+          fetch('/transactions/bulk', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+          }).then(function(r) { return r.text(); }).then(function(html) {
+            if (!html.trim()) return;
+            // Parse OOB swaps: use a table wrapper so <tr> elements parse correctly
+            var temp = document.createElement('table');
+            temp.innerHTML = '<tbody>' + html + '</tbody>';
+            temp.querySelectorAll('tr[hx-swap-oob]').forEach(function(newRow) {
+              var id = newRow.id;
+              var existing = document.getElementById(id);
+              if (existing) {
+                newRow.removeAttribute('hx-swap-oob');
+                existing.replaceWith(newRow);
+                htmx.process(newRow);
+              }
+            });
+            updateToolbar();
+          });
+        }
+
+        // Bulk Apply
+        document.getElementById('bulk-apply-btn').addEventListener('click', function() {
+          var ids = getSelectedIds();
+          if (!ids.length) return;
+          var desc = document.getElementById('bulk-description').value.trim();
+          var cat = document.getElementById('bulk-category').value.trim();
+          var ext = document.getElementById('bulk-external').value.trim();
+          if (!desc && !cat && !ext) return;
+          var vals = {ids: ids};
+          if (desc) vals.description = desc;
+          if (cat) vals.category = cat;
+          if (ext) vals.external = ext;
+          bulkRequest(vals);
+          document.getElementById('bulk-description').value = '';
+          document.getElementById('bulk-category').value = '';
+          document.getElementById('bulk-external').value = '';
+        });
+
+        // Bulk Approve
+        document.getElementById('bulk-approve-btn').addEventListener('click', function() {
+          var ids = getSelectedIds();
+          if (!ids.length) return;
+          bulkRequest({ids: ids, marked_for_approval: 'true'});
+        });
+      })();
+      </script>
     {% endif %}
   </div>
 {% endblock content %}

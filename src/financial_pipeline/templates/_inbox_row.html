@@ -1,30 +1,33 @@
 <tr id="txn-{{ txn.id }}"
     {% if txn.marked_for_approval %}class="bg-success/10"{% endif %}>
+  <th>
+    <label>
+      <input type="checkbox"
+             class="checkbox select-txn"
+             data-txn-id="{{ txn.id }}">
+    </label>
+  </th>
   <td>
-    <input type="checkbox"
-           class="checkbox"
-           {% if txn.marked_for_approval %}checked{% endif %}
-           hx-patch="/transactions/{{ txn.id }}"
-           hx-vals='{"marked_for_approval": "toggle"}'
-           hx-target="#txn-{{ txn.id }}"
-           hx-swap="outerHTML">
+    <div class="font-bold">{{ txn.date }}</div>
+    <div class="text-xs opacity-50">{{ txn.internal.name }}</div>
   </td>
-  <td>{{ txn.date }}</td>
-  <td class="{% if txn.amount_cents < 0 %}text-error{% else %}text-success{% endif %}">
+  <td class="font-mono whitespace-nowrap {% if txn.amount_cents < 0 %}text-error{% else %}text-success{% endif %}">
     ${{ "%.2f"|format(txn.amount_cents / 100) }}
   </td>
-  <td>{{ txn.raw_description }}</td>
   <td>
-    <span class="cursor-pointer hover:underline"
-          hx-get="/transactions/{{ txn.id }}/edit-description"
-          hx-target="this"
-          hx-swap="innerHTML">
-      {% if txn.description %}
-        {{ txn.description }}
-      {% else %}
-        <span class="badge badge-ghost badge-sm">click to edit</span>
-      {% endif %}
-    </span>
+    <div>
+      <span class="cursor-pointer hover:underline"
+            hx-get="/transactions/{{ txn.id }}/edit-description"
+            hx-target="this"
+            hx-swap="innerHTML">
+        {% if txn.description %}
+          {{ txn.description }}
+        {% else %}
+          <span class="badge badge-ghost badge-sm">click to edit</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="text-xs opacity-50">{{ txn.raw_description }}</div>
   </td>
   <td>
     <span class="cursor-pointer hover:underline"
@@ -44,5 +47,21 @@
           hx-target="this"
           hx-swap="innerHTML">{{ txn.external.name }}</span>
   </td>
-  <td>{{ txn.internal.name }}</td>
+  <th>
+    {% if txn.marked_for_approval %}
+      <button class="btn btn-success btn-sm"
+              hx-patch="/transactions/{{ txn.id }}"
+              hx-vals='{"marked_for_approval": "toggle"}'
+              hx-target="#txn-{{ txn.id }}"
+              hx-swap="outerHTML">Approved</button>
+    {% elif txn.description %}
+      <button class="btn btn-outline btn-sm"
+              hx-patch="/transactions/{{ txn.id }}"
+              hx-vals='{"marked_for_approval": "toggle"}'
+              hx-target="#txn-{{ txn.id }}"
+              hx-swap="outerHTML">Approve</button>
+    {% else %}
+      <button class="btn btn-ghost btn-sm btn-disabled" disabled>Approve</button>
+    {% endif %}
+  </th>
 </tr>

@@ -11,7 +11,8 @@ static/js/
 # Tailwind build output
 static/css/style.css
 
-# Database
+# Database / test data
 *.db
+*.csv
 
 .agents/skills
