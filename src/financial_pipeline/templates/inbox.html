@@ -3,13 +3,26 @@
   Inbox - Financial Pipeline
 {% endblock title %}
 {% block content %}
-  {% if toast == 'upload_success' %}
+  {% if toast == 'upload_success' and import_summary %}
     <script>
   document.addEventListener('DOMContentLoaded', function() {
     var container = document.getElementById('toast-container');
     var el = document.createElement('div');
     el.className = 'alert alert-success';
-    el.innerHTML = '<span>Transactions uploaded successfully.</span>';
+    var parts = [];
+    var imported = {{ import_summary.imported|default('0') }};
+    var duplicates = {{ import_summary.duplicates|default('0') }};
+    parts.push('Imported ' + imported + ' transaction' + (imported !== 1 ? 's' : ''));
+    if (duplicates > 0) {
+      parts.push(duplicates + ' duplicate' + (duplicates !== 1 ? 's' : '') + ' skipped');
+    }
+    {% if import_summary.date_min and import_summary.date_max %}
+    parts.push('{{ import_summary.date_min }} to {{ import_summary.date_max }}');
+    {% endif %}
+    {% if import_summary.account %}
+    parts.push('{{ import_summary.account }}');
+    {% endif %}
+    el.innerHTML = '<span>' + parts.join(' · ') + '</span>';
     container.appendChild(el);
     autoToast(el);
   });

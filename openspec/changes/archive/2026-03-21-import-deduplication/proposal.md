@@ -13,10 +13,10 @@ Re-importing a CSV that overlaps with previously imported data creates duplicate
 ## Capabilities
 
 ### New Capabilities
-- `import-feedback`: Post-upload summary showing import results (count imported, duplicates skipped, date range, account)
+None
 
 ### Modified Capabilities
-- `csv-upload`: Add deduplication behavior to the upload/ingest flow — duplicate rows from prior imports are silently skipped rather than re-inserted
+- `csv-upload`: Add deduplication behavior to the upload/ingest flow (duplicate rows from prior imports are skipped) and post-upload feedback summary (count imported, duplicates skipped, date range, account)
 
 ## Impact
 

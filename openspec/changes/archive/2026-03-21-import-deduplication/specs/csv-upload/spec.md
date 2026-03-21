@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: CSV upload parses and ingests transactions
-The upload form SHALL accept a CSV file, parse it using the selected importer, validate the output, and ingest the transactions as pending into the database. Duplicate transactions from prior imports SHALL be automatically skipped.
+The upload form SHALL accept a CSV file, parse it using the selected importer, validate the output, and ingest the transactions as pending into the database. Duplicate transactions from prior imports SHALL be automatically skipped. After upload, the user SHALL see a summary of import results.
 
 #### Scenario: Successful CSV upload
 - **WHEN** user selects an importer, an internal account, and a CSV file, then submits the form
@@ -25,6 +25,15 @@ The upload form SHALL accept a CSV file, parse it using the selected importer, v
 - **WHEN** user uploads a CSV where all rows match existing transactions
 - **THEN** the system SHALL insert zero new transactions
 - **THEN** the user SHALL be redirected to the inbox with a summary showing zero imported and the total duplicates skipped
+
+#### Scenario: Import result summary with no duplicates
+- **WHEN** user uploads a CSV and all rows are new
+- **THEN** the inbox page SHALL display a summary showing the number of transactions imported, the date range, and the internal account name
+
+#### Scenario: Import result summary with duplicates skipped
+- **WHEN** user uploads a CSV where some rows match existing transactions
+- **THEN** the inbox page SHALL display a summary showing the number of new transactions imported and the number of duplicates skipped
+- **THEN** the summary SHALL include the date range and internal account name
 
 #### Scenario: raw_description is immutable
 - **WHEN** a transaction exists in the database

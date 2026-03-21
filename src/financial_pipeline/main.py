@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from math import ceil
 from pathlib import Path
+from urllib.parse import urlencode
 
 import polars as pl
 import uvicorn
@@ -147,15 +148,23 @@ async def upload_file(request: Request):
         blob = await file.read()
         df = importer_info.parse(blob)
         df = ImportedTransaction.validate(df)
-        await ingest(
+        result = await ingest(
             df,
             internal_account=account,
             importer_name=importer_info.name,
             filename=file.filename,
         )
 
+        params = urlencode({
+            "toast": "upload_success",
+            "imported": result.inserted_count,
+            "duplicates": result.duplicate_count,
+            "date_min": str(result.date_min) if result.date_min else "",
+            "date_max": str(result.date_max) if result.date_max else "",
+            "account": result.internal_account_name,
+        })
         return Response(
-            status_code=200, headers={"HX-Redirect": "/inbox?toast=upload_success"}
+            status_code=200, headers={"HX-Redirect": f"/inbox?{params}"}
         )
     except Exception as e:
         return HTMLResponse(
@@ -539,7 +548,8 @@ async def inbox_page(request: Request):
         )
         imports = import_result.scalars().all()
 
-    toast = request.query_params.get("toast")
+    params = request.query_params
+    toast = params.get("toast")
     return templates.TemplateResponse(
         request,
         "inbox.html",
@@ -548,6 +558,13 @@ async def inbox_page(request: Request):
             "internal_accounts": internal_accounts,
             "imports": imports,
             "toast": toast,
+            "import_summary": {
+                "imported": params.get("imported"),
+                "duplicates": params.get("duplicates"),
+                "date_min": params.get("date_min"),
+                "date_max": params.get("date_max"),
+                "account": params.get("account"),
+            } if toast == "upload_success" else None,
             **shared,
         },
     )

@@ -2,17 +2,6 @@
 
 Items deferred from design discussions to tackle later.
 
-## Deduplication strategy
-When re-importing the same CSV, how do we detect and skip duplicate transactions? Candidate approaches:
-- Composite key on `(internal_id, external_id, date, amount, raw_description)`
-- Hash of the original CSV row
-- Track import date ranges and skip re-imports at the file level
-
-Needs more thought — two legitimate identical transactions on the same day (e.g. same merchant, same amount) complicate any row-level dedup.
-
-## Inbox table refactoring
-Consider extracting shared transaction table elements (row partials, column rendering) between the inbox editing view and the read-only transactions view. The inbox has interactive elements (checkboxes, click-to-edit) that the transactions page doesn't need, but the base column rendering (date, amount formatting, account names) could be shared. Revisit after the transactions page is built to see if the overlap justifies extraction.
-
 ## Institution identifier convention
 `imports.institution` should match identifiers used in the config module's per-institution parsing schemas. No FK enforcement yet, but worth keeping consistent as a convention.
 
@@ -25,13 +14,10 @@ Add a time range filter to the dashboard so users can drill into specific period
 ## Simple auth
 Login page with single-user password (configured via environment variable). Session cookie via `itsdangerous`. Protected routes redirect to login. Logout clears session.
 
+## Interactive chart click-to-filter
+On the dashboard Categories tab, clicking a pie chart slice could auto-select that category in the dropdown. Requires Vega signal handling and bridging to HTMX. Deferred until we have a pattern for Vega-to-HTMX interactivity.
+
 ## ML-assisted inbox (long-term)
 Use historical transaction data to pre-fill description, external account, and (eventually) category during inbox review. Key UX challenge: clearly distinguish ML suggestions from original data (e.g. robot icon, colored background, confidence score). Needs a training corpus and model choice. Depends on categories being implemented first.
 
-## Combo box UI/CSS polish
-The combo box (used for category and external account editing in the inbox) works functionally but could use visual refinement:
-- Better spacing and sizing of dropdown items
-- Visual indicator when the dropdown is loading results
-- Smoother transitions/animations for dropdown appearance
-- Consider max-width or alignment tweaks so it fits better in table cells
-- The "Create new" option could be more visually distinct from existing matches
+## Deployment as a nix module and container (running nix?)
