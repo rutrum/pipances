@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 IMPORTERS_DIR = Path(
-    os.environ.get("FINANCIAL_PIPELINE_IMPORTERS_DIR", str(PROJECT_ROOT / "importers"))
+    os.environ.get("PIPANCES_IMPORTERS_DIR", str(PROJECT_ROOT / "importers"))
 )
 
 

@@ -17,7 +17,7 @@ pkgs.dockerTools.buildLayeredImage {
       "8097/tcp" = { };
     };
     Env = [
-      "FINANCIAL_PIPELINE_DB_PATH=/data/financial_pipeline.db"
+      "PIPANCES_DB_PATH=/data/financial_pipeline.db"
     ];
     Volumes = {
       "/data" = { };

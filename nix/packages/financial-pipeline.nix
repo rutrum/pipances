@@ -76,12 +76,12 @@ pkgs.writeShellApplication {
   name = "financial-pipeline";
   runtimeInputs = [ venv ];
   text = ''
-    export FINANCIAL_PIPELINE_STATIC_DIR="${staticAssets}/static"
-    export FINANCIAL_PIPELINE_IMPORTERS_DIR="${importers}"
-    export FINANCIAL_PIPELINE_DB_PATH="''${FINANCIAL_PIPELINE_DB_PATH:-./financial_pipeline.db}"
+    export PIPANCES_STATIC_DIR="${staticAssets}/static"
+    export PIPANCES_IMPORTERS_DIR="${importers}"
+    export PIPANCES_DB_PATH="''${PIPANCES_DB_PATH:-./financial_pipeline.db}"
     exec uvicorn financial_pipeline.main:app \
-      --host "''${FINANCIAL_PIPELINE_HOST:-0.0.0.0}" \
-      --port "''${FINANCIAL_PIPELINE_PORT:-8097}" \
+      --host "''${PIPANCES_HOST:-0.0.0.0}" \
+      --port "''${PIPANCES_PORT:-8097}" \
       "$@"
   '';
 }

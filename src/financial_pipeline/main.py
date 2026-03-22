@@ -17,9 +17,7 @@ from financial_pipeline.routes.upload import router as upload_router
 from financial_pipeline.routes.widgets import router as widgets_router
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-STATIC_DIR = Path(
-    os.environ.get("FINANCIAL_PIPELINE_STATIC_DIR", str(PROJECT_ROOT / "static"))
-)
+STATIC_DIR = Path(os.environ.get("PIPANCES_STATIC_DIR", str(PROJECT_ROOT / "static")))
 
 
 @asynccontextmanager

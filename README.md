@@ -1,4 +1,4 @@
-# Financial Pipeline
+# Pipances
 
 Self-hosted finance tracker.
 

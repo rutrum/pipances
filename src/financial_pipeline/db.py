@@ -8,9 +8,7 @@ from financial_pipeline.models import Base
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DB_PATH = Path(
-    os.environ.get(
-        "FINANCIAL_PIPELINE_DB_PATH", str(PROJECT_ROOT / "financial_pipeline.db")
-    )
+    os.environ.get("PIPANCES_DB_PATH", str(PROJECT_ROOT / "financial_pipeline.db"))
 )
 DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 

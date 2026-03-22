@@ -23,8 +23,15 @@ Rebuild the TF-IDF + kNN model on every import for now. If performance becomes a
 ## ML predictions: upgrade to embedding model
 If TF-IDF char n-grams prove insufficient (e.g. can't match "WHOLEFDS" to "Whole Foods"), consider Model2Vec (numpy-only, 8-30MB) or FastEmbed (ONNX-based, ~50MB) as a drop-in upgrade for the vectorization step.
 
-## Give this a new name
-I like pipeline.  Fin-pipe.  Pipances.  Pipemoney.  |money
+## Rename project to Pipances
+Name decided: **Pipances** (pipe + finances). Rename scope:
+- Python package (`financial_pipeline` → `pipances`)
+- Env vars (`FINANCIAL_PIPELINE_*` → `PIPANCES_*`)
+- Binary name, pyproject.toml, repo, references
+- The NixOS module already uses the `pipances` name; the rest needs to catch up
+
+## Auto-consume upload directory
+A configured directory that the application watches/scans for CSV files. When files appear, they are automatically ingested (parsed, deduplicated, added to inbox). This would complement the web upload flow for users who want to drop files via cron/script.
 
 ## Random fixes
 
@@ -38,13 +45,14 @@ I like pipeline.  Fin-pipe.  Pipances.  Pipemoney.  |money
 - the custom date filter should appear to the right (all the way), not underneath
 - the underline below selected in nav bar is weird
 
-## Drill Downs
-Need to design more generic dashboard pages.  When I click on a category in my list of categories, I should go to a dashboard page that shows a breakdown.  Similarly for accounts.
+## Drill Downs / Schema Pages
+Covered by three OpenSpec changes:
+- `explore-page` — unified Explore page (charts + table, filterable)
+- `data-page-layout` — Data page with sidebar menu (replaces Settings)
+- `data-page-sections` — External accounts, importers, import history sections
 
-## More schema pages
-I need an external account page, and even a importer page.
-In light of that, I'm wondering if transactions/accounts/categories should all be under one page.  Not call it settings but something else.
-Ideally this page would have a left sidebar thats in two sections: configurations based things, like ML parameters/options and importers, and then data-based things, like viewing all the data in the database.  Or maybe those are just two different tabs at the top.
+## Category editing in Data page
+Categories are currently read-only (rename only, no delete, no create) in the Data page. May want to revisit adding more editing capabilities later.
 
 ## Manual Transactions
 There should still be a way to define one-off transactions.  Like a form you fill out.  Might be nice to incorporate the ML in this too.  Problem: this removed the "raw description" parameter as being a required field.  Interesting.
@@ -64,14 +72,16 @@ The codebase uses three different patterns for HTMX out-of-band swaps, all based
 
 The proper fix: make templates themselves OOB-aware. Pass an `oob=True` parameter when rendering a partial, and the template conditionally includes the `hx-swap-oob` attribute. This eliminates all post-render string manipulation.
 
-## Maybe we should have a test bed
-some automated UI testing might help.  We already have test data.
-
-## Add a NixosConfiguration module
-I want to do .enable in my config.  I might want to set other things, like location of the DB and the location of the importers.
+## NixOS module: auth option
+Once simple auth is implemented, add a `passwordFile` option to the NixOS module (sops/agenix friendly).
 
 ## More details on ML results
 I want to drill down onto all results and see what the best guesses were for the ML model.  Even better if I can pick from them.  Maybe thats the default drop down when I enter an empty value: I get the top 5 closest with the percentage confidence next to each.  That'd be cool.
 
 ## Consider Duckdb over SQLITE
 One source of complexity (imo) is that SQLITE doesn't maintain types our types (like decimal), so we have this disconnect between the data storage and the parsing.  I think duckdb will help permit us to have less overhead in the database abstraction layer.
+
+## Dashboard needs pagination on transaction lists
+
+## Category splits
+When I enter a new item, I need to be able to "split" the transaction such that it contributes to multiple categories.
