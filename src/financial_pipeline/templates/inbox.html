@@ -10,17 +10,17 @@
     var el = document.createElement('div');
     el.className = 'alert alert-success';
     var parts = [];
-    var imported = {{ import_summary.imported|default('0') }};
-    var duplicates = {{ import_summary.duplicates|default('0') }};
+    var imported = {{ import_summary.imported|default('0')|tojson }};
+    var duplicates = {{ import_summary.duplicates|default('0')|tojson }};
     parts.push('Imported ' + imported + ' transaction' + (imported !== 1 ? 's' : ''));
     if (duplicates > 0) {
       parts.push(duplicates + ' duplicate' + (duplicates !== 1 ? 's' : '') + ' skipped');
     }
     {% if import_summary.date_min and import_summary.date_max %}
-    parts.push('{{ import_summary.date_min }} to {{ import_summary.date_max }}');
+    parts.push({{ import_summary.date_min|tojson }} + ' to ' + {{ import_summary.date_max|tojson }});
     {% endif %}
     {% if import_summary.account %}
-    parts.push('{{ import_summary.account }}');
+    parts.push({{ import_summary.account|tojson }});
     {% endif %}
     el.innerHTML = '<span>' + parts.join(' · ') + '</span>';
     container.appendChild(el);
@@ -159,7 +159,12 @@
           {% endfor %}
         </tbody>
       </table>
-      <div id="inbox-pagination">{% include "_inbox_pagination.html" %}</div>
+      <div id="inbox-pagination">
+        {% set pagination_url = "/inbox" %}
+        {% set pagination_target = "#inbox-table" %}
+        {% set pagination_include = "#filter-bar" %}
+        {% include "_pagination.html" %}
+      </div>
       <script>
       (function() {
         var selectAll = document.getElementById('select-all');

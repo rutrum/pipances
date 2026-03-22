@@ -4,7 +4,7 @@
       hx-target="#txn-table-wrapper"
       hx-include="#txn-filters"
       hx-push-url="true"
-      hx-vals='{"sort": "{{ column }}", "dir": "{% if sort == column and dir == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
+      hx-vals='{{ {"sort": column, "dir": "desc" if sort == column and dir == "asc" else "asc", "page": "1"}|tojson }}'>
     {{ label }}
     {% if sort == column %}
       {% if dir == 'asc' %}
@@ -41,7 +41,7 @@
              hx-target="#txn-table-wrapper"
              hx-include="#txn-filters"
              hx-push-url="true"
-             hx-vals='{"{{ column }}": "", "page": "1"}'>All</a>
+             hx-vals='{{ {column: "", "page": "1"}|tojson }}'>All</a>
         </li>
         {% for acct in accounts %}
           <li>
@@ -49,7 +49,7 @@
                hx-target="#txn-table-wrapper"
                hx-include="#txn-filters"
                hx-push-url="true"
-               hx-vals='{"{{ column }}": "{{ acct }}", "page": "1"}'>{{ acct }}</a>
+               hx-vals='{{ {column: acct, "page": "1"}|tojson }}'>{{ acct }}</a>
           </li>
         {% endfor %}
       </ul>
@@ -99,14 +99,14 @@
                      hx-target="#txn-table-wrapper"
                      hx-include="#txn-filters"
                      hx-push-url="true"
-                     hx-vals='{"category": "", "page": "1"}'>All</a>
+                     hx-vals='{{ {"category": "", "page": "1"}|tojson }}'>All</a>
                 </li>
                 <li>
                   <a hx-get="/transactions"
                      hx-target="#txn-table-wrapper"
                      hx-include="#txn-filters"
                      hx-push-url="true"
-                     hx-vals='{"category": "__uncategorized__", "page": "1"}'>Uncategorized</a>
+                     hx-vals='{{ {"category": "__uncategorized__", "page": "1"}|tojson }}'>Uncategorized</a>
                 </li>
                 {% for cat in category_options %}
                   <li>
@@ -114,7 +114,7 @@
                        hx-target="#txn-table-wrapper"
                        hx-include="#txn-filters"
                        hx-push-url="true"
-                       hx-vals='{"category": "{{ cat }}", "page": "1"}'>{{ cat }}</a>
+                       hx-vals='{{ {"category": cat, "page": "1"}|tojson }}'>{{ cat }}</a>
                   </li>
                 {% endfor %}
               </ul>
@@ -131,5 +131,8 @@
       </tbody>
     </table>
   </div>
+  {% set pagination_url = "/transactions" %}
+  {% set pagination_target = "#txn-table-wrapper" %}
+  {% set pagination_include = "#txn-filters" %}
   {% include "_pagination.html" %}
 {% endif %}

@@ -5,7 +5,7 @@ import random
 from datetime import date, timedelta
 
 from financial_pipeline.db import async_session, create_tables
-from financial_pipeline.models import Account, Category, Import, Transaction
+from financial_pipeline.models import Account, AccountKind, Category, Import, Transaction, TransactionStatus
 
 random.seed(42)
 
@@ -96,7 +96,7 @@ async def seed():
         all_external_names = [m[0] for m in MERCHANTS] + [v[0] for v in RECURRING.values()]
         for name in all_external_names:
             if name not in external_map:
-                acct = Account(name=name, kind="external")
+                acct = Account(name=name, kind=AccountKind.EXTERNAL)
                 session.add(acct)
                 await session.flush()
                 external_map[name] = acct
@@ -198,7 +198,7 @@ async def seed():
                 description=None,
                 date=txn_data["date"],
                 amount_cents=txn_data["amount_cents"],
-                status="approved",
+                status=TransactionStatus.APPROVED,
                 category_id=cat.id if cat else None,
             )
             session.add(txn)
@@ -224,7 +224,7 @@ async def seed():
                 description=None,
                 date=date(2026, 3, 15 + i),
                 amount_cents=amount,
-                status="pending",
+                status=TransactionStatus.PENDING,
             )
             session.add(txn)
 

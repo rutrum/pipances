@@ -25,7 +25,8 @@ The upload form SHALL accept a CSV file, parse it using the selected importer, v
 - **WHEN** user selects an importer, an internal account, and a CSV file, then submits the form
 - **THEN** the system SHALL parse the CSV using the selected importer's `parse()` function
 - **THEN** the system SHALL validate the output against the ImportedTransaction schema
-- **THEN** the system SHALL skip rows that match existing transactions by `(date, amount_cents, raw_description)`
+- **THEN** the system SHALL convert decimal dollar amounts to integer cents using `int(round(amount * 100))` to avoid floating-point truncation errors
+- **THEN** the system SHALL skip rows that match existing transactions by `(date, amount_cents, raw_description, internal_account)`
 - **THEN** the system SHALL ingest remaining transactions as `pending` with `marked_for_approval=false`
 - **THEN** the user SHALL be redirected to the inbox page with import result summary
 
@@ -65,7 +66,8 @@ The upload form SHALL accept a CSV file, parse it using the selected importer, v
 
 #### Scenario: Upload with invalid CSV
 - **WHEN** user uploads a CSV that the importer cannot parse or that fails validation
-- **THEN** the system SHALL display an error message on the upload page
+- **THEN** the system SHALL display an HTML-escaped error message on the upload page
+- **THEN** error messages SHALL NOT render raw exception text as unescaped HTML
 - **THEN** no transactions SHALL be written to the database
 
 ### Requirement: Upload uses HTMX for form submission

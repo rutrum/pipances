@@ -13,7 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from financial_pipeline.db import async_session
-from financial_pipeline.models import Account, Import, Transaction
+from financial_pipeline.models import (
+    Account,
+    AccountKind,
+    Import,
+    Transaction,
+    TransactionStatus,
+)
 from financial_pipeline.predict import TransactionPredictor
 from financial_pipeline.schemas import ImportedTransaction
 
@@ -74,7 +80,7 @@ def discover_importers() -> dict[str, ImporterInfo]:
 
 
 async def _resolve_account(
-    session: AsyncSession, name: str, kind: str = "external"
+    session: AsyncSession, name: str, kind: str = AccountKind.EXTERNAL
 ) -> Account:
     account = await session.scalar(select(Account).where(Account.name == name))
     if account is None:
@@ -99,12 +105,12 @@ async def ingest(
 
     rows = df.to_dicts()
     for row in rows:
-        row["amount_cents"] = int(row["amount"] * 100)
+        row["amount_cents"] = int(round(row["amount"] * 100))
 
-    # Group incoming rows by dedup key
+    # Group incoming rows by dedup key (includes internal account)
     csv_counts: Counter[tuple] = Counter()
     for row in rows:
-        key = (row["date"], row["amount_cents"], row["description"])
+        key = (row["date"], row["amount_cents"], row["description"], internal_account)
         csv_counts[key] += 1
 
     async with async_session() as session:
@@ -123,6 +129,7 @@ async def ingest(
                 .where(Transaction.date == key[0])
                 .where(Transaction.amount_cents == key[1])
                 .where(Transaction.raw_description == key[2])
+                .where(Transaction.internal_id == internal.id)
             )
             db_counts[key] = count or 0
 
@@ -145,7 +152,12 @@ async def ingest(
         new_txn_ids: list[int] = []
 
         for row in rows:
-            key = (row["date"], row["amount_cents"], row["description"])
+            key = (
+                row["date"],
+                row["amount_cents"],
+                row["description"],
+                internal_account,
+            )
             if inserted_per_key[key] >= to_insert_per_key[key]:
                 continue
 
@@ -158,7 +170,7 @@ async def ingest(
                 description=None,
                 date=row["date"],
                 amount_cents=row["amount_cents"],
-                status="pending",
+                status=TransactionStatus.PENDING,
             )
             session.add(txn)
             await session.flush()
@@ -189,7 +201,7 @@ async def _predict_for_transactions(txn_ids: list[int]) -> None:
         # Load approved transactions as training data
         result = await session.execute(
             select(Transaction)
-            .where(Transaction.status == "approved")
+            .where(Transaction.status == TransactionStatus.APPROVED)
             .options(selectinload(Transaction.import_record))
         )
         approved = result.scalars().all()

@@ -2,9 +2,9 @@
   <div class="join">
     {% if page > 1 %}
       <button class="btn btn-sm join-item"
-              hx-get="/transactions"
-              hx-target="#txn-table-wrapper"
-              hx-include="#txn-filters"
+              hx-get="{{ pagination_url }}"
+              hx-target="{{ pagination_target }}"
+              hx-include="{{ pagination_include }}"
               hx-push-url="true"
               hx-vals='{"page": "{{ page - 1 }}"}'>« Prev</button>
     {% else %}
@@ -13,9 +13,9 @@
     <button class="btn btn-sm join-item btn-disabled">Page {{ page }} of {{ total_pages }}</button>
     {% if page < total_pages %}
       <button class="btn btn-sm join-item"
-              hx-get="/transactions"
-              hx-target="#txn-table-wrapper"
-              hx-include="#txn-filters"
+              hx-get="{{ pagination_url }}"
+              hx-target="{{ pagination_target }}"
+              hx-include="{{ pagination_include }}"
               hx-push-url="true"
               hx-vals='{"page": "{{ page + 1 }}"}'>Next »</button>
     {% else %}
@@ -25,9 +25,9 @@
   <div class="flex items-center gap-2">
     <span class="text-sm opacity-70 whitespace-nowrap">{{ total_count }} transactions</span>
     <select class="select select-bordered select-sm"
-            hx-get="/transactions"
-            hx-target="#txn-table-wrapper"
-            hx-include="#txn-filters"
+            hx-get="{{ pagination_url }}"
+            hx-target="{{ pagination_target }}"
+            hx-include="{{ pagination_include }}"
             hx-push-url="true"
             hx-vals='{"page": "1"}'
             name="page_size">

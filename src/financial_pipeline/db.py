@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from financial_pipeline.models import Base
@@ -15,6 +15,15 @@ DB_PATH = Path(
 DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
 engine = create_async_engine(DATABASE_URL)
+
+
+@event.listens_for(engine.sync_engine, "connect")
+def _set_sqlite_pragma(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys = ON")
+    cursor.close()
+
+
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -63,8 +72,3 @@ async def create_tables():
             await conn.execute(
                 text("ALTER TABLE transactions ADD COLUMN ml_confidence_external REAL")
             )
-
-
-async def get_session():
-    async with async_session() as session:
-        yield session

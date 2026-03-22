@@ -1,7 +1,20 @@
 from datetime import date, datetime
+from enum import StrEnum
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class TransactionStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+
+
+class AccountKind(StrEnum):
+    CHECKING = "checking"
+    SAVINGS = "savings"
+    CREDIT_CARD = "credit_card"
+    EXTERNAL = "external"
 
 
 class Base(DeclarativeBase):
@@ -66,9 +79,14 @@ class Transaction(Base):
     description: Mapped[str | None] = mapped_column(String)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    status: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        default=TransactionStatus.PENDING,
+        server_default="pending",
+    )
     marked_for_approval: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
+        Boolean, nullable=False, default=False, server_default="0"
     )
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True

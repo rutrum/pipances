@@ -35,25 +35,31 @@ setup: sync css
 
 # Lint Python (ruff) and templates (djlint)
 lint:
-    uv run ruff check src/ importers/
+    uv run ruff check src/ importers/ tests/
     uv run djlint src/financial_pipeline/templates/ --lint
 
 # Format Python (ruff) and templates (djlint)
 fmt:
-    uv run ruff format src/ importers/
-    uv run ruff check --fix src/ importers/
+    uv run ruff format src/ importers/ tests/
+    uv run ruff check --fix src/ importers/ tests/
     uv run djlint src/financial_pipeline/templates/ --reformat
 
 # Delete the database file
 reset-db:
     rm -f financial_pipeline.db
 
-# Reset the database and seed with test data
+# Reset the database and seed with test data; will trigger server hot-reload
 seed: reset-db
     uv run python scripts/seed.py
+    touch src/financial_pipeline/__init__.py
+
+# Run tests
+test:
+    uv run pytest tests/ -v
 
 # Full check (CI-style, exits non-zero on issues)
 check:
-    uv run ruff format --check src/ importers/
-    uv run ruff check src/ importers/
+    uv run ruff format --check src/ importers/ tests/
+    uv run ruff check src/ importers/ tests/
     uv run djlint src/financial_pipeline/templates/ --lint
+    uv run pytest tests/

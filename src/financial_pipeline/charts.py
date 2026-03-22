@@ -6,12 +6,10 @@ def compute_stats(df: pl.DataFrame) -> dict:
     total_income = df.filter(pl.col("amount_cents") > 0)["amount_cents"].sum() or 0
     total_expenses = df.filter(pl.col("amount_cents") < 0)["amount_cents"].sum() or 0
     net = total_income + total_expenses
-    net_total = df["amount_cents"].sum() or 0
     return {
         "total_income": total_income,
         "total_expenses": total_expenses,
         "net": net,
-        "net_total": net_total,
     }
 
 

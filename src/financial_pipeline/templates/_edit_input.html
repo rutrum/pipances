@@ -1,0 +1,11 @@
+{% set q = "'" %}
+<input type="{{ input_type|default('text') }}"
+       {% if step %}step="{{ step }}"{% endif %}
+       class="{{ input_class|default('input input-bordered input-sm w-full') }}"
+       name="{{ field_name }}"
+       value="{{ value }}"
+       hx-patch="{{ endpoint }}"
+       hx-target="{{ target }}"
+       hx-swap="outerHTML"
+       hx-trigger="{{ trigger|default('blur, keyup[key==' ~ q ~ 'Enter' ~ q ~ ']') }}"
+       autofocus>

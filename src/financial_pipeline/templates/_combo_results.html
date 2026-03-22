@@ -4,7 +4,7 @@
        hx-patch="/transactions/{{ txn_id }}"
        hx-target="#txn-{{ txn_id }}"
        hx-swap="outerHTML"
-       hx-vals='{"{{ field_name }}": "{{ item.name }}"}'>{{ item.name }}</div>
+       hx-vals='{{ {field_name: item.name}|tojson }}'>{{ item.name }}</div>
 {% endfor %}
 {% if query and not exact_match %}
   <div data-combo-item
@@ -12,7 +12,7 @@
        hx-patch="/transactions/{{ txn_id }}"
        hx-target="#txn-{{ txn_id }}"
        hx-swap="outerHTML"
-       hx-vals='{"{{ field_name }}": "{{ query }}"}'>
+       hx-vals='{{ {field_name: query}|tojson }}'>
     <span class="text-success font-bold">+</span> Create "{{ query }}"
   </div>
 {% endif %}
