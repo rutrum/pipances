@@ -6,6 +6,7 @@ pkgs.mkShell {
     just
     perSystem.self.agent-browser
     perSystem.self.skills
+    sqlite
   ];
   env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
     pkgs.stdenv.cc.cc.lib

@@ -29,6 +29,12 @@ The upload form SHALL accept a CSV file, parse it using the selected importer, v
 - **THEN** the system SHALL ingest remaining transactions as `pending` with `marked_for_approval=false`
 - **THEN** the user SHALL be redirected to the inbox page with import result summary
 
+#### Scenario: Import triggers ML prediction
+- **WHEN** CSV import successfully inserts new pending transactions
+- **THEN** the system SHALL run the ML prediction engine on the newly inserted transactions before redirecting to inbox
+- **THEN** predicted fields (description, category, external account) SHALL be pre-populated with confidence scores where the model has sufficient confidence
+- **THEN** the import result summary SHALL continue to display as before (prediction is transparent to the summary)
+
 #### Scenario: Upload with identical same-file rows
 - **WHEN** user uploads a CSV containing multiple rows with the same date, amount, and description
 - **THEN** the system SHALL treat all same-file duplicates as distinct real transactions

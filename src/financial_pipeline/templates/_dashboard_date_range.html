@@ -1,4 +1,5 @@
-<div id="dashboard-date-range" class="mb-4">
+<div id="dashboard-date-range"
+     class="mb-4 flex flex-wrap items-center gap-2">
   <div class="join">
     <button class="btn join-item {% if preset == 'last_month' %}btn-active{% endif %}"
             hx-get="/dashboard/content"
@@ -29,7 +30,7 @@
             onclick="document.getElementById('dashboard-custom-range').classList.toggle('hidden')">Custom</button>
   </div>
   <div id="dashboard-custom-range"
-       class="{% if preset != 'custom' %}hidden{% endif %} mt-2 flex items-center gap-2">
+       class="{% if preset != 'custom' %}hidden{% endif %} flex items-center gap-2">
     <input type="date"
            name="date_from"
            value="{{ date_from }}"

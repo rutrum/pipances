@@ -16,9 +16,19 @@ css-watch:
 sync:
     uv sync
 
-# Run the dev server
-serve: css
+# Run the dev server (kills any existing instance first)
+serve: css _kill-server
     uv run python -m financial_pipeline.main
+
+# Kill any running dev server on port 8097
+_kill-server:
+    #!/usr/bin/env bash
+    pids=$(ss -tlnp 2>/dev/null | grep ':8097 ' | grep -oP 'pid=\K\d+' | sort -u)
+    if [ -n "$pids" ]; then
+        echo "Killing existing server(s) on port 8097: $pids"
+        echo "$pids" | xargs kill 2>/dev/null
+        sleep 1
+    fi
 
 # Build CSS and sync deps (fresh checkout setup)
 setup: sync css

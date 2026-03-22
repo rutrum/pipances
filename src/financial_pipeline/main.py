@@ -753,9 +753,18 @@ async def combo_search(entity: str, request: Request):
 
 @app.get("/inbox", response_class=HTMLResponse)
 async def inbox_page(request: Request):
+    params = request.query_params
+    date_from_str = params.get("date_from", "").strip()
+    date_to_str = params.get("date_to", "").strip()
+    internal_id = params.get("internal_id", "").strip()
+    import_id = params.get("import_id", "").strip()
+    sort_col = params.get("sort", "date")
+    sort_dir = params.get("dir", "asc")
+    page = int(params.get("page", "1"))
+    page_size = int(params.get("page_size", "25"))
+
     async with async_session() as session:
-        shared = await shared_context("inbox", session)
-        result = await session.execute(
+        query = (
             select(Transaction)
             .where(Transaction.status == "pending")
             .options(
@@ -763,8 +772,43 @@ async def inbox_page(request: Request):
                 selectinload(Transaction.external),
                 selectinload(Transaction.category),
             )
-            .order_by(Transaction.date)
         )
+
+        count_query = (
+            select(func.count())
+            .select_from(Transaction)
+            .where(Transaction.status == "pending")
+        )
+
+        if date_from_str:
+            query = query.where(Transaction.date >= date.fromisoformat(date_from_str))
+            count_query = count_query.where(
+                Transaction.date >= date.fromisoformat(date_from_str)
+            )
+        if date_to_str:
+            query = query.where(Transaction.date <= date.fromisoformat(date_to_str))
+            count_query = count_query.where(
+                Transaction.date <= date.fromisoformat(date_to_str)
+            )
+        if internal_id:
+            query = query.where(Transaction.internal_id == int(internal_id))
+            count_query = count_query.where(Transaction.internal_id == int(internal_id))
+        if import_id:
+            query = query.where(Transaction.import_id == int(import_id))
+            count_query = count_query.where(Transaction.import_id == int(import_id))
+
+        col = SORT_COLUMNS.get(sort_col, Transaction.date)
+        if sort_dir == "desc":
+            query = query.order_by(col.desc())
+        else:
+            query = query.order_by(col.asc())
+
+        total_count = await session.scalar(count_query)
+        total_pages = max(1, ceil(total_count / page_size))
+        page = min(page, total_pages)
+        offset = (page - 1) * page_size
+
+        result = await session.execute(query.offset(offset).limit(page_size))
         transactions = result.scalars().all()
 
         # Filter dropdown data
@@ -780,66 +824,56 @@ async def inbox_page(request: Request):
         )
         imports = import_result.scalars().all()
 
-    params = request.query_params
+        shared = await shared_context("inbox", session)
+
     toast = params.get("toast")
-    return templates.TemplateResponse(
-        request,
-        "inbox.html",
-        {
-            "transactions": transactions,
-            "internal_accounts": internal_accounts,
-            "imports": imports,
-            "toast": toast,
-            "import_summary": {
-                "imported": params.get("imported"),
-                "duplicates": params.get("duplicates"),
-                "date_min": params.get("date_min"),
-                "date_max": params.get("date_max"),
-                "account": params.get("account"),
-            }
-            if toast == "upload_success"
-            else None,
-            **shared,
-        },
-    )
+    ctx = {
+        "transactions": transactions,
+        "internal_accounts": internal_accounts,
+        "imports": imports,
+        "date_from": date_from_str,
+        "date_to": date_to_str,
+        "internal_id": internal_id,
+        "import_id": import_id,
+        "sort": sort_col,
+        "dir": sort_dir,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "total_count": total_count,
+        "toast": toast,
+        "import_summary": {
+            "imported": params.get("imported"),
+            "duplicates": params.get("duplicates"),
+            "date_min": params.get("date_min"),
+            "date_max": params.get("date_max"),
+            "account": params.get("account"),
+        }
+        if toast == "upload_success"
+        else None,
+    }
 
-
-@app.get("/inbox/rows", response_class=HTMLResponse)
-async def inbox_rows(request: Request):
-    params = request.query_params
-    date_from = params.get("date_from", "").strip()
-    date_to = params.get("date_to", "").strip()
-    internal_id = params.get("internal_id", "").strip()
-    import_id = params.get("import_id", "").strip()
-
-    async with async_session() as session:
-        query = (
-            select(Transaction)
-            .where(Transaction.status == "pending")
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-            )
-            .order_by(Transaction.date)
+    is_htmx = request.headers.get("HX-Request") == "true"
+    if is_htmx:
+        rows = ""
+        for txn in transactions:
+            rows += templates.get_template("_inbox_row.html").render({"txn": txn})
+        pagination = templates.get_template("_inbox_pagination.html").render(ctx)
+        pagination_oob = pagination.replace(
+            '<div class="flex items-center justify-between mt-4">',
+            '<div id="inbox-pagination" hx-swap-oob="outerHTML:#inbox-pagination" class="flex items-center justify-between mt-4">',
+            1,
         )
+        thead = templates.get_template("_inbox_thead.html").render(ctx)
+        thead_oob = thead.replace(
+            '<tr id="inbox-thead">',
+            '<tr id="inbox-thead" hx-swap-oob="outerHTML:#inbox-thead">',
+            1,
+        )
+        return HTMLResponse(rows + pagination_oob + thead_oob)
 
-        if date_from:
-            query = query.where(Transaction.date >= date.fromisoformat(date_from))
-        if date_to:
-            query = query.where(Transaction.date <= date.fromisoformat(date_to))
-        if internal_id:
-            query = query.where(Transaction.internal_id == int(internal_id))
-        if import_id:
-            query = query.where(Transaction.import_id == int(import_id))
-
-        result = await session.execute(query)
-        transactions = result.scalars().all()
-
-    rows = ""
-    for txn in transactions:
-        rows += templates.get_template("_inbox_row.html").render({"txn": txn})
-    return HTMLResponse(rows)
+    ctx |= shared
+    return templates.TemplateResponse(request, "inbox.html", ctx)
 
 
 @app.patch("/transactions/bulk", response_class=HTMLResponse)
@@ -992,7 +1026,7 @@ async def update_transaction(txn_id: int, request: Request):
 async def edit_description(txn_id: int):
     async with async_session() as session:
         txn = await session.get(Transaction, txn_id)
-    return HTMLResponse(f'''<input type="text" class="input input-bordered input-sm w-full"
+    return HTMLResponse(f'''<input type="text" class="w-full bg-transparent p-0 text-sm border-0 border-b border-transparent focus:border-base-300 outline-none transition-colors"
         name="description" value="{txn.description or ""}"
         hx-patch="/transactions/{txn_id}" hx-target="#txn-{txn_id}" hx-swap="outerHTML"
         hx-trigger="blur, keyup[key=='Enter']" autofocus>''')

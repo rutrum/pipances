@@ -51,3 +51,9 @@ There should still be a way to define one-off transactions.  Like a form you fil
 
 ## Maybe we should have a test bed
 some automated UI testing might help.  We already have test data.
+
+## Add a NixosConfiguration module
+I want to do .enable in my config.  I might want to set other things, like location of the DB and the location of the importers.
+
+## More details on ML results
+I want to drill down onto all results and see what the best guesses were for the ML model.  Even better if I can pick from them.  Maybe thats the default drop down when I enter an empty value: I get the top 5 closest with the percentage confidence next to each.  That'd be cool.

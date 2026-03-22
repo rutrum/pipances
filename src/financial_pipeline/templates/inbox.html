@@ -47,54 +47,82 @@
       <div id="commit-dialog-container"></div>
       <div id="inbox-message"></div>
       <div id="filter-bar"
-           class="flex items-center gap-4 p-3 bg-base-200 rounded-lg mb-2">
+           class="flex flex-wrap items-center gap-4 p-3 bg-base-200 rounded-lg mb-2">
         <span class="text-sm font-semibold whitespace-nowrap">Filter:</span>
+        <input type="hidden"
+               id="filter-sort"
+               name="sort"
+               value="{{ sort|default('date') }}">
+        <input type="hidden"
+               id="filter-dir"
+               name="dir"
+               value="{{ dir|default('asc') }}">
+        <input type="hidden"
+               id="filter-page"
+               name="page"
+               value="{{ page|default(1) }}">
+        <input type="hidden"
+               id="filter-page-size"
+               name="page_size"
+               value="{{ page_size|default(25) }}">
         <input type="date"
                id="filter-date-from"
                name="date_from"
+               value="{{ date_from|default('') }}"
                class="input input-bordered input-sm"
                placeholder="From"
-               hx-get="/inbox/rows"
+               hx-get="/inbox"
                hx-trigger="change"
                hx-target="#inbox-table"
                hx-swap="innerHTML"
-               hx-include="#filter-bar">
+               hx-include="#filter-bar"
+               hx-push-url="true">
         <input type="date"
                id="filter-date-to"
                name="date_to"
+               value="{{ date_to|default('') }}"
                class="input input-bordered input-sm"
                placeholder="To"
-               hx-get="/inbox/rows"
+               hx-get="/inbox"
                hx-trigger="change"
                hx-target="#inbox-table"
                hx-swap="innerHTML"
-               hx-include="#filter-bar">
+               hx-include="#filter-bar"
+               hx-push-url="true">
         <select id="filter-internal"
                 name="internal_id"
                 class="select select-bordered select-sm"
-                hx-get="/inbox/rows"
+                hx-get="/inbox"
                 hx-trigger="change"
                 hx-target="#inbox-table"
                 hx-swap="innerHTML"
-                hx-include="#filter-bar">
+                hx-include="#filter-bar"
+                hx-push-url="true">
           <option value="">All accounts</option>
-          {% for acct in internal_accounts %}<option value="{{ acct.id }}">{{ acct.name }}</option>{% endfor %}
+          {% for acct in internal_accounts %}
+            <option value="{{ acct.id }}"
+                    {% if internal_id|default('') == acct.id|string %}selected{% endif %}>{{ acct.name }}</option>
+          {% endfor %}
         </select>
         <select id="filter-import"
                 name="import_id"
                 class="select select-bordered select-sm"
-                hx-get="/inbox/rows"
+                hx-get="/inbox"
                 hx-trigger="change"
                 hx-target="#inbox-table"
                 hx-swap="innerHTML"
-                hx-include="#filter-bar">
+                hx-include="#filter-bar"
+                hx-push-url="true">
           <option value="">All imports</option>
           {% for imp in imports %}
-            <option value="{{ imp.id }}">{{ imp.institution }} ({{ imp.imported_at.strftime("%Y-%m-%d") }})</option>
+            <option value="{{ imp.id }}"
+                    {% if import_id|default('') == imp.id|string %}selected{% endif %}>
+              {{ imp.institution }} ({{ imp.imported_at.strftime("%Y-%m-%d") }})
+            </option>
           {% endfor %}
         </select>
         <button class="btn btn-sm btn-ghost"
-                onclick="document.getElementById('filter-date-from').value=''; document.getElementById('filter-date-to').value=''; document.getElementById('filter-internal').value=''; document.getElementById('filter-import').value=''; htmx.ajax('GET', '/inbox/rows', {target: '#inbox-table', swap: 'innerHTML'})">
+                onclick="document.getElementById('filter-date-from').value=''; document.getElementById('filter-date-to').value=''; document.getElementById('filter-internal').value=''; document.getElementById('filter-import').value=''; document.getElementById('filter-sort').value='date'; document.getElementById('filter-dir').value='asc'; document.getElementById('filter-page').value='1'; htmx.ajax('GET', '/inbox', {target: '#inbox-table', swap: 'innerHTML'}); history.pushState({}, '', '/inbox')">
           Clear
         </button>
       </div>
@@ -123,19 +151,7 @@
       </div>
       <table class="table table-fixed w-full">
         <thead>
-          <tr>
-            <th class="w-[4%]">
-              <label>
-                <input type="checkbox" id="select-all" class="checkbox">
-              </label>
-            </th>
-            <th class="w-[11%]">Date</th>
-            <th class="w-[9%]">Amount</th>
-            <th class="w-[28%]">Description</th>
-            <th class="w-[15%]">Category</th>
-            <th class="w-[19%]">External</th>
-            <th class="w-[14%]"></th>
-          </tr>
+          {% include "_inbox_thead.html" %}
         </thead>
         <tbody id="inbox-table">
           {% for txn in transactions %}
@@ -143,6 +159,7 @@
           {% endfor %}
         </tbody>
       </table>
+      <div id="inbox-pagination">{% include "_inbox_pagination.html" %}</div>
       <script>
       (function() {
         var selectAll = document.getElementById('select-all');

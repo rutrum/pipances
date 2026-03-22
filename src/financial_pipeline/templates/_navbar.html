@@ -4,14 +4,13 @@
   </div>
   <div class="flex-none">
     <ul class="menu menu-horizontal px-1">
-      {% set nav_active = "font-bold border-b-2 border-primary text-primary" %}
       <li>
         <a href="/upload"
-           {% if active_page == 'upload' %}class="{{ nav_active }}"{% endif %}><i data-lucide="upload" class="w-4 h-4"></i> Upload</a>
+           {% if active_page == 'upload' %}class="active"{% endif %}><i data-lucide="upload" class="w-4 h-4"></i> Upload</a>
       </li>
       <li>
         <a href="/inbox"
-           {% if active_page == 'inbox' %}class="{{ nav_active }}"{% endif %}>
+           {% if active_page == 'inbox' %}class="active"{% endif %}>
           <i data-lucide="inbox" class="w-4 h-4"></i> Inbox
           <span id="inbox-badge">
             {% if inbox_count %}<span class="badge badge-sm badge-primary">{{ inbox_count }}</span>{% endif %}
@@ -20,15 +19,15 @@
       </li>
       <li>
         <a href="/transactions"
-           {% if active_page == 'transactions' %}class="{{ nav_active }}"{% endif %}><i data-lucide="list" class="w-4 h-4"></i> Transactions</a>
+           {% if active_page == 'transactions' %}class="active"{% endif %}><i data-lucide="list" class="w-4 h-4"></i> Transactions</a>
       </li>
       <li>
         <a href="/dashboard"
-           {% if active_page == 'dashboard' %}class="{{ nav_active }}"{% endif %}><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Dashboard</a>
+           {% if active_page == 'dashboard' %}class="active"{% endif %}><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Dashboard</a>
       </li>
       <li>
         <a href="/settings"
-           {% if active_page == 'settings' %}class="{{ nav_active }}"{% endif %}><i data-lucide="settings" class="w-4 h-4"></i> Settings</a>
+           {% if active_page == 'settings' %}class="active"{% endif %}><i data-lucide="settings" class="w-4 h-4"></i> Settings</a>
       </li>
     </ul>
   </div>

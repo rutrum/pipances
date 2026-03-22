@@ -1,6 +1,6 @@
 <div class="combo-box relative">
   <input type="text"
-         class="input input-bordered input-sm w-full"
+         class="w-full bg-transparent p-0 text-sm border-0 border-b border-transparent focus:border-base-300 outline-none transition-colors"
          value="{{ current_value }}"
          autocomplete="off"
          hx-get="/api/combo/{{ entity }}?txn_id={{ txn_id }}&field={{ field_name }}"
