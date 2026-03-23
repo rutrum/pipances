@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}
+  Import - Pipances
+{% endblock title %}
+{% block content %}
+  <div class="container mx-auto p-6 max-w-3xl">
+    <h1 class="text-2xl font-bold mb-4">Import Transactions</h1>
+    <div role="tablist" class="tabs tabs-border mb-6">
+      <a role="tab"
+         class="tab {% if import_tab == 'csv' %}tab-active{% endif %}"
+         hx-get="/import/csv"
+         hx-target="#import-content"
+         hx-push-url="/import"
+         onclick="this.closest('[role=tablist]').querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active')); this.classList.add('tab-active')">CSV Upload</a>
+      <a role="tab"
+         class="tab {% if import_tab == 'manual' %}tab-active{% endif %}"
+         hx-get="/import/manual"
+         hx-target="#import-content"
+         hx-push-url="/import"
+         onclick="this.closest('[role=tablist]').querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active')); this.classList.add('tab-active')">Manual Entry</a>
+    </div>
+    <div id="import-content">{{ import_content_html | safe }}</div>
+  </div>
+{% endblock content %}

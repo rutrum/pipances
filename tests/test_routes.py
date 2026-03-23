@@ -162,41 +162,40 @@ async def test_old_transactions_returns_404(client, seed_accounts):
     assert resp.status_code == 404
 
 
-# === Upload ===
+# === Import Page ===
 
 
-async def test_upload_page_get_200(client, seed_accounts):
-    resp = await client.get("/upload")
+async def test_import_page_get_200(client, seed_accounts):
+    resp = await client.get("/import")
     assert resp.status_code == 200
 
 
-async def test_upload_missing_file(client, seed_accounts):
+async def test_import_preview_missing_file(client, seed_accounts):
+    resp = await client.post("/import/preview")
+    assert resp.status_code == 422
+
+
+async def test_import_commit_unknown_importer(client, seed_accounts):
     resp = await client.post(
-        "/upload",
-        data={"importer": "test", "account": "Checking"},
+        "/import/commit",
+        data={"importer": "nonexistent", "account": "Checking", "token": "faketoken"},
     )
     assert resp.status_code == 422
 
 
-async def test_upload_unknown_importer(client, seed_accounts):
+async def test_import_preview_does_not_leak_internals(client, seed_accounts):
     resp = await client.post(
-        "/upload",
-        data={"importer": "nonexistent", "account": "Checking"},
-        files={"file": ("test.csv", b"dummy,data", "text/csv")},
-    )
-    assert resp.status_code == 422
-    assert "Unknown importer" in resp.text
-
-
-async def test_upload_error_does_not_leak_internals(client, seed_accounts):
-    resp = await client.post(
-        "/upload",
-        data={"importer": "nonexistent", "account": "Checking"},
+        "/import/preview",
         files={"file": ("test.csv", b"bad,data,here\n1,2,3", "text/csv")},
     )
     assert resp.status_code == 422
     assert "Traceback" not in resp.text
-    assert "Error" not in resp.text or "alert" in resp.text
+    assert "alert" in resp.text
+
+
+async def test_old_upload_returns_404(client, seed_accounts):
+    resp = await client.get("/upload")
+    assert resp.status_code == 404
 
 
 # === Data: Accounts ===

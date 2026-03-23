@@ -18,19 +18,19 @@
             hx-target="#explore-content"
             hx-include="#explore-filters, #pagination-page-size"
             hx-push-url="true"
-            hx-vals='{"preset": "last_month", "page": "1"}'>Last Month</button>
+            hx-vals='{"preset": "last_month", "page": "1"}'>Last 30 Days</button>
     <button class="btn join-item {% if preset == 'last_3_months' %}btn-active{% endif %}"
             hx-get="/explore"
             hx-target="#explore-content"
             hx-include="#explore-filters, #pagination-page-size"
             hx-push-url="true"
-            hx-vals='{"preset": "last_3_months", "page": "1"}'>Last 3 Months</button>
+            hx-vals='{"preset": "last_3_months", "page": "1"}'>Last 90 Days</button>
     <button class="btn join-item {% if preset == 'last_year' %}btn-active{% endif %}"
             hx-get="/explore"
             hx-target="#explore-content"
             hx-include="#explore-filters, #pagination-page-size"
             hx-push-url="true"
-            hx-vals='{"preset": "last_year", "page": "1"}'>Last Year</button>
+            hx-vals='{"preset": "last_year", "page": "1"}'>Last 365 Days</button>
     <button class="btn join-item {% if preset == 'custom' %}btn-active{% endif %}"
             onclick="document.getElementById('explore-custom-range').classList.toggle('hidden')">Custom</button>
   </div>

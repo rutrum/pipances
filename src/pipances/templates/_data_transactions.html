@@ -17,7 +17,7 @@
 {% endmacro %}
 {% macro filter_header(column, label, accounts, current_filter) %}
   <th>
-    <div class="dropdown">
+    <div class="dropdown dropdown-top dropdown-end">
       <div tabindex="0"
            role="button"
            class="flex items-center gap-1 cursor-pointer select-none">
@@ -76,19 +76,19 @@
             hx-target="#data-content"
             hx-include="#data-txn-filters, #pagination-page-size"
             hx-push-url="true"
-            hx-vals='{"preset": "last_month", "page": "1"}'>Last Month</button>
+            hx-vals='{"preset": "last_month", "page": "1"}'>Last 30 Days</button>
     <button class="btn join-item {% if preset == 'last_3_months' %}btn-active{% endif %}"
             hx-get="/data/transactions"
             hx-target="#data-content"
             hx-include="#data-txn-filters, #pagination-page-size"
             hx-push-url="true"
-            hx-vals='{"preset": "last_3_months", "page": "1"}'>Last 3 Months</button>
+            hx-vals='{"preset": "last_3_months", "page": "1"}'>Last 90 Days</button>
     <button class="btn join-item {% if preset == 'last_year' %}btn-active{% endif %}"
             hx-get="/data/transactions"
             hx-target="#data-content"
             hx-include="#data-txn-filters, #pagination-page-size"
             hx-push-url="true"
-            hx-vals='{"preset": "last_year", "page": "1"}'>Last Year</button>
+            hx-vals='{"preset": "last_year", "page": "1"}'>Last 365 Days</button>
     <button class="btn join-item {% if preset == 'custom' %}btn-active{% endif %}"
             onclick="document.getElementById('data-txn-custom-range').classList.toggle('hidden')">Custom</button>
   </div>
@@ -121,9 +121,14 @@
 {% if not transactions %}
   <div class="alert alert-info mt-4">
     <span>No transactions found for the selected filters.</span>
+    <button class="btn btn-ghost btn-sm"
+            hx-get="/data/transactions"
+            hx-target="#data-content"
+            hx-push-url="true"
+            hx-vals='{"preset": "all", "page": "1"}'>Clear filters</button>
   </div>
 {% else %}
-  <div class="overflow-x-auto">
+  <div class="overflow-visible">
     <table class="table table-zebra w-full">
       <thead>
         <tr>
@@ -131,7 +136,7 @@
           {{ sort_header('amount', 'Amount ($)') }}
           {{ sort_header('description', 'Description') }}
           <th>
-            <div class="dropdown">
+            <div class="dropdown dropdown-top dropdown-end">
               <div tabindex="0"
                    role="button"
                    class="flex items-center gap-1 cursor-pointer select-none">

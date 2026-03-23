@@ -28,9 +28,9 @@ def patch_db(engine, monkeypatch):
     import pipances.ingest as ingest_mod
     import pipances.routes.data as data_mod
     import pipances.routes.explore as explore_mod
+    import pipances.routes.import_page as import_page_mod
     import pipances.routes.inbox as inbox_mod
     import pipances.routes.transactions as transactions_mod
-    import pipances.routes.upload as upload_mod
     import pipances.routes.widgets as widgets_mod
 
     monkeypatch.setattr(db_mod, "async_session", test_session)
@@ -39,7 +39,7 @@ def patch_db(engine, monkeypatch):
     monkeypatch.setattr(inbox_mod, "async_session", test_session)
     monkeypatch.setattr(data_mod, "async_session", test_session)
     monkeypatch.setattr(transactions_mod, "async_session", test_session)
-    monkeypatch.setattr(upload_mod, "async_session", test_session)
+    monkeypatch.setattr(import_page_mod, "async_session", test_session)
     monkeypatch.setattr(widgets_mod, "async_session", test_session)
 
 

@@ -1,0 +1,82 @@
+{% if not accounts %}
+  <div class="alert alert-warning">
+    <span>No accounts available.
+      <a href="/data/accounts" class="link link-primary">Create an account</a> first.</span>
+  </div>
+{% else %}
+  <form hx-post="/import/manual"
+        hx-target="#manual-error"
+        hx-target-422="#manual-error">
+    <div class="form-control w-full mb-4">
+      <label class="label">
+        <span class="label-text">Account</span>
+      </label>
+      <select name="account" class="select select-bordered w-full" required>
+        <option disabled selected value="">Select an account</option>
+        {% for account in accounts %}<option value="{{ account.name }}">{{ account.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="overflow-x-auto mb-4">
+      <table class="table table-zebra w-full" id="manual-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Description</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="manual-rows">
+          <tr>
+            <td>
+              <input type="date"
+                     name="date[]"
+                     class="input input-bordered input-sm w-full" />
+            </td>
+            <td>
+              <input type="number"
+                     name="amount[]"
+                     step="0.01"
+                     class="input input-bordered input-sm w-full"
+                     placeholder="0.00" />
+            </td>
+            <td>
+              <input type="text"
+                     name="description[]"
+                     class="input input-bordered input-sm w-full"
+                     placeholder="Description" />
+            </td>
+            <td>
+              <button type="button"
+                      class="btn btn-ghost btn-sm"
+                      onclick="this.closest('tr').remove()">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex justify-between items-center">
+      <button type="button" class="btn btn-outline btn-sm" id="add-row-btn">+ Add Row</button>
+      <button type="submit" class="btn btn-primary">Add to Inbox</button>
+    </div>
+    <div id="manual-error" class="mt-4"></div>
+  </form>
+  <script>
+    (function () {
+      var btn = document.getElementById("add-row-btn");
+      var tbody = document.getElementById("manual-rows");
+      btn.addEventListener("click", function () {
+        var row = document.createElement("tr");
+        row.innerHTML =
+          '<td><input type="date" name="date[]" class="input input-bordered input-sm w-full" /></td>' +
+          '<td><input type="number" name="amount[]" step="0.01" class="input input-bordered input-sm w-full" placeholder="0.00" /></td>' +
+          '<td><input type="text" name="description[]" class="input input-bordered input-sm w-full" placeholder="Description" /></td>' +
+          '<td><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove()"><i data-lucide="x" class="w-4 h-4"></i></button></td>';
+        tbody.appendChild(row);
+        if (window.lucide) lucide.createIcons();
+      });
+    })();
+  </script>
+{% endif %}

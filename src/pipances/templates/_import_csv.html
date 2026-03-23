@@ -1,0 +1,24 @@
+{% if not accounts %}
+  <div class="alert alert-warning">
+    <span>No accounts available.
+      <a href="/data/accounts" class="link link-primary">Create an account</a> first.</span>
+  </div>
+{% else %}
+  <form hx-post="/import/preview"
+        hx-encoding="multipart/form-data"
+        hx-target="#csv-preview"
+        hx-target-422="#csv-preview">
+    <div class="form-control w-full mb-4">
+      <label class="label">
+        <span class="label-text">CSV File</span>
+      </label>
+      <input type="file"
+             name="file"
+             class="file-input file-input-bordered w-full"
+             accept=".csv"
+             required />
+    </div>
+    <button type="submit" class="btn btn-primary">Scan File</button>
+  </form>
+  <div id="csv-preview" class="mt-6"></div>
+{% endif %}

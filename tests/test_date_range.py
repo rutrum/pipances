@@ -26,25 +26,25 @@ def test_preset_ytd():
 def test_preset_last_month():
     with _freeze(date(2026, 3, 15)):
         result = compute_date_range("last_month", None, None)
-    assert result == (date(2026, 2, 1), date(2026, 2, 28))
+    assert result == (date(2026, 2, 14), date(2026, 3, 15))
 
 
 def test_preset_last_month_january():
     with _freeze(date(2026, 1, 10)):
         result = compute_date_range("last_month", None, None)
-    assert result == (date(2025, 12, 1), date(2025, 12, 31))
+    assert result == (date(2025, 12, 12), date(2026, 1, 10))
 
 
 def test_preset_last_3_months():
     with _freeze(date(2026, 3, 15)):
         result = compute_date_range("last_3_months", None, None)
-    assert result == (date(2025, 12, 1), date(2026, 3, 15))
+    assert result == (date(2025, 12, 16), date(2026, 3, 15))
 
 
 def test_preset_last_year():
     with _freeze(date(2026, 3, 15)):
         result = compute_date_range("last_year", None, None)
-    assert result == (date(2025, 1, 1), date(2025, 12, 31))
+    assert result == (date(2025, 3, 16), date(2026, 3, 15))
 
 
 def test_preset_custom_valid():

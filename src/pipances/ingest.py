@@ -79,6 +79,85 @@ def discover_importers() -> dict[str, ImporterInfo]:
     return importers
 
 
+def try_all_importers(blob: bytes) -> dict[str, dict]:
+    """Try every discovered importer against the given file bytes.
+
+    Returns a dict keyed by module_name with:
+      - success: bool
+      - name: importer display name
+      - df: validated DataFrame (if success)
+      - error: error message (if failure)
+    """
+    importers = discover_importers()
+    results: dict[str, dict] = {}
+    for key, info in importers.items():
+        try:
+            df = info.parse(blob)
+            df = ImportedTransaction.validate(df)
+            results[key] = {"success": True, "name": info.name, "df": df}
+        except Exception as e:
+            results[key] = {"success": False, "name": info.name, "error": str(e)}
+    return results
+
+
+async def preview_dedup(
+    df: pt.DataFrame[ImportedTransaction],
+    internal_account: str,
+) -> list[bool]:
+    """Check which rows in df are duplicates of existing DB transactions.
+
+    Returns a list of bools parallel to df rows: True = duplicate, False = new.
+    Does NOT write anything to the database.
+    """
+    ImportedTransaction.validate(df)
+    rows = df.to_dicts()
+    for row in rows:
+        row["amount_cents"] = int(round(row["amount"] * 100))
+
+    # Group incoming rows by dedup key
+    csv_counts: Counter[tuple] = Counter()
+    for row in rows:
+        key = (row["date"], row["amount_cents"], row["description"], internal_account)
+        csv_counts[key] += 1
+
+    async with async_session() as session:
+        internal = await session.scalar(
+            select(Account).where(Account.name == internal_account)
+        )
+        if internal is None:
+            raise ValueError(f"Internal account {internal_account!r} not found")
+
+        db_counts: dict[tuple, int] = {}
+        for key in csv_counts:
+            count = await session.scalar(
+                select(func.count())
+                .select_from(Transaction)
+                .where(Transaction.date == key[0])
+                .where(Transaction.amount_cents == key[1])
+                .where(Transaction.raw_description == key[2])
+                .where(Transaction.internal_id == internal.id)
+            )
+            db_counts[key] = count or 0
+
+        # Determine how many to insert per key
+        to_insert_per_key: dict[tuple, int] = {}
+        for key, csv_count in csv_counts.items():
+            to_insert_per_key[key] = max(0, csv_count - db_counts.get(key, 0))
+
+    # Walk rows in order, marking which ones would be duplicates
+    inserted_per_key: Counter[tuple] = Counter()
+    flags: list[bool] = []
+    for row in rows:
+        key = (row["date"], row["amount_cents"], row["description"], internal_account)
+        if inserted_per_key[key] >= to_insert_per_key[key]:
+            flags.append(True)  # duplicate
+        else:
+            flags.append(False)  # new
+            inserted_per_key[key] += 1
+
+    return flags
+
+
 async def _resolve_account(
     session: AsyncSession, name: str, kind: str = AccountKind.EXTERNAL
 ) -> Account:

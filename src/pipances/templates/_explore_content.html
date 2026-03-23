@@ -1,6 +1,11 @@
 {% if not has_data %}
   <div class="alert alert-info">
     <span>No transactions match the current filters.</span>
+    <button class="btn btn-ghost btn-sm"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-push-url="true"
+            hx-vals='{"preset": "all", "page": "1"}'>Clear filters</button>
   </div>
 {% else %}
   {# Stats Row #}

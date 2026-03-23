@@ -1,7 +1,4 @@
-## Purpose
-Provide consistent navigation across all pages of the application.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Global navigation bar
 The app SHALL have a navigation bar visible on all pages with links to all major sections. The navbar SHALL indicate the currently active page and display icons alongside each link.

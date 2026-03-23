@@ -38,17 +38,11 @@ def compute_date_range(
         return None, None
     today = date.today()
     if preset == "last_month":
-        first_of_this_month = today.replace(day=1)
-        last_month_end = first_of_this_month - timedelta(days=1)
-        return last_month_end.replace(day=1), last_month_end
+        return today - timedelta(days=29), today
     elif preset == "last_3_months":
-        three_months_ago = today.replace(day=1)
-        for _ in range(3):
-            three_months_ago = (three_months_ago - timedelta(days=1)).replace(day=1)
-        return three_months_ago, today
+        return today - timedelta(days=89), today
     elif preset == "last_year":
-        last_year = today.year - 1
-        return date(last_year, 1, 1), date(last_year, 12, 31)
+        return today - timedelta(days=364), today
     elif preset == "custom" and date_from and date_to:
         d_from = safe_date(date_from)
         d_to = safe_date(date_to)

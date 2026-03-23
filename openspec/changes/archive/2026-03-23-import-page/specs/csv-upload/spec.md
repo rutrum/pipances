@@ -1,7 +1,4 @@
-## Purpose
-Allow users to upload CSV transaction files via a two-step import flow: auto-detect importers and preview parsed data, then commit to the database.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Upload page presents importer and account selection
 The import page SHALL auto-detect compatible importers after file upload rather than requiring manual importer selection upfront. Account selection moves to the preview step.
@@ -71,3 +68,13 @@ The import flow SHALL use HTMX for all interactions: file scanning, preview rend
 - **THEN** the form SHALL submit via HTMX POST to `/import/commit`
 - **THEN** on success, the page SHALL redirect to `/inbox`
 - **THEN** on error, the error message SHALL appear inline without full page reload
+
+## REMOVED Requirements
+
+### Requirement: Import result summary with no duplicates
+**Reason**: Import result summaries are now shown via the existing toast notification system on redirect to inbox. The behavior is unchanged but the requirement is redundant with the toast-notifications spec.
+**Migration**: No migration needed; toast behavior is preserved in the "Successful CSV upload" scenario.
+
+### Requirement: Import result summary with duplicates skipped
+**Reason**: Same as above — covered by toast notifications on inbox redirect.
+**Migration**: No migration needed.

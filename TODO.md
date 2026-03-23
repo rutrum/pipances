@@ -23,21 +23,11 @@ Rebuild the TF-IDF + kNN model on every import for now. If performance becomes a
 ## ML predictions: upgrade to embedding model
 If TF-IDF char n-grams prove insufficient (e.g. can't match "WHOLEFDS" to "Whole Foods"), consider Model2Vec (numpy-only, 8-30MB) or FastEmbed (ONNX-based, ~50MB) as a drop-in upgrade for the vectorization step.
 
-## Rename project to Pipances
-Name decided: **Pipances** (pipe + finances). Rename scope:
-- Python package (`financial_pipeline` → `pipances`)
-- Env vars (`FINANCIAL_PIPELINE_*` → `PIPANCES_*`)
-- Binary name, pyproject.toml, repo, references
-- The NixOS module already uses the `pipances` name; the rest needs to catch up
-
 ## Auto-consume upload directory
 A configured directory that the application watches/scans for CSV files. When files appear, they are automatically ingested (parsed, deduplicated, added to inbox). This would complement the web upload flow for users who want to drop files via cron/script.
 
 ## Category editing in Data page
 Categories are currently read-only (rename only, no delete, no create) in the Data page. May want to revisit adding more editing capabilities later.
-
-## Manual Transactions
-There should still be a way to define one-off transactions.  Like a form you fill out.  Might be nice to incorporate the ML in this too.  Problem: this removed the "raw description" parameter as being a required field.  Interesting.
 
 ## CI/CD pipeline
 Set up automated testing (and possibly linting/formatting checks) on push/PR. Now that `just check` runs tests, a CI pipeline can gate merges on passing checks.
@@ -63,13 +53,6 @@ I want to drill down onto all results and see what the best guesses were for the
 ## Consider Duckdb over SQLITE
 One source of complexity (imo) is that SQLITE doesn't maintain types our types (like decimal), so we have this disconnect between the data storage and the parsing.  I think duckdb will help permit us to have less overhead in the database abstraction layer.
 
-## Dashboard needs pagination on transaction lists
-
 ## Category splits
 When I enter a new item, I need to be able to "split" the transaction such that it contributes to multiple categories.
 
-## Small fixes
-- Importers page should have a comment about how to add/change importers
-- When I filter something too much, I just get a message about "no transactions" instead of an opportunity to remove filter.
-- The menu in the data page shouldn't grow with the page height.
-- Update the time filters: For last month I really mean "last 30 days including today".  For last 3 months I really mean "last 90 days including today".  And "last year" I mean "last 365 days including today"

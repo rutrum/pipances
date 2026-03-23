@@ -1,0 +1,73 @@
+<div class="mb-4">
+  <h3 class="font-semibold mb-2">Importer Detection</h3>
+  {% for key, info in successes.items() %}<div class="badge badge-success gap-1 mr-2">{{ info.name }}</div>{% endfor %}
+  {% for key, info in failures.items() %}<div class="badge badge-ghost gap-1 mr-2">{{ info.name }}</div>{% endfor %}
+</div>
+{% if rows is not none %}
+  <form hx-post="/import/commit"
+        hx-target="#commit-error"
+        hx-target-422="#commit-error">
+    <input type="hidden" name="token" value="{{ token }}" />
+    <input type="hidden" name="importer" value="{{ auto_importer }}" />
+    {% if successes | length > 1 %}
+      <div class="form-control w-full mb-4">
+        <label class="label">
+          <span class="label-text">Select Importer</span>
+        </label>
+        <select name="importer" class="select select-bordered w-full" required>
+          {% for key, info in successes.items() %}
+            <option value="{{ key }}" {% if key == auto_importer %}selected{% endif %}>{{ info.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
+    <div class="form-control w-full mb-4">
+      <label class="label">
+        <span class="label-text">Account</span>
+      </label>
+      <select name="account"
+              class="select select-bordered w-full"
+              required
+              hx-post="/import/preview/dedup"
+              hx-include="closest form"
+              hx-target="#csv-preview"
+              hx-target-422="#commit-error">
+        <option disabled {% if not selected_account %}selected{% endif %} value="">Select an account</option>
+        {% for account in accounts %}
+          <option value="{{ account.name }}"
+                  {% if selected_account == account.name %}selected{% endif %}>{{ account.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="mb-2 text-sm text-base-content/70">
+      {{ new_count }} new
+      {%- if dupe_count -%}
+        , {{ dupe_count }} duplicate
+        {%- if dupe_count != 1 -%}s{%- endif -%}
+        {%- endif %}
+        — {{ rows | length }} total rows
+      </div>
+      <div class="overflow-x-auto mb-4 max-h-96 overflow-y-auto">
+        <table class="table table-zebra table-sm w-full">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr {% if duplicate_flags and duplicate_flags[loop.index0] %}class="line-through opacity-50"{% endif %}>
+                <td>{{ row.date }}</td>
+                <td>{{ "%.2f" | format(row.amount_cents / 100) }}</td>
+                <td>{{ row.description }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div id="commit-error" class="mb-4"></div>
+      <button type="submit" class="btn btn-primary">Add to Inbox</button>
+    </form>
+  {% endif %}

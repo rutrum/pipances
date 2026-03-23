@@ -17,7 +17,7 @@
 {% endmacro %}
 {% macro filter_header(column, label, accounts, current_filter) %}
   <th>
-    <div class="dropdown">
+    <div class="dropdown dropdown-top dropdown-end">
       <div tabindex="0"
            role="button"
            class="flex items-center gap-1 cursor-pointer select-none">
@@ -59,9 +59,14 @@
 {% if not transactions %}
   <div class="alert alert-info mt-4">
     <span>No transactions found for the selected filters.</span>
+    <button class="btn btn-ghost btn-sm"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-push-url="true"
+            hx-vals='{"preset": "all", "page": "1"}'>Clear filters</button>
   </div>
 {% else %}
-  <div class="overflow-x-auto overflow-y-visible">
+  <div class="overflow-visible">
     <table class="table table-zebra w-full">
       <thead>
         <tr>
@@ -69,7 +74,7 @@
           {{ sort_header('amount', 'Amount ($)') }}
           {{ sort_header('description', 'Description') }}
           <th>
-            <div class="dropdown">
+            <div class="dropdown dropdown-top dropdown-end">
               <div tabindex="0"
                    role="button"
                    class="flex items-center gap-1 cursor-pointer select-none">
