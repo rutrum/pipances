@@ -1,33 +1,40 @@
-<div id="txn-date-range" class="mb-4 flex flex-wrap items-center gap-2">
+<div id="explore-date-range"
+     class="mb-4 flex flex-wrap items-center gap-2">
   <div class="join">
     <button class="btn join-item {% if preset == 'all' %}btn-active{% endif %}"
-            hx-get="/transactions"
-            hx-target="#txn-table-wrapper"
-            hx-include="#txn-filters"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-include="#explore-filters, #pagination-page-size"
             hx-push-url="true"
             hx-vals='{"preset": "all", "page": "1"}'>All</button>
     <button class="btn join-item {% if preset == 'ytd' %}btn-active{% endif %}"
-            hx-get="/transactions"
-            hx-target="#txn-table-wrapper"
-            hx-include="#txn-filters"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-include="#explore-filters, #pagination-page-size"
             hx-push-url="true"
             hx-vals='{"preset": "ytd", "page": "1"}'>YTD</button>
     <button class="btn join-item {% if preset == 'last_month' %}btn-active{% endif %}"
-            hx-get="/transactions"
-            hx-target="#txn-table-wrapper"
-            hx-include="#txn-filters"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-include="#explore-filters, #pagination-page-size"
             hx-push-url="true"
             hx-vals='{"preset": "last_month", "page": "1"}'>Last Month</button>
     <button class="btn join-item {% if preset == 'last_3_months' %}btn-active{% endif %}"
-            hx-get="/transactions"
-            hx-target="#txn-table-wrapper"
-            hx-include="#txn-filters"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-include="#explore-filters, #pagination-page-size"
             hx-push-url="true"
             hx-vals='{"preset": "last_3_months", "page": "1"}'>Last 3 Months</button>
+    <button class="btn join-item {% if preset == 'last_year' %}btn-active{% endif %}"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-include="#explore-filters, #pagination-page-size"
+            hx-push-url="true"
+            hx-vals='{"preset": "last_year", "page": "1"}'>Last Year</button>
     <button class="btn join-item {% if preset == 'custom' %}btn-active{% endif %}"
-            onclick="document.getElementById('custom-range').classList.toggle('hidden')">Custom</button>
+            onclick="document.getElementById('explore-custom-range').classList.toggle('hidden')">Custom</button>
   </div>
-  <div id="custom-range"
+  <div id="explore-custom-range"
        class="{% if preset != 'custom' %}hidden{% endif %} flex items-center gap-2">
     <input type="date"
            name="date_from"
@@ -39,9 +46,9 @@
            value="{{ date_to }}"
            class="input input-bordered input-sm">
     <button class="btn btn-sm btn-primary"
-            hx-get="/transactions"
-            hx-target="#txn-table-wrapper"
-            hx-include="#txn-filters, #custom-range"
+            hx-get="/explore"
+            hx-target="#explore-content"
+            hx-include="#explore-filters, #pagination-page-size, #explore-custom-range"
             hx-push-url="true"
             hx-vals='{"preset": "custom", "page": "1"}'>Apply</button>
   </div>

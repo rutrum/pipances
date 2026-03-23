@@ -5,13 +5,12 @@
           hx-target="this"
           hx-swap="innerHTML">{{ category.name }}</span>
   </td>
+  <td>{{ category.txn_count | default(0) }}</td>
   <td>
-    <button class="btn btn-ghost btn-xs text-error"
-            hx-delete="/categories/{{ category.id }}"
-            hx-target="#category-{{ category.id }}"
-            hx-swap="outerHTML"
-            hx-confirm="Delete category '{{ category.name }}'? Transactions using it will become uncategorized.">
-      Delete
-    </button>
+    <a href="/explore?category={{ category.name | urlencode }}"
+       class="btn btn-ghost btn-xs"
+       title="View in Explore">
+      <i data-lucide="compass" class="w-4 h-4"></i>
+    </a>
   </td>
 </tr>

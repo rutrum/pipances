@@ -24,7 +24,12 @@
           hx-target="this"
           hx-swap="innerHTML">{{ account.balance_date or '—' }}</span>
   </td>
-  <td>
+  <td class="flex gap-1">
+    <a href="/explore?internal={{ account.name | urlencode }}"
+       class="btn btn-ghost btn-xs"
+       title="View in Explore">
+      <i data-lucide="compass" class="w-4 h-4"></i>
+    </a>
     {% if account.active %}
       <button class="btn btn-ghost btn-xs text-warning"
               hx-patch="/accounts/{{ account.id }}?show_closed={{ show_closed | default(false) | lower }}"

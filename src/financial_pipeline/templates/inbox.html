@@ -61,10 +61,6 @@
                id="filter-page"
                name="page"
                value="{{ page|default(1) }}">
-        <input type="hidden"
-               id="filter-page-size"
-               name="page_size"
-               value="{{ page_size|default(25) }}">
         <input type="date"
                id="filter-date-from"
                name="date_from"
@@ -75,7 +71,7 @@
                hx-trigger="change"
                hx-target="#inbox-table"
                hx-swap="innerHTML"
-               hx-include="#filter-bar"
+               hx-include="#filter-bar, #pagination-page-size"
                hx-push-url="true">
         <input type="date"
                id="filter-date-to"
@@ -87,7 +83,7 @@
                hx-trigger="change"
                hx-target="#inbox-table"
                hx-swap="innerHTML"
-               hx-include="#filter-bar"
+               hx-include="#filter-bar, #pagination-page-size"
                hx-push-url="true">
         <select id="filter-internal"
                 name="internal_id"
@@ -96,7 +92,7 @@
                 hx-trigger="change"
                 hx-target="#inbox-table"
                 hx-swap="innerHTML"
-                hx-include="#filter-bar"
+                hx-include="#filter-bar, #pagination-page-size"
                 hx-push-url="true">
           <option value="">All accounts</option>
           {% for acct in internal_accounts %}
@@ -111,7 +107,7 @@
                 hx-trigger="change"
                 hx-target="#inbox-table"
                 hx-swap="innerHTML"
-                hx-include="#filter-bar"
+                hx-include="#filter-bar, #pagination-page-size"
                 hx-push-url="true">
           <option value="">All imports</option>
           {% for imp in imports %}
@@ -167,10 +163,13 @@
       </div>
       <script>
       (function() {
-        var selectAll = document.getElementById('select-all');
         var toolbar = document.getElementById('bulk-toolbar');
         var countEl = document.getElementById('bulk-count');
         var tbody = document.getElementById('inbox-table');
+
+        function getSelectAll() {
+          return document.getElementById('select-all');
+        }
 
         function getCheckboxes() {
           return tbody.querySelectorAll('.select-txn');
@@ -192,25 +191,26 @@
           countEl.textContent = ids.length + ' selected';
           bulkInputs.forEach(function(el) { el.disabled = !hasSelection; });
           // Sync select-all state
+          var selectAll = getSelectAll();
           var boxes = getCheckboxes();
           selectAll.checked = boxes.length > 0 && ids.length === boxes.length;
           selectAll.indeterminate = ids.length > 0 && ids.length < boxes.length;
         }
 
-        selectAll.addEventListener('change', function() {
-          getCheckboxes().forEach(function(cb) {
-            cb.checked = selectAll.checked;
-          });
-          updateToolbar();
-        });
-
-        tbody.addEventListener('change', function(e) {
-          if (e.target.classList.contains('select-txn')) {
+        // Use event delegation on document so it survives OOB swaps of thead
+        document.addEventListener('change', function(e) {
+          if (e.target.id === 'select-all') {
+            var checked = e.target.checked;
+            getCheckboxes().forEach(function(cb) {
+              cb.checked = checked;
+            });
+            updateToolbar();
+          } else if (e.target.classList.contains('select-txn')) {
             updateToolbar();
           }
         });
 
-        // Re-bind after HTMX swaps (e.g. after bulk edit or commit)
+        // Re-sync after HTMX swaps (e.g. after bulk edit or commit)
         document.addEventListener('htmx:afterSwap', function(e) {
           if (e.detail.target === tbody || tbody.contains(e.detail.target)) {
             updateToolbar();

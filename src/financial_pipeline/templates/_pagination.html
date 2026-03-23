@@ -4,7 +4,7 @@
       <button class="btn btn-sm join-item"
               hx-get="{{ pagination_url }}"
               hx-target="{{ pagination_target }}"
-              hx-include="{{ pagination_include }}"
+              hx-include="{{ pagination_include }}, #pagination-page-size"
               hx-push-url="true"
               hx-vals='{"page": "{{ page - 1 }}"}'>« Prev</button>
     {% else %}
@@ -15,7 +15,7 @@
       <button class="btn btn-sm join-item"
               hx-get="{{ pagination_url }}"
               hx-target="{{ pagination_target }}"
-              hx-include="{{ pagination_include }}"
+              hx-include="{{ pagination_include }}, #pagination-page-size"
               hx-push-url="true"
               hx-vals='{"page": "{{ page + 1 }}"}'>Next »</button>
     {% else %}
@@ -24,10 +24,11 @@
   </div>
   <div class="flex items-center gap-2">
     <span class="text-sm opacity-70 whitespace-nowrap">{{ total_count }} transactions</span>
-    <select class="select select-bordered select-sm"
+    <select id="pagination-page-size"
+            class="select select-bordered select-sm"
             hx-get="{{ pagination_url }}"
             hx-target="{{ pagination_target }}"
-            hx-include="{{ pagination_include }}"
+            hx-include="{{ pagination_include }}, #pagination-page-size"
             hx-push-url="true"
             hx-vals='{"page": "1"}'
             name="page_size">

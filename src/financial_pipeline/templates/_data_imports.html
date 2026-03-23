@@ -1,0 +1,28 @@
+<h2 class="text-lg font-semibold mb-4">Import History</h2>
+{% if not imports %}
+  <div class="alert alert-info mb-4">
+    <span>No imports yet. Upload a CSV file to get started.</span>
+  </div>
+{% endif %}
+<div class="overflow-x-auto">
+  <table class="table table-zebra w-full">
+    <thead>
+      <tr>
+        <th>Institution</th>
+        <th>Filename</th>
+        <th>Imported At</th>
+        <th>Rows</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for imp in imports %}
+        <tr>
+          <td>{{ imp.institution }}</td>
+          <td>{{ imp.filename or '—' }}</td>
+          <td>{{ imp.imported_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>{{ imp.row_count if imp.row_count is not none else '—' }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

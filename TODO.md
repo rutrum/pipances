@@ -33,24 +33,6 @@ Name decided: **Pipances** (pipe + finances). Rename scope:
 ## Auto-consume upload directory
 A configured directory that the application watches/scans for CSV files. When files appear, they are automatically ingested (parsed, deduplicated, added to inbox). This would complement the web upload flow for users who want to drop files via cron/script.
 
-## Random fixes
-
-- pagination on inbox
-- Sorting in inbox like in transactions
-- make the AI inferred fields better: the light blue background could be better...it also breaks the height when you edit the field...and changing the value also breaks
-- better "click to edit"
-- change Amount ($) and remove $ from records
-  - align cell right so . line up
-- When I refresh, the filters stay the same but the transactions are no longer filtered
-- the custom date filter should appear to the right (all the way), not underneath
-- the underline below selected in nav bar is weird
-
-## Drill Downs / Schema Pages
-Covered by three OpenSpec changes:
-- `explore-page` — unified Explore page (charts + table, filterable)
-- `data-page-layout` — Data page with sidebar menu (replaces Settings)
-- `data-page-sections` — External accounts, importers, import history sections
-
 ## Category editing in Data page
 Categories are currently read-only (rename only, no delete, no create) in the Data page. May want to revisit adding more editing capabilities later.
 

@@ -1,0 +1,26 @@
+<h2 class="text-lg font-semibold mb-4">Importers</h2>
+{% if not importers %}
+  <div class="alert alert-info mb-4">
+    <span>No importer files found in the importers directory.</span>
+  </div>
+{% endif %}
+<div class="overflow-x-auto">
+  <table class="table table-zebra w-full">
+    <thead>
+      <tr>
+        <th>Importer Name</th>
+        <th>Filename</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for imp in importers %}
+        <tr>
+          <td>{{ imp.name }}</td>
+          <td>
+            <code>{{ imp.filename }}</code>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,8 +1,8 @@
 {% macro sort_header(column, label) %}
   <th class="cursor-pointer select-none"
-      hx-get="/transactions"
-      hx-target="#txn-table-wrapper"
-      hx-include="#txn-filters"
+      hx-get="/data/transactions"
+      hx-target="#data-content"
+      hx-include="#data-txn-filters, #pagination-page-size"
       hx-push-url="true"
       hx-vals='{{ {"sort": column, "dir": "desc" if sort == column and dir == "asc" else "asc", "page": "1"}|tojson }}'>
     {{ label }}
@@ -37,17 +37,17 @@
       <ul tabindex="0"
           class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-sm">
         <li>
-          <a hx-get="/transactions"
-             hx-target="#txn-table-wrapper"
-             hx-include="#txn-filters"
+          <a hx-get="/data/transactions"
+             hx-target="#data-content"
+             hx-include="#data-txn-filters, #pagination-page-size"
              hx-push-url="true"
              hx-vals='{{ {column: "", "page": "1"}|tojson }}'>All</a>
         </li>
         {% for acct in accounts %}
           <li>
-            <a hx-get="/transactions"
-               hx-target="#txn-table-wrapper"
-               hx-include="#txn-filters"
+            <a hx-get="/data/transactions"
+               hx-target="#data-content"
+               hx-include="#data-txn-filters, #pagination-page-size"
                hx-push-url="true"
                hx-vals='{{ {column: acct, "page": "1"}|tojson }}'>{{ acct }}</a>
           </li>
@@ -56,6 +56,68 @@
     </div>
   </th>
 {% endmacro %}
+<div id="data-txn-date-range"
+     class="mb-4 flex flex-wrap items-center gap-2">
+  <div class="join">
+    <button class="btn join-item {% if preset == 'all' %}btn-active{% endif %}"
+            hx-get="/data/transactions"
+            hx-target="#data-content"
+            hx-include="#data-txn-filters, #pagination-page-size"
+            hx-push-url="true"
+            hx-vals='{"preset": "all", "page": "1"}'>All</button>
+    <button class="btn join-item {% if preset == 'ytd' %}btn-active{% endif %}"
+            hx-get="/data/transactions"
+            hx-target="#data-content"
+            hx-include="#data-txn-filters, #pagination-page-size"
+            hx-push-url="true"
+            hx-vals='{"preset": "ytd", "page": "1"}'>YTD</button>
+    <button class="btn join-item {% if preset == 'last_month' %}btn-active{% endif %}"
+            hx-get="/data/transactions"
+            hx-target="#data-content"
+            hx-include="#data-txn-filters, #pagination-page-size"
+            hx-push-url="true"
+            hx-vals='{"preset": "last_month", "page": "1"}'>Last Month</button>
+    <button class="btn join-item {% if preset == 'last_3_months' %}btn-active{% endif %}"
+            hx-get="/data/transactions"
+            hx-target="#data-content"
+            hx-include="#data-txn-filters, #pagination-page-size"
+            hx-push-url="true"
+            hx-vals='{"preset": "last_3_months", "page": "1"}'>Last 3 Months</button>
+    <button class="btn join-item {% if preset == 'last_year' %}btn-active{% endif %}"
+            hx-get="/data/transactions"
+            hx-target="#data-content"
+            hx-include="#data-txn-filters, #pagination-page-size"
+            hx-push-url="true"
+            hx-vals='{"preset": "last_year", "page": "1"}'>Last Year</button>
+    <button class="btn join-item {% if preset == 'custom' %}btn-active{% endif %}"
+            onclick="document.getElementById('data-txn-custom-range').classList.toggle('hidden')">Custom</button>
+  </div>
+  <div id="data-txn-custom-range"
+       class="{% if preset != 'custom' %}hidden{% endif %} flex items-center gap-2">
+    <input type="date"
+           name="date_from"
+           value="{{ date_from }}"
+           class="input input-bordered input-sm">
+    <span>to</span>
+    <input type="date"
+           name="date_to"
+           value="{{ date_to }}"
+           class="input input-bordered input-sm">
+    <button class="btn btn-sm btn-primary"
+            hx-get="/data/transactions"
+            hx-target="#data-content"
+            hx-include="#data-txn-filters, #data-txn-custom-range"
+            hx-push-url="true"
+            hx-vals='{"preset": "custom", "page": "1"}'>Apply</button>
+  </div>
+</div>
+<div id="data-txn-filters">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ dir }}">
+  {% if internal_filter %}<input type="hidden" name="internal" value="{{ internal_filter }}">{% endif %}
+  {% if external_filter %}<input type="hidden" name="external" value="{{ external_filter }}">{% endif %}
+  {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+</div>
 {% if not transactions %}
   <div class="alert alert-info mt-4">
     <span>No transactions found for the selected filters.</span>
@@ -95,24 +157,24 @@
               <ul tabindex="0"
                   class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-sm">
                 <li>
-                  <a hx-get="/transactions"
-                     hx-target="#txn-table-wrapper"
-                     hx-include="#txn-filters"
+                  <a hx-get="/data/transactions"
+                     hx-target="#data-content"
+                     hx-include="#data-txn-filters, #pagination-page-size"
                      hx-push-url="true"
                      hx-vals='{{ {"category": "", "page": "1"}|tojson }}'>All</a>
                 </li>
                 <li>
-                  <a hx-get="/transactions"
-                     hx-target="#txn-table-wrapper"
-                     hx-include="#txn-filters"
+                  <a hx-get="/data/transactions"
+                     hx-target="#data-content"
+                     hx-include="#data-txn-filters, #pagination-page-size"
                      hx-push-url="true"
                      hx-vals='{{ {"category": "__uncategorized__", "page": "1"}|tojson }}'>Uncategorized</a>
                 </li>
                 {% for cat in category_options %}
                   <li>
-                    <a hx-get="/transactions"
-                       hx-target="#txn-table-wrapper"
-                       hx-include="#txn-filters"
+                    <a hx-get="/data/transactions"
+                       hx-target="#data-content"
+                       hx-include="#data-txn-filters, #pagination-page-size"
                        hx-push-url="true"
                        hx-vals='{{ {"category": cat, "page": "1"}|tojson }}'>{{ cat }}</a>
                   </li>
@@ -131,8 +193,8 @@
       </tbody>
     </table>
   </div>
-  {% set pagination_url = "/transactions" %}
-  {% set pagination_target = "#txn-table-wrapper" %}
-  {% set pagination_include = "#txn-filters" %}
+  {% set pagination_url = "/data/transactions" %}
+  {% set pagination_target = "#data-content" %}
+  {% set pagination_include = "#data-txn-filters" %}
   {% include "_pagination.html" %}
 {% endif %}

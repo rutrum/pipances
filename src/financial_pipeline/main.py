@@ -9,9 +9,9 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from financial_pipeline.db import create_tables
-from financial_pipeline.routes.dashboard import router as dashboard_router
+from financial_pipeline.routes.data import router as data_router
+from financial_pipeline.routes.explore import router as explore_router
 from financial_pipeline.routes.inbox import router as inbox_router
-from financial_pipeline.routes.settings import router as settings_router
 from financial_pipeline.routes.transactions import router as transactions_router
 from financial_pipeline.routes.upload import router as upload_router
 from financial_pipeline.routes.widgets import router as widgets_router
@@ -33,9 +33,9 @@ app.mount(
     name="static",
 )
 
-app.include_router(dashboard_router)
+app.include_router(explore_router)
 app.include_router(inbox_router)
-app.include_router(settings_router)
+app.include_router(data_router)
 app.include_router(transactions_router)
 app.include_router(upload_router)
 app.include_router(widgets_router)
@@ -43,7 +43,7 @@ app.include_router(widgets_router)
 
 @app.get("/")
 async def index():
-    return RedirectResponse(url="/dashboard")
+    return RedirectResponse(url="/explore")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}
+  Data - Financial Pipeline
+{% endblock title %}
+{% block content %}
+  <div class="container mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-4">Data</h1>
+    <div class="flex gap-6">
+      <ul class="menu bg-base-100 rounded-box w-56 shrink-0 shadow">
+        <li class="menu-title">CONFIGURATION</li>
+        <li>
+          <a hx-get="/data/accounts"
+             hx-target="#data-content"
+             hx-push-url="/data/accounts"
+             {% if data_section == 'accounts' %}class="active"{% endif %}>Accounts</a>
+        </li>
+        <li>
+          <a hx-get="/data/importers"
+             hx-target="#data-content"
+             hx-push-url="/data/importers"
+             {% if data_section == 'importers' %}class="active"{% endif %}>Importers</a>
+        </li>
+        <li class="menu-title">DATA</li>
+        <li>
+          <a hx-get="/data/transactions"
+             hx-target="#data-content"
+             hx-push-url="/data/transactions"
+             {% if data_section == 'transactions' %}class="active"{% endif %}>Transactions</a>
+        </li>
+        <li>
+          <a hx-get="/data/external-accounts"
+             hx-target="#data-content"
+             hx-push-url="/data/external-accounts"
+             {% if data_section == 'external-accounts' %}class="active"{% endif %}>External Accounts</a>
+        </li>
+        <li>
+          <a hx-get="/data/categories"
+             hx-target="#data-content"
+             hx-push-url="/data/categories"
+             {% if data_section == 'categories' %}class="active"{% endif %}>Categories</a>
+        </li>
+        <li>
+          <a hx-get="/data/imports"
+             hx-target="#data-content"
+             hx-push-url="/data/imports"
+             {% if data_section == 'imports' %}class="active"{% endif %}>Import History</a>
+        </li>
+      </ul>
+      <div id="data-content" class="flex-1 min-w-0">{{ data_content_html | safe }}</div>
+    </div>
+  </div>
+{% endblock content %}

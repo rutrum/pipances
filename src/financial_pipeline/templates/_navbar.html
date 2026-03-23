@@ -18,16 +18,11 @@
         </a>
       </li>
       <li>
-        <a href="/transactions"
-           {% if active_page == 'transactions' %}class="active"{% endif %}><i data-lucide="list" class="w-4 h-4"></i> Transactions</a>
+        <a href="/explore"
+           {% if active_page == 'explore' %}class="active"{% endif %}><i data-lucide="compass" class="w-4 h-4"></i> Explore</a>
       </li>
       <li>
-        <a href="/dashboard"
-           {% if active_page == 'dashboard' %}class="active"{% endif %}><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Dashboard</a>
-      </li>
-      <li>
-        <a href="/settings"
-           {% if active_page == 'settings' %}class="active"{% endif %}><i data-lucide="settings" class="w-4 h-4"></i> Settings</a>
+        <a href="/data" {% if active_page == 'data' %}class="active"{% endif %}><i data-lucide="database" class="w-4 h-4"></i> Data</a>
       </li>
     </ul>
   </div>

@@ -7,7 +7,7 @@
   <th class="w-[11%] cursor-pointer select-none"
       hx-get="/inbox"
       hx-target="#inbox-table"
-      hx-include="#filter-bar"
+      hx-include="#filter-bar, #pagination-page-size"
       hx-push-url="true"
       hx-vals='{"sort": "date", "dir": "{% if sort|default('date') == 'date' and dir|default('asc') == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
     Date
@@ -22,7 +22,7 @@
   <th class="w-[9%] text-right cursor-pointer select-none"
       hx-get="/inbox"
       hx-target="#inbox-table"
-      hx-include="#filter-bar"
+      hx-include="#filter-bar, #pagination-page-size"
       hx-push-url="true"
       hx-vals='{"sort": "amount", "dir": "{% if sort|default('date') == 'amount' and dir|default('asc') == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
     Amount ($)
@@ -37,7 +37,7 @@
   <th class="w-[28%] cursor-pointer select-none"
       hx-get="/inbox"
       hx-target="#inbox-table"
-      hx-include="#filter-bar"
+      hx-include="#filter-bar, #pagination-page-size"
       hx-push-url="true"
       hx-vals='{"sort": "description", "dir": "{% if sort|default('date') == 'description' and dir|default('asc') == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
     Description

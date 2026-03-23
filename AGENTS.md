@@ -64,6 +64,7 @@ Use Task subagents for self-contained work that doesn't need conversation contex
 - Use `snapshot -i -C` (with `-C`) to get refs for cursor-interactive elements like clickable spans (e.g. click-to-edit fields)
 - Chain commands with `&&` when you don't need intermediate output: `nix develop -c agent-browser open <url> && nix develop -c agent-browser wait --load networkidle && nix develop -c agent-browser screenshot`
 - Prefer `ref=eN` selectors (from snapshot) over CSS text selectors for clicking — CSS `:text()` selectors often fail for dynamic content
+- Refs often fail for HTMX-attributed links (e.g. sidebar `<a hx-get="...">`) — fall back to `eval 'document.querySelector("a[hx-push-url=\"/data/foo\"]").click()'` for these
 - After typing into a form field, use snapshot to verify the value landed, then click submit via ref
 - For HTMX-driven pages, add `sleep 0.5` or `wait --load networkidle` after interactions that trigger HTMX requests before taking screenshots
 
@@ -73,6 +74,7 @@ Use Task subagents for self-contained work that doesn't need conversation contex
 - The extension is loaded globally in `base.html` via `hx-ext="response-targets"` on `<body>`
 - When HTMX can't handle an interaction (e.g. arrow key navigation), use minimal inline `<script>` in the partial. Keep JS self-contained in an IIFE. Bridge to HTMX by triggering clicks on elements that carry `hx-*` attributes, rather than making fetch calls from JS.
 - For cancel/revert on Escape or blur, use PATCH with empty values to re-render the row (the existing PATCH endpoint returns the full row partial).
+- For layout pages with swappable content (e.g. Data page sidebar): use `{{ data_content_html | safe }}` in the layout template, not `{% block %}`. Pre-render the partial in the route and pass it as a context variable. This way the same partial works for both HTMX swaps (returned directly) and full-page renders (embedded in the layout).
 
 ## Nix
 

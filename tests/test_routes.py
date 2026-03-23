@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy import select
 
-from financial_pipeline.models import Account, Category, Transaction
+from financial_pipeline.models import Account, Transaction
 
 # === Inbox ===
 
@@ -132,17 +132,34 @@ async def test_commit_unmarked_transactions_remain_pending(
     assert still_pending.status == "pending"
 
 
-# === Transactions ===
+# === Explore ===
 
 
-async def test_transactions_get_200(client, seed_accounts):
+async def test_explore_get_200(client, seed_accounts):
+    resp = await client.get("/explore")
+    assert resp.status_code == 200
+
+
+async def test_explore_invalid_page(client, seed_accounts):
+    resp = await client.get("/explore?page=abc")
+    assert resp.status_code == 200
+
+
+async def test_explore_htmx_returns_partial(client, seed_accounts):
+    resp = await client.get("/explore", headers={"HX-Request": "true"})
+    assert resp.status_code == 200
+    assert "<html" not in resp.text
+    assert "explore-date-range" in resp.text  # OOB swap present
+
+
+async def test_old_dashboard_returns_404(client, seed_accounts):
+    resp = await client.get("/dashboard")
+    assert resp.status_code == 404
+
+
+async def test_old_transactions_returns_404(client, seed_accounts):
     resp = await client.get("/transactions")
-    assert resp.status_code == 200
-
-
-async def test_transactions_invalid_page(client, seed_accounts):
-    resp = await client.get("/transactions?page=abc")
-    assert resp.status_code == 200
+    assert resp.status_code == 404
 
 
 # === Upload ===
@@ -182,17 +199,17 @@ async def test_upload_error_does_not_leak_internals(client, seed_accounts):
     assert "Error" not in resp.text or "alert" in resp.text
 
 
-# === Settings: Accounts ===
+# === Data: Accounts ===
 
 
-async def test_settings_accounts_get_200(client, seed_accounts):
-    resp = await client.get("/settings/accounts")
+async def test_data_accounts_get_200(client, seed_accounts):
+    resp = await client.get("/data/accounts")
     assert resp.status_code == 200
 
 
 async def test_create_account_valid(client, session, seed_accounts):
     resp = await client.post(
-        "/settings/accounts",
+        "/data/accounts",
         data={"name": "New Account", "kind": "checking"},
     )
     assert resp.status_code == 200
@@ -203,7 +220,7 @@ async def test_create_account_valid(client, session, seed_accounts):
 
 async def test_create_account_missing_name(client, seed_accounts):
     resp = await client.post(
-        "/settings/accounts",
+        "/data/accounts",
         data={"name": "", "kind": "checking"},
     )
     assert resp.status_code == 422
@@ -211,7 +228,7 @@ async def test_create_account_missing_name(client, seed_accounts):
 
 async def test_create_account_external_kind_rejected(client, seed_accounts):
     resp = await client.post(
-        "/settings/accounts",
+        "/data/accounts",
         data={"name": "Ext Acct", "kind": "external"},
     )
     assert resp.status_code == 422
@@ -219,7 +236,7 @@ async def test_create_account_external_kind_rejected(client, seed_accounts):
 
 async def test_create_account_duplicate_name(client, seed_accounts):
     resp = await client.post(
-        "/settings/accounts",
+        "/data/accounts",
         data={"name": "Checking", "kind": "checking"},
     )
     assert resp.status_code == 422
@@ -253,40 +270,12 @@ async def test_update_account_nonexistent(client, seed_accounts):
     assert resp.status_code == 404
 
 
-# === Settings: Categories ===
+# === Data: Categories ===
 
 
-async def test_settings_categories_get_200(client, seed_accounts):
-    resp = await client.get("/settings/categories")
+async def test_data_categories_get_200(client, seed_accounts):
+    resp = await client.get("/data/categories")
     assert resp.status_code == 200
-
-
-async def test_create_category_valid(client, session, seed_accounts):
-    resp = await client.post(
-        "/settings/categories",
-        data={"name": "Entertainment"},
-    )
-    assert resp.status_code == 200
-
-    cat = await session.scalar(select(Category).where(Category.name == "Entertainment"))
-    assert cat is not None
-
-
-async def test_create_category_empty_name(client, seed_accounts):
-    resp = await client.post(
-        "/settings/categories",
-        data={"name": ""},
-    )
-    assert resp.status_code == 422
-
-
-async def test_delete_category(client, session, seed_accounts, seed_categories):
-    groceries = seed_categories["Groceries"]
-    resp = await client.delete(f"/categories/{groceries.id}")
-    assert resp.status_code == 200
-
-    result = await session.execute(select(Category).where(Category.id == groceries.id))
-    assert result.scalar_one_or_none() is None
 
 
 async def test_edit_category_name_nonexistent(client, seed_accounts):
@@ -294,21 +283,142 @@ async def test_edit_category_name_nonexistent(client, seed_accounts):
     assert resp.status_code == 404
 
 
-# === Dashboard ===
+# === Data: Redirect ===
 
 
-async def test_dashboard_get_200(client, seed_accounts):
-    resp = await client.get("/dashboard")
+async def test_data_redirect_to_accounts(client, seed_accounts):
+    resp = await client.get("/data", follow_redirects=False)
+    assert resp.status_code == 307
+    assert resp.headers["location"] == "/data/accounts"
+
+
+# === Data: Transactions ===
+
+
+async def test_data_transactions_get_200(client, seed_accounts):
+    resp = await client.get("/data/transactions")
     assert resp.status_code == 200
 
 
-async def test_dashboard_redirect_from_root(client, seed_accounts):
+async def test_data_transactions_invalid_params(client, seed_accounts):
+    resp = await client.get("/data/transactions?page=abc&sort=bad&dir=nope")
+    assert resp.status_code == 200
+
+
+# === Root Redirect ===
+
+
+async def test_explore_redirect_from_root(client, seed_accounts):
     resp = await client.get("/", follow_redirects=False)
     assert resp.status_code == 307
-    assert resp.headers["location"] == "/dashboard"
+    assert resp.headers["location"] == "/explore"
 
 
 # === Combo Search ===
+
+
+# === Data: External Accounts ===
+
+
+async def test_data_external_accounts_get_200(client, seed_accounts):
+    resp = await client.get("/data/external-accounts")
+    assert resp.status_code == 200
+
+
+async def test_data_external_accounts_includes_txn_count(
+    client, session, seed_accounts, seed_import
+):
+    checking = seed_accounts["Checking"]
+    ext = Account(name="Walmart", kind="external")
+    session.add(ext)
+    await session.commit()
+    await session.refresh(ext)
+
+    txn = Transaction(
+        import_id=seed_import.id,
+        internal_id=checking.id,
+        external_id=ext.id,
+        raw_description="Purchase",
+        date=date(2026, 1, 15),
+        amount_cents=1000,
+        status="approved",
+    )
+    session.add(txn)
+    await session.commit()
+
+    resp = await client.get("/data/external-accounts")
+    assert resp.status_code == 200
+    assert "Walmart" in resp.text
+    # The transaction count should be visible
+    assert ">1<" in resp.text.replace(" ", "").replace("\n", "")
+
+
+# === Data: Importers ===
+
+
+async def test_data_importers_get_200(client, seed_accounts):
+    resp = await client.get("/data/importers")
+    assert resp.status_code == 200
+
+
+async def test_data_importers_lists_files(client, seed_accounts):
+    resp = await client.get("/data/importers")
+    assert resp.status_code == 200
+    assert "example.py" in resp.text
+    assert "Example Bank" in resp.text
+
+
+# === Data: Imports ===
+
+
+async def test_data_imports_get_200(client, seed_accounts):
+    resp = await client.get("/data/imports")
+    assert resp.status_code == 200
+
+
+# === Data: Categories with counts ===
+
+
+async def test_data_categories_includes_txn_count_and_explore(
+    client, session, seed_accounts, seed_categories, seed_import
+):
+    checking = seed_accounts["Checking"]
+    ext = Account(name="Store", kind="external")
+    session.add(ext)
+    await session.commit()
+    await session.refresh(ext)
+
+    groceries = seed_categories["Groceries"]
+    txn = Transaction(
+        import_id=seed_import.id,
+        internal_id=checking.id,
+        external_id=ext.id,
+        raw_description="Grocery run",
+        date=date(2026, 1, 15),
+        amount_cents=5000,
+        status="approved",
+        category_id=groceries.id,
+    )
+    session.add(txn)
+    await session.commit()
+
+    resp = await client.get("/data/categories")
+    assert resp.status_code == 200
+    assert "Groceries" in resp.text
+    assert "/explore?category=Groceries" in resp.text
+
+
+# === Explore links URL encoding ===
+
+
+async def test_explore_link_url_encoding(client, seed_accounts):
+    resp = await client.get("/data/accounts")
+    assert resp.status_code == 200
+    # "Credit Card" should be URL-encoded in the Explore link
+    assert (
+        "/explore?internal=Credit+Card" in resp.text
+        or "/explore?internal=Credit%20Card" in resp.text
+    )
 
 
 async def test_combo_search_with_percent(client, seed_accounts, seed_categories):
