@@ -27,11 +27,11 @@ let
       );
 
   # Build the virtualenv with all runtime deps
-  venv = pythonSet.mkVirtualEnv "financial-pipeline-env" workspace.deps.default;
+  venv = pythonSet.mkVirtualEnv "pipances-env" workspace.deps.default;
 
   # Build static assets (JS from flake inputs + CSS from tailwind)
   staticAssets = pkgs.stdenvNoCC.mkDerivation {
-    pname = "financial-pipeline-static";
+    pname = "pipances-static";
     version = "0.1.0";
     src = ../../.;
 
@@ -61,7 +61,7 @@ let
 
   # Copy importers directory
   importers = pkgs.stdenvNoCC.mkDerivation {
-    pname = "financial-pipeline-importers";
+    pname = "pipances-importers";
     version = "0.1.0";
     src = ../../importers;
 
@@ -73,13 +73,13 @@ let
 
 in
 pkgs.writeShellApplication {
-  name = "financial-pipeline";
+  name = "pipances";
   runtimeInputs = [ venv ];
   text = ''
     export PIPANCES_STATIC_DIR="${staticAssets}/static"
     export PIPANCES_IMPORTERS_DIR="${importers}"
-    export PIPANCES_DB_PATH="''${PIPANCES_DB_PATH:-./financial_pipeline.db}"
-    exec uvicorn financial_pipeline.main:app \
+    export PIPANCES_DB_PATH="''${PIPANCES_DB_PATH:-./pipances.db}"
+    exec uvicorn pipances.main:app \
       --host "''${PIPANCES_HOST:-0.0.0.0}" \
       --port "''${PIPANCES_PORT:-8097}" \
       "$@"

@@ -8,7 +8,7 @@ The app SHALL have a navigation bar visible on all pages with links to all major
 
 #### Scenario: Navigate between pages
 - **WHEN** user is on any page
-- **THEN** a navigation bar SHALL be visible with links to /upload, /inbox, /transactions, /dashboard, and /settings
+- **THEN** a navigation bar SHALL be visible with links to /upload, /inbox, /explore, and /data
 - **THEN** each link SHALL display an icon alongside the link text
 - **THEN** the link corresponding to the current page SHALL be visually distinguished using DaisyUI's built-in menu active class
 

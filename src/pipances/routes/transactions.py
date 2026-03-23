@@ -3,13 +3,13 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from financial_pipeline.db import async_session
-from financial_pipeline.ingest import _resolve_account
-from financial_pipeline.models import (
+from pipances.db import async_session
+from pipances.ingest import _resolve_account
+from pipances.models import (
     Category,
     Transaction,
 )
-from financial_pipeline.routes._utils import templates
+from pipances.routes._utils import templates
 
 router = APIRouter()
 

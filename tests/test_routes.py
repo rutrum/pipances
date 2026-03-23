@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy import select
 
-from financial_pipeline.models import Account, Transaction
+from pipances.models import Account, Transaction
 
 # === Inbox ===
 

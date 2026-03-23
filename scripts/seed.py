@@ -4,8 +4,8 @@ import asyncio
 import random
 from datetime import date, timedelta
 
-from financial_pipeline.db import async_session, create_tables
-from financial_pipeline.models import Account, AccountKind, Category, Import, Transaction, TransactionStatus
+from pipances.db import async_session, create_tables
+from pipances.models import Account, AccountKind, Category, Import, Transaction, TransactionStatus
 
 random.seed(42)
 

@@ -1,9 +1,9 @@
 { pkgs, inputs, ... }:
 let
-  app = import ./financial-pipeline.nix { inherit pkgs inputs; };
+  app = import ./pipances.nix { inherit pkgs inputs; };
 in
 pkgs.dockerTools.buildLayeredImage {
-  name = "financial-pipeline";
+  name = "pipances";
   tag = "latest";
 
   contents = [
@@ -12,12 +12,12 @@ pkgs.dockerTools.buildLayeredImage {
   ];
 
   config = {
-    Cmd = [ "financial-pipeline" ];
+    Cmd = [ "pipances" ];
     ExposedPorts = {
       "8097/tcp" = { };
     };
     Env = [
-      "PIPANCES_DB_PATH=/data/financial_pipeline.db"
+      "PIPANCES_DB_PATH=/data/pipances.db"
     ];
     Volumes = {
       "/data" = { };

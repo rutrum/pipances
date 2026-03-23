@@ -1,6 +1,6 @@
 from sqlalchemy import text
 
-from financial_pipeline.models import Base
+from pipances.models import Base
 
 
 async def test_create_tables_idempotent(engine):

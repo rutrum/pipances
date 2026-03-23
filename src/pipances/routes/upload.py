@@ -5,11 +5,11 @@ from fastapi import APIRouter, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 
-from financial_pipeline.db import async_session
-from financial_pipeline.ingest import discover_importers, ingest
-from financial_pipeline.models import Account, AccountKind
-from financial_pipeline.routes._utils import shared_context, templates
-from financial_pipeline.schemas import ImportedTransaction
+from pipances.db import async_session
+from pipances.ingest import discover_importers, ingest
+from pipances.models import Account, AccountKind
+from pipances.routes._utils import shared_context, templates
+from pipances.schemas import ImportedTransaction
 
 router = APIRouter()
 

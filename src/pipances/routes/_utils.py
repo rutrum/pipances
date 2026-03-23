@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
-from financial_pipeline.models import Transaction, TransactionStatus
+from pipances.models import Transaction, TransactionStatus
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)

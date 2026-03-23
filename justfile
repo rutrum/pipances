@@ -18,7 +18,7 @@ sync:
 
 # Run the dev server (kills any existing instance first)
 serve: css _kill-server
-    uv run python -m financial_pipeline.main
+    uv run python -m pipances.main
 
 # Kill any running dev server on port 8097
 _kill-server:
@@ -36,22 +36,22 @@ setup: sync css
 # Lint Python (ruff) and templates (djlint)
 lint:
     uv run ruff check src/ importers/ tests/
-    uv run djlint src/financial_pipeline/templates/ --lint
+    uv run djlint src/pipances/templates/ --lint
 
 # Format Python (ruff) and templates (djlint)
 fmt:
     uv run ruff format src/ importers/ tests/
     uv run ruff check --fix src/ importers/ tests/
-    uv run djlint src/financial_pipeline/templates/ --reformat
+    uv run djlint src/pipances/templates/ --reformat
 
 # Delete the database file
 reset-db:
-    rm -f financial_pipeline.db
+    rm -f pipances.db
 
 # Reset the database and seed with test data; will trigger server hot-reload
 seed: reset-db
     uv run python scripts/seed.py
-    touch src/financial_pipeline/__init__.py
+    touch src/pipances/__init__.py
 
 # Run tests
 test:
@@ -61,5 +61,5 @@ test:
 check:
     uv run ruff format --check src/ importers/ tests/
     uv run ruff check src/ importers/ tests/
-    uv run djlint src/financial_pipeline/templates/ --lint
+    uv run djlint src/pipances/templates/ --lint
     uv run pytest tests/

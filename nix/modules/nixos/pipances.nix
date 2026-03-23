@@ -82,7 +82,7 @@ in
       };
 
       serviceConfig = {
-        ExecStart = "${cfg.package}/bin/financial-pipeline";
+        ExecStart = "${cfg.package}/bin/pipances";
         User = cfg.user;
         Group = cfg.group;
         StateDirectory = "pipances";

@@ -6,23 +6,23 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from financial_pipeline.charts import (
+from pipances.charts import (
     compute_stats,
     monthly_income_expenses_chart,
     top_expenses_chart,
     weekly_spending_chart,
 )
-from financial_pipeline.db import async_session
-from financial_pipeline.models import (
+from pipances.db import async_session
+from pipances.models import (
     Account,
     AccountKind,
     Category,
     Transaction,
     TransactionStatus,
 )
-from financial_pipeline.routes._utils import shared_context, templates
-from financial_pipeline.routes.transactions import SORT_COLUMNS
-from financial_pipeline.utils import compute_date_range, safe_int
+from pipances.routes._utils import shared_context, templates
+from pipances.routes.transactions import SORT_COLUMNS
+from pipances.utils import compute_date_range, safe_int
 
 router = APIRouter()
 
@@ -229,7 +229,26 @@ async def explore_page(request: Request):
             'id="explore-date-range" hx-swap-oob="outerHTML:#explore-date-range"',
             1,
         )
-        return HTMLResponse(content_html + date_range_oob)
+        # OOB swap the hidden filter inputs so they stay in sync
+        filters_oob = (
+            '<div id="explore-filters" hx-swap-oob="outerHTML:#explore-filters">'
+        )
+        filters_oob += f'<input type="hidden" name="sort" value="{sort_col}">'
+        filters_oob += f'<input type="hidden" name="dir" value="{sort_dir}">'
+        if internal_filter:
+            filters_oob += (
+                f'<input type="hidden" name="internal" value="{internal_filter}">'
+            )
+        if external_filter:
+            filters_oob += (
+                f'<input type="hidden" name="external" value="{external_filter}">'
+            )
+        if category_filter:
+            filters_oob += (
+                f'<input type="hidden" name="category" value="{category_filter}">'
+            )
+        filters_oob += "</div>"
+        return HTMLResponse(content_html + date_range_oob + filters_oob)
 
     ctx |= shared
     return templates.TemplateResponse(request, "explore.html", ctx)

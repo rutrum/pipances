@@ -8,8 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from financial_pipeline.db import async_session
-from financial_pipeline.models import (
+from pipances.db import async_session
+from pipances.models import (
     Account,
     AccountKind,
     Category,
@@ -17,9 +17,9 @@ from financial_pipeline.models import (
     Transaction,
     TransactionStatus,
 )
-from financial_pipeline.routes._utils import shared_context, templates
-from financial_pipeline.routes.transactions import SORT_COLUMNS
-from financial_pipeline.utils import compute_date_range, safe_date, safe_int
+from pipances.routes._utils import shared_context, templates
+from pipances.routes.transactions import SORT_COLUMNS
+from pipances.utils import compute_date_range, safe_date, safe_int
 
 IMPORTERS_DIR = Path(__file__).resolve().parents[3] / "importers"
 

@@ -15,7 +15,7 @@ let
 
         services.pipances = {
           enable = true;
-          package = flake.packages.${system}.financial-pipeline;
+          package = flake.packages.${system}.pipances;
         };
       }
     ];

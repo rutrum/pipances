@@ -8,13 +8,13 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from financial_pipeline.db import create_tables
-from financial_pipeline.routes.data import router as data_router
-from financial_pipeline.routes.explore import router as explore_router
-from financial_pipeline.routes.inbox import router as inbox_router
-from financial_pipeline.routes.transactions import router as transactions_router
-from financial_pipeline.routes.upload import router as upload_router
-from financial_pipeline.routes.widgets import router as widgets_router
+from pipances.db import create_tables
+from pipances.routes.data import router as data_router
+from pipances.routes.explore import router as explore_router
+from pipances.routes.inbox import router as inbox_router
+from pipances.routes.transactions import router as transactions_router
+from pipances.routes.upload import router as upload_router
+from pipances.routes.widgets import router as widgets_router
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = Path(os.environ.get("PIPANCES_STATIC_DIR", str(PROJECT_ROOT / "static")))
@@ -47,4 +47,4 @@ async def index():
 
 
 if __name__ == "__main__":
-    uvicorn.run("financial_pipeline.main:app", host="127.0.0.1", port=8097, reload=True)
+    uvicorn.run("pipances.main:app", host="127.0.0.1", port=8097, reload=True)

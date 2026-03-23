@@ -5,8 +5,8 @@ import polars as pl
 import pytest
 from sqlalchemy import func, select
 
-from financial_pipeline.ingest import ingest
-from financial_pipeline.models import Import, Transaction
+from pipances.ingest import ingest
+from pipances.models import Import, Transaction
 
 
 def _make_df(rows: list[dict]) -> pl.DataFrame:

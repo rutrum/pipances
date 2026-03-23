@@ -22,36 +22,24 @@ Each transaction SHALL have an optional `category_id` foreign key referencing th
 - **THEN** the `transactions` table SHALL have a `category_id` column (nullable integer FK to `categories.id`)
 - **THEN** existing transactions SHALL have `category_id = NULL`
 
-#### Scenario: Category deletion cascades to NULL
-- **WHEN** a category is deleted that is assigned to one or more transactions
-- **THEN** the affected transactions SHALL have their `category_id` set to NULL
-
 ### Requirement: Categories management page
-The system SHALL provide a management page at `/settings/categories` for creating, editing, and deleting categories.
+The categories section at `/data/categories` SHALL display categories with transaction counts and Explore links.
 
 #### Scenario: View categories list
-- **WHEN** user navigates to `/settings/categories`
+- **WHEN** user navigates to `/data/categories`
 - **THEN** the page SHALL display a table of all categories sorted by name
-- **THEN** each row SHALL show the category name and a delete action
+- **THEN** each row SHALL show the category name, transaction count, and an Explore link
 
-#### Scenario: Create category
-- **WHEN** user enters a name in the inline input row and submits
-- **THEN** the system SHALL create the category
-- **THEN** the new category SHALL appear in the table without a full page reload
+#### Scenario: Transaction count per category
+- **WHEN** categories are displayed
+- **THEN** each row SHALL show the number of transactions assigned to that category
 
-#### Scenario: Reject duplicate category name
-- **WHEN** user submits a category name that already exists
-- **THEN** the system SHALL display an error message
-- **THEN** no category SHALL be created
+#### Scenario: Explore link per category
+- **WHEN** categories are displayed
+- **THEN** each row SHALL include a link that navigates to `/explore?category=<category name>`
 
 #### Scenario: Edit category name inline
 - **WHEN** user clicks on a category's name in the table
 - **THEN** an inline text input SHALL appear
 - **WHEN** user changes the value and confirms (blur or Enter)
 - **THEN** the category name SHALL be updated
-
-#### Scenario: Delete category
-- **WHEN** user clicks the delete action on a category
-- **THEN** the category SHALL be deleted
-- **THEN** any transactions referencing that category SHALL have their `category_id` set to NULL
-- **THEN** the row SHALL be removed from the table without a full page reload

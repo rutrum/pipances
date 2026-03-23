@@ -12,16 +12,16 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from financial_pipeline.db import async_session
-from financial_pipeline.models import (
+from pipances.db import async_session
+from pipances.models import (
     Account,
     AccountKind,
     Import,
     Transaction,
     TransactionStatus,
 )
-from financial_pipeline.predict import TransactionPredictor
-from financial_pipeline.schemas import ImportedTransaction
+from pipances.predict import TransactionPredictor
+from pipances.schemas import ImportedTransaction
 
 logger = logging.getLogger(__name__)
 

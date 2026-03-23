@@ -6,17 +6,17 @@ from sqlalchemy import exists as sa_exists
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from financial_pipeline.db import async_session
-from financial_pipeline.models import (
+from pipances.db import async_session
+from pipances.models import (
     Account,
     AccountKind,
     Import,
     Transaction,
     TransactionStatus,
 )
-from financial_pipeline.routes._utils import shared_context, templates
-from financial_pipeline.routes.transactions import SORT_COLUMNS
-from financial_pipeline.utils import safe_date, safe_int
+from pipances.routes._utils import shared_context, templates
+from pipances.routes.transactions import SORT_COLUMNS
+from pipances.utils import safe_date, safe_int
 
 router = APIRouter()
 

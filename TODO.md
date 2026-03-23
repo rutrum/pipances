@@ -67,3 +67,9 @@ One source of complexity (imo) is that SQLITE doesn't maintain types our types (
 
 ## Category splits
 When I enter a new item, I need to be able to "split" the transaction such that it contributes to multiple categories.
+
+## Small fixes
+- Importers page should have a comment about how to add/change importers
+- When I filter something too much, I just get a message about "no transactions" instead of an opportunity to remove filter.
+- The menu in the data page shouldn't grow with the page height.
+- Update the time filters: For last month I really mean "last 30 days including today".  For last 3 months I really mean "last 90 days including today".  And "last year" I mean "last 365 days including today"

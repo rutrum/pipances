@@ -1,30 +1,34 @@
 ## Purpose
-Allow users to manage internal accounts (create, edit, close/reopen) through a settings page, including setting starting balances.
+Allow users to manage internal accounts (create, edit, close/reopen) through the Data page, including setting starting balances.
 
 ## Requirements
 
 ### Requirement: Settings page with tab layout
-The app SHALL have a settings page at `/settings` with a tab navigation bar. The default tab SHALL be "Accounts". `/settings` SHALL redirect to `/settings/accounts`.
+The app SHALL have a Data page at `/data` with a sidebar menu layout. The default section SHALL be "Accounts". `/data` SHALL redirect to `/data/accounts`.
 
-#### Scenario: Navigate to settings
-- **WHEN** user navigates to /settings
-- **THEN** the page SHALL redirect to /settings/accounts
+#### Scenario: Navigate to data page
+- **WHEN** user navigates to /data
+- **THEN** the page SHALL redirect to /data/accounts
 
-#### Scenario: Tab layout displayed
-- **WHEN** user is on any /settings/* page
-- **THEN** a tab bar SHALL be visible showing available settings sections including "Accounts" and "Categories"
-- **THEN** the active tab SHALL be visually distinguished
+#### Scenario: Sidebar layout displayed
+- **WHEN** user is on any /data/* page
+- **THEN** a sidebar menu SHALL be visible showing available data sections
+- **THEN** the active section SHALL be visually distinguished
 
 ### Requirement: List internal accounts
-The accounts tab SHALL display a table of all active internal accounts.
+The accounts section SHALL display a table of all active internal accounts with an Explore link per row.
 
 #### Scenario: View active accounts
-- **WHEN** user navigates to /settings/accounts
-- **THEN** the page SHALL display a table with columns: Name, Type, Starting Balance, Balance Date, and Actions
+- **WHEN** user navigates to /data/accounts
+- **THEN** the page SHALL display a table with columns: Name, Type, Starting Balance, Balance Date, Actions, and Explore
 - **THEN** only active accounts (not closed) SHALL be shown by default
 
+#### Scenario: Explore link per internal account
+- **WHEN** internal accounts are displayed
+- **THEN** each row SHALL include a link that navigates to `/explore?internal=<account name>`
+
 #### Scenario: No accounts exist
-- **WHEN** user navigates to /settings/accounts and no internal accounts exist
+- **WHEN** user navigates to /data/accounts and no internal accounts exist
 - **THEN** the page SHALL display a message indicating no accounts have been created
 - **THEN** the create account form SHALL still be available
 

@@ -1,13 +1,13 @@
 from datetime import date
 from unittest.mock import patch
 
-from financial_pipeline.utils import compute_date_range
+from pipances.utils import compute_date_range
 
 
 def _freeze(frozen: date):
     """Return a patch context that freezes date.today() to the given date."""
     return patch(
-        "financial_pipeline.utils.date",
+        "pipances.utils.date",
         wraps=date,
         **{"today.return_value": frozen},
     )
