@@ -77,7 +77,6 @@ pkgs.writeShellApplication {
   runtimeInputs = [ venv ];
   text = ''
     export PIPANCES_STATIC_DIR="${staticAssets}/static"
-    export PIPANCES_IMPORTERS_DIR="${importers}"
     export PIPANCES_DB_PATH="''${PIPANCES_DB_PATH:-./pipances.db}"
     exec uvicorn pipances.main:app \
       --host "''${PIPANCES_HOST:-0.0.0.0}" \

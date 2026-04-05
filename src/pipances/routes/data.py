@@ -1,4 +1,5 @@
 import importlib.util
+import os
 from math import ceil
 from pathlib import Path
 
@@ -21,7 +22,11 @@ from pipances.routes._utils import shared_context, templates
 from pipances.routes.transactions import SORT_COLUMNS
 from pipances.utils import compute_date_range, safe_date, safe_int
 
-IMPORTERS_DIR = Path(__file__).resolve().parents[3] / "importers"
+IMPORTERS_DIR = Path(
+    os.environ.get(
+        "PIPANCES_IMPORTERS_DIR", str(Path(__file__).resolve().parents[3] / "importers")
+    )
+)
 
 router = APIRouter()
 
