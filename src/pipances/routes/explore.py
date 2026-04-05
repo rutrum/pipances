@@ -45,7 +45,13 @@ def _transactions_to_df(transactions):
 
 
 def _build_filters(
-    query, date_from, date_to, internal_filter, external_filter, category_filter
+    query,
+    date_from,
+    date_to,
+    internal_filter,
+    external_filter,
+    category_filter,
+    exclude_transfers=False,
 ):
     """Apply date range and account/category filters to a query."""
     if date_from is not None:
@@ -60,6 +66,10 @@ def _build_filters(
         query = query.where(Transaction.category_id.is_(None))
     elif category_filter:
         query = query.join(Transaction.category).where(Category.name == category_filter)
+    if exclude_transfers:
+        query = query.join(Transaction.external).where(
+            Account.kind == AccountKind.EXTERNAL
+        )
     return query
 
 
@@ -103,6 +113,7 @@ async def explore_page(request: Request):
             internal_filter,
             external_filter,
             category_filter,
+            exclude_transfers=True,
         )
         result = await session.execute(all_query)
         all_transactions = result.scalars().all()
@@ -116,6 +127,7 @@ async def explore_page(request: Request):
             internal_filter,
             external_filter,
             category_filter,
+            exclude_transfers=True,
         )
         total_count = await session.scalar(count_query)
 

@@ -18,6 +18,7 @@ pkgs.dockerTools.buildLayeredImage {
     };
     Env = [
       "PIPANCES_DB_PATH=/data/pipances.db"
+      "PIPANCES_IMPORTERS_DIR=/data/importers"
     ];
     Volumes = {
       "/data" = { };

@@ -42,7 +42,6 @@ Or add to a NixOS configuration:
   # In your NixOS config:
   services.pipances = {
     enable = true;
-    package = inputs.pipances.packages.${system}.pipances;
     # dataDir = "/var/lib/pipances";  # default
     # port = 8097;                     # default
     # importersDir = ./my-importers;   # optional
@@ -67,9 +66,8 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 ```sh
 git clone https://github.com/rutrum/pipances
 cd pipances
-uv sync
-uv run tailwindcss -i input.css -o static/css/style.css
-uv run python -m pipances.main
+just setup        # sync deps and build CSS
+just serve        # run dev server on port 8097
 ```
 
 ## Configuration

@@ -13,6 +13,7 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
+      default = pkgs.pipances;
       description = "The Pipances package to use.";
     };
 
@@ -35,9 +36,9 @@ in
     };
 
     importersDir = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
-      description = "Path to custom importers directory. When null, uses the built-in importers from the package.";
+      type = lib.types.str;
+      default = "/var/lib/pipances/importers";
+      description = "Directory for custom importers.";
     };
 
     openFirewall = lib.mkOption {
@@ -77,8 +78,7 @@ in
         PIPANCES_DB_PATH = "${cfg.dataDir}/pipances.db";
         PIPANCES_HOST = cfg.host;
         PIPANCES_PORT = toString cfg.port;
-      } // lib.optionalAttrs (cfg.importersDir != null) {
-        PIPANCES_IMPORTERS_DIR = toString cfg.importersDir;
+        PIPANCES_IMPORTERS_DIR = cfg.importersDir;
       };
 
       serviceConfig = {
@@ -89,12 +89,17 @@ in
         WorkingDirectory = cfg.dataDir;
         Restart = "on-failure";
 
+        # Ensure importers directory exists
+        ExecStartPre = [
+          "+${pkgs.bash}/bin/bash -c 'mkdir -p ${cfg.importersDir}'"
+        ];
+
         # Hardening
         ProtectHome = true;
         NoNewPrivileges = true;
         ProtectSystem = "strict";
         PrivateTmp = true;
-        ReadWritePaths = [ cfg.dataDir ];
+        ReadWritePaths = [ cfg.dataDir cfg.importersDir ];
       };
     };
 
