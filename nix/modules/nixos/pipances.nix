@@ -89,11 +89,6 @@ in
         WorkingDirectory = cfg.dataDir;
         Restart = "on-failure";
 
-        # Ensure importers directory exists
-        ExecStartPre = [
-          "+${pkgs.bash}/bin/bash -c 'mkdir -p ${cfg.importersDir}'"
-        ];
-
         # Hardening
         ProtectHome = true;
         NoNewPrivileges = true;
@@ -102,6 +97,11 @@ in
         ReadWritePaths = [ cfg.dataDir cfg.importersDir ];
       };
     };
+
+    # Create importers directory on boot
+    systemd.tmpfiles.rules = [
+      "d ${cfg.importersDir} 0755 ${cfg.user} ${cfg.group}"
+    ];
 
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
   };
