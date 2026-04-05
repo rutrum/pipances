@@ -62,7 +62,7 @@ Each predictable field SHALL have a corresponding nullable float column storing 
 - **THEN** the field value SHALL be the user's input
 
 ### Requirement: Prediction runs at import time
-Predictions SHALL execute automatically during the CSV import flow, after dedup and insertion.
+Predictions SHALL execute automatically during the CSV import flow, after dedup and insertion. Additionally, predictions MAY execute on-demand via user action in the inbox page.
 
 #### Scenario: Import triggers prediction
 - **WHEN** CSV import completes and new pending transactions have been inserted

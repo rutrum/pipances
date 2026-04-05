@@ -343,3 +343,109 @@ async def commit_inbox(request: Request):
     for txn in transactions:
         rows += templates.get_template("_inbox_row.html").render({"txn": txn})
     return HTMLResponse(rows + oob)
+
+
+@router.post("/inbox/retrain", response_class=HTMLResponse)
+async def retrain_inbox(request: Request):
+    async with async_session() as session:
+        result = await session.execute(
+            select(Transaction)
+            .where(Transaction.status == TransactionStatus.PENDING)
+            .options(
+                selectinload(Transaction.internal),
+                selectinload(Transaction.external),
+                selectinload(Transaction.category),
+                selectinload(Transaction.import_record),
+            )
+        )
+        pending = result.scalars().all()
+
+        if not pending:
+            toast = '<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-warning"><span>No pending transactions to retrain.</span></div></div>'
+            return HTMLResponse(toast)
+
+        result = await session.execute(
+            select(Transaction)
+            .where(Transaction.status == TransactionStatus.APPROVED)
+            .options(selectinload(Transaction.import_record))
+        )
+        approved = result.scalars().all()
+
+        if not approved:
+            toast = '<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-warning"><span>No training data available. Approve some transactions first.</span></div></div>'
+            return HTMLResponse(toast)
+
+        from pipances.predict import TransactionPredictor
+
+        train_raw = [t.raw_description for t in approved]
+        train_amounts = [t.amount_cents for t in approved]
+        train_dow = [t.date.weekday() for t in approved]
+        train_dom = [t.date.day for t in approved]
+        train_internal = [str(t.internal_id) for t in approved]
+        train_institution = [t.import_record.institution for t in approved]
+        train_desc = [t.description for t in approved]
+        train_cat = [t.category_id for t in approved]
+        train_ext = [t.external_id for t in approved]
+
+        predictor = TransactionPredictor()
+        predictor.fit(
+            train_raw,
+            train_amounts,
+            train_dow,
+            train_dom,
+            train_internal,
+            train_institution,
+            train_desc,
+            train_cat,
+            train_ext,
+        )
+
+        pred_raw = [t.raw_description for t in pending]
+        pred_amounts = [t.amount_cents for t in pending]
+        pred_dow = [t.date.weekday() for t in pending]
+        pred_dom = [t.date.day for t in pending]
+        pred_internal = [str(t.internal_id) for t in pending]
+        pred_institution = [t.import_record.institution for t in pending]
+
+        predictions = predictor.predict(
+            pred_raw,
+            pred_amounts,
+            pred_dow,
+            pred_dom,
+            pred_internal,
+            pred_institution,
+        )
+
+        updated_count = 0
+        for txn, pred in zip(pending, predictions, strict=True):
+            if pred.description and (
+                txn.ml_confidence_description is None
+                or pred.description.confidence > txn.ml_confidence_description
+            ):
+                txn.description = pred.description.value
+                txn.ml_confidence_description = pred.description.confidence
+                updated_count += 1
+            if pred.category_id and (
+                txn.ml_confidence_category is None
+                or pred.category_id.confidence > txn.ml_confidence_category
+            ):
+                txn.category_id = pred.category_id.value
+                txn.ml_confidence_category = pred.category_id.confidence
+                updated_count += 1
+            if pred.external_id and (
+                txn.ml_confidence_external is None
+                or pred.external_id.confidence > txn.ml_confidence_external
+            ):
+                txn.external_id = pred.external_id.value
+                txn.ml_confidence_external = pred.external_id.confidence
+                updated_count += 1
+
+        await session.commit()
+
+    toast = f'<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-success"><span>Retrained model and updated {updated_count} suggestion{"s" if updated_count != 1 else ""}.</span></div></div>'
+
+    rows = ""
+    for txn in pending:
+        rows += templates.get_template("_inbox_row.html").render({"txn": txn})
+
+    return HTMLResponse(rows + toast)

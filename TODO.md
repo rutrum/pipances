@@ -56,3 +56,4 @@ One source of complexity (imo) is that SQLITE doesn't maintain types our types (
 ## Category splits
 When I enter a new item, I need to be able to "split" the transaction such that it contributes to multiple categories.
 
+## dark mode/theme toggle

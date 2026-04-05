@@ -47,4 +47,4 @@ async def index():
 
 
 if __name__ == "__main__":
-    uvicorn.run("pipances.main:app", host="127.0.0.1", port=8097, reload=True)
+    uvicorn.run("pipances.main:app", host="127.0.0.1", port=8098, reload=True)
