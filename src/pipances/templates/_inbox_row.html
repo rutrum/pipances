@@ -16,50 +16,70 @@
   </td>
   <td class="pl-5">
     <div>
-      <span class="relative cursor-pointer hover:underline"
-            {% if txn.ml_confidence_description %}title="ML suggested ({{ (txn.ml_confidence_description * 100)|round|int }}% confidence)"{% endif %}
-            hx-get="/transactions/{{ txn.id }}/edit-description"
-            hx-target="this"
-            hx-swap="innerHTML">
-        {% if txn.ml_confidence_description %}
-          <span class="status status-info absolute -left-3 top-1/2 -translate-y-1/2"></span>
-        {% endif %}
+      {% if txn.marked_for_approval %}
         {% if txn.description %}
           {{ txn.description }}
         {% else %}
-          <span class="italic text-base-content/40">click to edit</span>
+          <span class="italic text-base-content/40">no description</span>
         {% endif %}
-      </span>
+      {% else %}
+        <span class="relative cursor-pointer hover:underline"
+              {% if txn.ml_confidence_description %}title="ML suggested ({{ (txn.ml_confidence_description * 100)|round|int }}% confidence)"{% endif %}
+              hx-get="/transactions/{{ txn.id }}/edit-description-combo"
+              hx-target="this"
+              hx-swap="innerHTML">
+          {% if txn.ml_confidence_description %}
+            <span class="status status-info absolute -left-3 top-1/2 -translate-y-1/2"></span>
+          {% endif %}
+          {% if txn.description %}
+            {{ txn.description }}
+          {% else %}
+            <span class="italic text-base-content/40">click to edit</span>
+          {% endif %}
+        </span>
+      {% endif %}
     </div>
     <div class="text-xs opacity-50">{{ txn.raw_description }}</div>
   </td>
   <td class="pl-5">
-    <span class="relative cursor-pointer hover:underline"
-          {% if txn.ml_confidence_category %}title="ML suggested ({{ (txn.ml_confidence_category * 100)|round|int }}% confidence)"{% endif %}
-          hx-get="/transactions/{{ txn.id }}/edit-category"
-          hx-target="this"
-          hx-swap="innerHTML">
-      {% if txn.ml_confidence_category %}
-        <span class="status status-info absolute -left-3 top-1/2 -translate-y-1/2"></span>
-      {% endif %}
+    {% if txn.marked_for_approval %}
       {% if txn.category %}
         {{ txn.category.name }}
       {% else %}
-        <span class="italic text-base-content/40">click to edit</span>
+        <span class="italic text-base-content/40">no category</span>
       {% endif %}
-    </span>
+    {% else %}
+      <span class="relative cursor-pointer hover:underline"
+            {% if txn.ml_confidence_category %}title="ML suggested ({{ (txn.ml_confidence_category * 100)|round|int }}% confidence)"{% endif %}
+            hx-get="/transactions/{{ txn.id }}/edit-category"
+            hx-target="this"
+            hx-swap="innerHTML">
+        {% if txn.ml_confidence_category %}
+          <span class="status status-info absolute -left-3 top-1/2 -translate-y-1/2"></span>
+        {% endif %}
+        {% if txn.category %}
+          {{ txn.category.name }}
+        {% else %}
+          <span class="italic text-base-content/40">click to edit</span>
+        {% endif %}
+      </span>
+    {% endif %}
   </td>
   <td class="pl-5">
-    <span class="relative cursor-pointer hover:underline"
-          {% if txn.ml_confidence_external %}title="ML suggested ({{ (txn.ml_confidence_external * 100)|round|int }}% confidence)"{% endif %}
-          hx-get="/transactions/{{ txn.id }}/edit-external"
-          hx-target="this"
-          hx-swap="innerHTML">
-      {% if txn.ml_confidence_external %}
-        <span class="status status-info absolute -left-3 top-1/2 -translate-y-1/2"></span>
-      {% endif %}
+    {% if txn.marked_for_approval %}
       {{ txn.external.name }}
-    </span>
+    {% else %}
+      <span class="relative cursor-pointer hover:underline"
+            {% if txn.ml_confidence_external %}title="ML suggested ({{ (txn.ml_confidence_external * 100)|round|int }}% confidence)"{% endif %}
+            hx-get="/transactions/{{ txn.id }}/edit-external"
+            hx-target="this"
+            hx-swap="innerHTML">
+        {% if txn.ml_confidence_external %}
+          <span class="status status-info absolute -left-3 top-1/2 -translate-y-1/2"></span>
+        {% endif %}
+        {{ txn.external.name }}
+      </span>
+    {% endif %}
   </td>
   <th>
     {% if txn.marked_for_approval %}

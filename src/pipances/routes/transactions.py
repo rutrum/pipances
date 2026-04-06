@@ -185,6 +185,26 @@ async def edit_description(txn_id: int, request: Request):
     )
 
 
+@router.get(
+    "/transactions/{txn_id}/edit-description-combo", response_class=HTMLResponse
+)
+async def edit_description_combo(txn_id: int, request: Request):
+    async with async_session() as session:
+        txn = await session.get(Transaction, txn_id)
+    if txn is None:
+        return HTMLResponse("Not found", status_code=404)
+    return templates.TemplateResponse(
+        request,
+        "_combo_edit.html",
+        {
+            "current_value": txn.description or "",
+            "entity": "descriptions",
+            "txn_id": txn_id,
+            "field_name": "description",
+        },
+    )
+
+
 @router.get("/transactions/{txn_id}/edit-external", response_class=HTMLResponse)
 async def edit_external(txn_id: int, request: Request):
     async with async_session() as session:

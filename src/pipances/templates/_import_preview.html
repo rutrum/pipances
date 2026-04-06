@@ -33,10 +33,22 @@
               hx-target="#csv-preview"
               hx-target-422="#commit-error">
         <option disabled {% if not selected_account %}selected{% endif %} value="">Select an account</option>
-        {% for account in accounts %}
-          <option value="{{ account.name }}"
-                  {% if selected_account == account.name %}selected{% endif %}>{{ account.name }}</option>
-        {% endfor %}
+        <optgroup label="Internal Accounts">
+          {% for account in accounts %}
+            {% if account.kind != 'external' %}
+              <option value="{{ account.name }}"
+                      {% if selected_account == account.name %}selected{% endif %}>{{ account.name }}</option>
+            {% endif %}
+          {% endfor %}
+        </optgroup>
+        <optgroup label="External Accounts">
+          {% for account in accounts %}
+            {% if account.kind == 'external' %}
+              <option value="{{ account.name }}"
+                      {% if selected_account == account.name %}selected{% endif %}>{{ account.name }}</option>
+            {% endif %}
+          {% endfor %}
+        </optgroup>
       </select>
     </div>
     <div class="mb-2 text-sm text-base-content/70">

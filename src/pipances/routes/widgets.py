@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
 from pipances.db import async_session
-from pipances.models import Account, AccountKind, Category
+from pipances.models import Account, AccountKind, Category, Transaction
 from pipances.routes._utils import templates
 from pipances.utils import escape_like
 
@@ -23,7 +23,7 @@ async def combo_search(entity: str, request: Request):
                 query = query.where(
                     Category.name.ilike(f"%{escape_like(q)}%", escape="\\")
                 )
-            result = await session.execute(query.limit(5))
+            result = await session.execute(query.limit(50))
             items = [{"id": c.id, "name": c.name} for c in result.scalars().all()]
             exact_match = (
                 any(item["name"].lower() == q.lower() for item in items) if q else True
@@ -38,8 +38,25 @@ async def combo_search(entity: str, request: Request):
                 query = query.where(
                     Account.name.ilike(f"%{escape_like(q)}%", escape="\\")
                 )
-            result = await session.execute(query.limit(5))
+            result = await session.execute(query.limit(50))
             items = [{"id": a.id, "name": a.name} for a in result.scalars().all()]
+            exact_match = (
+                any(item["name"].lower() == q.lower() for item in items) if q else True
+            )
+        elif entity == "descriptions":
+            query = (
+                select(Transaction.description)
+                .where(Transaction.description.isnot(None))
+                .where(Transaction.description != "")
+                .distinct()
+                .order_by(Transaction.description)
+            )
+            if q:
+                query = query.where(
+                    Transaction.description.ilike(f"%{escape_like(q)}%", escape="\\")
+                )
+            result = await session.execute(query.limit(50))
+            items = [{"id": 0, "name": d[0]} for d in result.fetchall() if d[0]]
             exact_match = (
                 any(item["name"].lower() == q.lower() for item in items) if q else True
             )

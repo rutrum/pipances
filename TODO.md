@@ -57,3 +57,44 @@ One source of complexity (imo) is that SQLITE doesn't maintain types our types (
 When I enter a new item, I need to be able to "split" the transaction such that it contributes to multiple categories.
 
 ## dark mode/theme toggle
+
+## Minor bugs/tweaks
+* the account dropdown in import transactions/csv upload is wierdly not centered vertically
+* transactions marked "approved" should be un-editable
+* hitting tab should move you from one editable box to the next (I think I want just htose, not checkboxes of approved boxes (maybe))
+* drop down suggestions should not be just the top 5...why not top 50?
+* hitting retrain messes up the ordering of hte transactions (newest first all the sudden)
+* retrain probably ought to happen after every commit
+* the user experience when typing in the field is buggy/weird.  It needs a fine tooth comb on reactions to enter, tab, arrows, un-focus, etc.
+* description should also be a dropdown
+* we should not permit approval if the external account is not filled out: further, we probably shouldn't even fill it with the description by default, its nearly never right
+* the date bar charts have the bars in locations I wouldn't expect.  Id put the month tick in between the red/green.  Not however its doing it (randomly?  Sometimes padding on one side and not the other)
+### Checkboxes in Inbox
+1. When I select I think I want the row to highlight blue or something so its more obvious
+2. Theres a bug that whne I refresh the page (or apply in bulk) it doesn't reset whats checked off
+### Pagination
+1. The page x of x is greyed out (its not clickable but it shouldn't look disabled, see daisy UI examples)
+2. When I hit commit, the page count doesn't update (but the transactions list does)
+
+## Editing Transactions in post
+If I make a mistake in the inbox, (I have) then it should allow me to edit afterwards
+CRITICAL BUG MAYBE: it might have committed transacations that I didn't actually select.  Is the indexing off?  It shouldn't have let me approve without assigning everything...NO, its just that the transactions SHOWS THOSE HTINGS IN THE INBOX...feature: we should have a button at the top for that page exclusively that says "include inbox" or not.
+
+## Quick action buttons on inbox records
+1. Wipe all (clear all fields)
+2. Re-predict this row
+
+## Investigate the formula
+* In my mind, its rare that two different external account could nearly ever share the same description, but that seems to be what I'm finding out a lot.
+* It clear to me that each one is being estimated independently, when in reality the results are heavily correlated, so they probably ought to not be.
+* The (external, description) and the raw_description should be correlated with one another.  I dont see that happening.
+* The inficon description might be bug: It can't handle "Deposit from INFICON, Inc-OSV PAYROLL565" well.  Those numbers might be whats up.
+* It could also be the price that's driving the proximity too good.  Really the description should have the greatest impact, IMO.
+
+## Clean up Task
+* Add a task to normalize very similar descriptions, or fix casing, etc.
+  * "Water & Gas" and "Gas & Water" should be shown as similar
+  * Typos
+
+## Critical:
+* The other internal accounts don't show up in the dropdown.

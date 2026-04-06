@@ -76,6 +76,7 @@
       let blurTimeout;
       input.addEventListener('blur', function() {
         blurTimeout = setTimeout(function() {
+          input.classList.add('pointer-events-none');
           revert();
         }, 200);
       });
@@ -84,6 +85,7 @@
       wrapper.addEventListener('mousedown', function(e) {
         if (e.target !== input) {
           clearTimeout(blurTimeout);
+          input.classList.remove('pointer-events-none');
         }
       });
     })();

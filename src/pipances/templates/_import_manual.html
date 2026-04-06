@@ -13,7 +13,20 @@
       </label>
       <select name="account" class="select select-bordered w-full" required>
         <option disabled selected value="">Select an account</option>
-        {% for account in accounts %}<option value="{{ account.name }}">{{ account.name }}</option>{% endfor %}
+        <optgroup label="Internal Accounts">
+          {% for account in accounts %}
+            {% if account.kind != 'external' %}
+              <option value="{{ account.name }}">{{ account.name }}</option>
+            {% endif %}
+          {% endfor %}
+        </optgroup>
+        <optgroup label="External Accounts">
+          {% for account in accounts %}
+            {% if account.kind == 'external' %}
+              <option value="{{ account.name }}">{{ account.name }}</option>
+            {% endif %}
+          {% endfor %}
+        </optgroup>
       </select>
     </div>
     <div class="overflow-x-auto mb-4">
