@@ -60,13 +60,10 @@ When I enter a new item, I need to be able to "split" the transaction such that 
 
 ## Minor bugs/tweaks
 * the account dropdown in import transactions/csv upload is wierdly not centered vertically
-* transactions marked "approved" should be un-editable
 * hitting tab should move you from one editable box to the next (I think I want just htose, not checkboxes of approved boxes (maybe))
-* drop down suggestions should not be just the top 5...why not top 50?
 * hitting retrain messes up the ordering of hte transactions (newest first all the sudden)
 * retrain probably ought to happen after every commit
 * the user experience when typing in the field is buggy/weird.  It needs a fine tooth comb on reactions to enter, tab, arrows, un-focus, etc.
-* description should also be a dropdown
 * we should not permit approval if the external account is not filled out: further, we probably shouldn't even fill it with the description by default, its nearly never right
 * the date bar charts have the bars in locations I wouldn't expect.  Id put the month tick in between the red/green.  Not however its doing it (randomly?  Sometimes padding on one side and not the other)
 ### Checkboxes in Inbox
@@ -95,6 +92,3 @@ CRITICAL BUG MAYBE: it might have committed transacations that I didn't actually
 * Add a task to normalize very similar descriptions, or fix casing, etc.
   * "Water & Gas" and "Gas & Water" should be shown as similar
   * Typos
-
-## Critical:
-* The other internal accounts don't show up in the dropdown.

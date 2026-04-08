@@ -1,5 +1,8 @@
-## ADDED Requirements
+# inbox-dropdown-improvement Specification
 
+## Purpose
+TBD - created by archiving change fix-inbox-dropdowns. Update Purpose after archive.
+## Requirements
 ### Requirement: Inbox row displays read-only state for approved transactions
 When a transaction has been marked as approved in the inbox, the text fields SHALL be read-only but the approval button remains functional to allow un-approving.
 
@@ -7,6 +10,17 @@ When a transaction has been marked as approved in the inbox, the text fields SHA
 - **WHEN** a transaction has `marked_for_approval == True`
 - **THEN** the description, category, and external account cells SHALL NOT trigger the edit UI when clicked
 - **THEN** the approval button SHALL show "Approved" in a success state but pressing it SHALL toggle to un-approve the transaction
+
+### Requirement: Combo box displays up to 50 results
+The combo box component SHALL show a dropdown of matching options as the user types. The dropdown SHALL show at most 50 matching entities, plus a "Create new" option at the bottom when applicable. The dropdown SHALL NOT be clipped by parent container overflow.
+
+#### Scenario: Search with matches shows up to 50 results
+- **WHEN** user types into a combo box input field
+- **THEN** at most 50 matching results SHALL appear in a dropdown below the input
+
+#### Scenario: Empty input shows up to 50 results
+- **WHEN** the combo box input is empty
+- **THEN** the dropdown SHALL show up to 50 available entities
 
 ### Requirement: Description field supports autocomplete dropdown
 The description field in the inbox SHALL support the same combo box autocomplete pattern as category and external account fields.
@@ -33,17 +47,3 @@ The account dropdown in import pages SHALL group accounts by their type (interna
 - **THEN** the account dropdown SHALL show internal accounts grouped under a "Internal Accounts" header
 - **THEN** the dropdown SHALL show external accounts grouped under an "External Accounts" header
 
-## MODIFIED Requirements
-
-### Requirement: Combo box displays filtered results on input
-**Original**: The combo box component SHALL show a dropdown of matching options as the user types. The dropdown SHALL show at most 5 matching entities, plus a "Create new" option at the bottom when applicable. The dropdown SHALL NOT be clipped by parent container overflow.
-
-**Updated**: The combo box component SHALL show a dropdown of matching options as the user types. The dropdown SHALL show at most 50 matching entities, plus a "Create new" option at the bottom when applicable. The dropdown SHALL NOT be clipped by parent container overflow.
-
-#### Scenario: Search with matches (updated limit)
-- **WHEN** user types into a combo box input field
-- **THEN** at most 50 matching results SHALL appear in a dropdown below the input
-
-#### Scenario: Empty input shows more results (updated limit)
-- **WHEN** the combo box input is empty
-- **THEN** the dropdown SHALL show up to 50 available entities
