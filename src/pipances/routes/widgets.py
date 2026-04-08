@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
 from pipances.db import async_session
-from pipances.models import Account, AccountKind, Category, Transaction
+from pipances.models import Account, Category, Transaction
 from pipances.routes._utils import templates
 from pipances.utils import escape_like
 
@@ -29,11 +29,7 @@ async def combo_search(entity: str, request: Request):
                 any(item["name"].lower() == q.lower() for item in items) if q else True
             )
         elif entity == "external-accounts":
-            query = (
-                select(Account)
-                .where(Account.kind == AccountKind.EXTERNAL)
-                .order_by(Account.name)
-            )
+            query = select(Account).order_by(Account.name)
             if q:
                 query = query.where(
                     Account.name.ilike(f"%{escape_like(q)}%", escape="\\")
