@@ -27,19 +27,23 @@ All three use post-render manipulation, causing silent failures (no errors, just
 
 ## Decisions
 
-### Decision 1: Template-Based OOB with `oob` Parameter
+### Decision 1: Always Include `hx-swap-oob` in Templates
 
-**Chosen:** Pass `oob=True` to template renderer; template conditionally includes `hx-swap-oob` attribute.
+**Chosen:** Templates always include `hx-swap-oob` attribute. No conditional parameter.
 
 **Rationale:**
-- OOB logic lives in one place: the template
-- If template structure changes, OOB attribute goes with it automatically
-- No post-processing magic or fragile string replaces
-- Jinja2 supports conditional attributes natively (`{% if oob %}...{% endif %}`)
-- Aligns with HTMX's mental model (OOB is in the markup)
+- Simplest approach: template owns the OOB behavior, period
+- HTMX ignores `hx-swap-oob` on initial page load (only processes it from responses)
+- No `oob=True` parameter to pass or remember
+- Routes just render templates normally, no special handling
+- OOB logic centralized in template, not scattered across route + template
 
-**Alternative considered:** JSON response + client-side renderer
-- Rejected: Goes against HTMX philosophy; loses progressive enhancement benefits
+**How it works:**
+- Initial page load: Template includes `hx-swap-oob`, HTMX ignores it (it's not a response swap)
+- HTMX response: Template includes `hx-swap-oob`, HTMX processes it normally
+
+**Alternative considered:** Conditional `oob` parameter
+- Rejected: Added complexity without benefit. HTMX handles unconditional OOB correctly
 
 ---
 
@@ -51,21 +55,10 @@ All three use post-render manipulation, causing silent failures (no errors, just
 - Centralizes design (styling, structure) in templates, not Python strings
 - Easier to maintain and test
 - Reduces Python line count
-- Same template can be rendered with/without OOB
+- Eliminates HTML strings from Python code
 
 **Alternative considered:** Keep inline strings, add helper function
 - Rejected: Still mixes HTML into Python; still hard to style or change
-
----
-
-### Decision 3: `oob` is a Optional Parameter (Default False)
-
-**Chosen:** Templates check `{% if oob %}` with no default; if not passed, renders without OOB.
-
-**Rationale:**
-- Same template works for both initial page load (no OOB) and HTMX responses (with OOB)
-- Explicit and clear: when you see `render_template(..., oob=True)`, it's OOB
-- No accidental OOB swaps if caller forgets the parameter
 
 ---
 
@@ -94,7 +87,6 @@ pagination = templates.get_template("_pagination.html").render({
     "pagination_url": "/inbox",
     "page": page,
     "total_pages": total_pages,
-    "oob": True,
 })
 return pagination
 ```
@@ -102,7 +94,7 @@ return pagination
 **Template (_pagination.html):**
 ```html
 <div id="inbox-pagination" 
-     {% if oob %}hx-swap-oob="outerHTML:#inbox-pagination"{% endif %}
+     hx-swap-oob="outerHTML:#inbox-pagination"
      class="flex items-center justify-between mt-4">
   <!-- pagination buttons and controls -->
 </div>
@@ -112,6 +104,7 @@ return pagination
 - No string replace logic; template owns the structure
 - CSS class changes don't break OOB swap
 - Single place to change when design updates
+- No special parameters or conditionals needed
 
 ---
 
@@ -127,19 +120,17 @@ return badge_oob + toast + primary_html
 
 **After (inbox.py):**
 ```python
-badge = render_template("_badge.html", count=remaining_count, oob=True)
+badge = render_template("_badge.html", count=remaining_count)
 toast = render_template("_toast.html", 
     message=f"Committed {committed_count} transaction{'s' if committed_count != 1 else ''}.",
-    type="success",
-    oob=True
+    type="success"
 )
 return badge + toast + primary_html
 ```
 
 **New template (_toast.html):**
 ```html
-<div id="toast-container" 
-     {% if oob %}hx-swap-oob="innerHTML:#toast-container"{% endif %}>
+<div id="toast-container" hx-swap-oob="innerHTML:#toast-container">
   <div class="alert alert-{{ type }}">
     <span>{{ message }}</span>
   </div>
@@ -148,8 +139,7 @@ return badge + toast + primary_html
 
 **New template (_badge.html):**
 ```html
-<span id="inbox-badge" 
-      {% if oob %}hx-swap-oob="innerHTML:#inbox-badge"{% endif %}>
+<span id="inbox-badge" hx-swap-oob="innerHTML:#inbox-badge">
   {% if count > 0 %}
     <span class="badge badge-sm badge-primary">{{ count }}</span>
   {% endif %}
@@ -157,7 +147,7 @@ return badge + toast + primary_html
 ```
 
 **Why better:**
-- Design lives in templates
+- Design lives in templates, not Python f-strings
 - Easy to change styling (edit template, not hunt Python strings)
 - Reusable: same `_toast.html` for all toast messages
 - Testable: render template with different inputs
@@ -178,13 +168,13 @@ date_range_oob = date_range_oob.replace(
 
 **After (explore.py):**
 ```python
-date_range_oob = templates.get_template("_explore_date_range.html").render({..., oob=True})
+date_range_oob = templates.get_template("_explore_date_range.html").render({...})
 ```
 
 **Template (_explore_date_range.html):**
 ```html
 <div id="explore-date-range" 
-     {% if oob %}hx-swap-oob="outerHTML:#explore-date-range"{% endif %}>
+     hx-swap-oob="outerHTML:#explore-date-range">
   <!-- date range content -->
 </div>
 ```

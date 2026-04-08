@@ -13,10 +13,10 @@ The codebase uses HTMX out-of-band (OOB) swaps in three fragile patterns: string
 ## Capabilities
 
 ### New Capabilities
-- `oob-template-pattern`: Template-based OOB swap pattern using conditional rendering. Enables safe, maintainable OOB responses aligned with HTMX design principles.
+<!-- None - this is a refactor with no user-facing capability changes -->
 
 ### Modified Capabilities
-- `html-rendering`: Response rendering now supports `oob` parameter to conditionally include `hx-swap-oob` attributes in templates.
+<!-- None - internal implementation only, no requirement changes -->
 
 ## Impact
 

@@ -120,6 +120,8 @@ Whenever the user mentions something as "TODO" or "we'll handle that later" etc,
 ## OpenSpec Preferences
 
 - When making design decisions or large changes AFTER apply, its CRITICAL to update the change artifacts to match the new requirements and design decisions
+- Specs should capture END USER BEHAVIOR.  Specs should not capture internal facing changes, tooling, or deployment changes.
+  - When writing a change that omits specs, don't include a specs directory.
 
 ## Self Improvement
 
