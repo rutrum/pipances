@@ -236,11 +236,6 @@ async def explore_page(request: Request):
         date_range_oob = templates.get_template("_explore_date_range.html").render(
             {"preset": preset, "date_from": ctx["date_from"], "date_to": ctx["date_to"]}
         )
-        date_range_oob = date_range_oob.replace(
-            'id="explore-date-range"',
-            'id="explore-date-range" hx-swap-oob="outerHTML:#explore-date-range"',
-            1,
-        )
         # OOB swap the hidden filter inputs so they stay in sync
         filters_oob = (
             '<div id="explore-filters" hx-swap-oob="outerHTML:#explore-filters">'

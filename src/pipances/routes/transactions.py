@@ -98,11 +98,6 @@ async def bulk_update_transactions(request: Request):
     html = ""
     for txn in transactions:
         row = templates.get_template("_inbox_row.html").render({"txn": txn})
-        row = row.replace(
-            f'<tr id="txn-{txn.id}"',
-            f'<tr id="txn-{txn.id}" hx-swap-oob="outerHTML:#txn-{txn.id}"',
-            1,
-        )
         html += row
     return HTMLResponse(html)
 

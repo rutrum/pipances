@@ -136,11 +136,7 @@ async def inbox_page(request: Request):
                 "pagination_include": "#filter-bar",
             }
         )
-        pagination_oob = pagination.replace(
-            '<div class="flex items-center justify-between mt-4">',
-            '<div id="inbox-pagination" hx-swap-oob="outerHTML:#inbox-pagination" class="flex items-center justify-between mt-4">',
-            1,
-        )
+        pagination_oob = pagination
         thead = templates.get_template("_inbox_thead.html").render(ctx)
         thead_oob = thead.replace(
             '<tr id="inbox-thead">',
@@ -170,12 +166,13 @@ async def commit_summary(request: Request):
         marked = result.scalars().all()
 
         if not marked:
-            return HTMLResponse(
-                "<!-- empty -->"
-                '<div id="toast-container" hx-swap-oob="innerHTML:#toast-container">'
-                '<div class="alert alert-warning"><span>Nothing to commit '
-                "-- no transactions are approved.</span></div></div>"
+            toast = templates.get_template("_toast.html").render(
+                {
+                    "message": "Nothing to commit -- no transactions are approved.",
+                    "type": "warning",
+                }
             )
+            return HTMLResponse("<!-- empty -->" + toast)
 
         commit_count = len(marked)
 
@@ -229,7 +226,12 @@ async def commit_inbox(request: Request):
         marked = result.scalars().all()
 
         if not marked:
-            toast = '<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-warning"><span>Nothing to commit -- no transactions are marked.</span></div></div>'
+            toast = templates.get_template("_toast.html").render(
+                {
+                    "message": "Nothing to commit -- no transactions are marked.",
+                    "type": "warning",
+                }
+            )
             remaining = await session.execute(
                 select(Transaction)
                 .where(Transaction.status == TransactionStatus.PENDING)
@@ -318,15 +320,32 @@ async def commit_inbox(request: Request):
             )
         )
         remaining_count = total_result.scalar() or 0
-    badge_html = (
-        f'<span class="badge badge-sm badge-primary">{remaining_count}</span>'
-        if remaining_count
-        else ""
+
+    # Calculate pagination for remaining transactions
+    page_size = 25  # Default page size
+    total_pages = (remaining_count + page_size - 1) // page_size
+
+    badge = templates.get_template("_badge.html").render({"count": remaining_count})
+    pagination = templates.get_template("_pagination.html").render(
+        {
+            "page": 1,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_count": remaining_count,
+            "pagination_url": "/inbox",
+            "pagination_target": "#inbox-table",
+            "pagination_include": "#filter-bar",
+            "oob": True,
+        }
     )
-    badge_oob = f'<span id="inbox-badge" hx-swap-oob="innerHTML:#inbox-badge">{badge_html}</span>'
-    toast = f'<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-success"><span>Committed {committed_count} transaction{"s" if committed_count != 1 else ""}.</span></div></div>'
+    toast = templates.get_template("_toast.html").render(
+        {
+            "message": f"Committed {committed_count} transaction{'s' if committed_count != 1 else ''}.",
+            "type": "success",
+        }
+    )
     dialog_clear = '<div id="commit-dialog-container" hx-swap-oob="innerHTML:#commit-dialog-container"></div>'
-    oob = toast + badge_oob + dialog_clear
+    oob = toast + badge + pagination + dialog_clear
 
     if not transactions:
         empty = (
@@ -361,7 +380,9 @@ async def retrain_inbox(request: Request):
         pending = result.scalars().all()
 
         if not pending:
-            toast = '<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-warning"><span>No pending transactions to retrain.</span></div></div>'
+            toast = templates.get_template("_toast.html").render(
+                {"message": "No pending transactions to retrain.", "type": "warning"}
+            )
             return HTMLResponse(toast)
 
         result = await session.execute(
@@ -372,7 +393,12 @@ async def retrain_inbox(request: Request):
         approved = result.scalars().all()
 
         if not approved:
-            toast = '<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-warning"><span>No training data available. Approve some transactions first.</span></div></div>'
+            toast = templates.get_template("_toast.html").render(
+                {
+                    "message": "No training data available. Approve some transactions first.",
+                    "type": "warning",
+                }
+            )
             return HTMLResponse(toast)
 
         from pipances.predict import TransactionPredictor
@@ -442,7 +468,12 @@ async def retrain_inbox(request: Request):
 
         await session.commit()
 
-    toast = f'<div id="toast-container" hx-swap-oob="innerHTML:#toast-container"><div class="alert alert-success"><span>Retrained model and updated {updated_count} suggestion{"s" if updated_count != 1 else ""}.</span></div></div>'
+    toast = templates.get_template("_toast.html").render(
+        {
+            "message": f"Retrained model and updated {updated_count} suggestion{'s' if updated_count != 1 else ''}.",
+            "type": "success",
+        }
+    )
 
     rows = ""
     for txn in pending:

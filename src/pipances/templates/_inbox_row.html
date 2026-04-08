@@ -1,10 +1,11 @@
-<tr id="txn-{{ txn.id }}"
+<tr id="txn-{{ txn.id }}" hx-swap-oob="outerHTML:#txn-{{ txn.id }}"
     {% if txn.marked_for_approval %}class="bg-success/10"{% endif %}>
   <th>
     <label>
       <input type="checkbox"
              class="checkbox select-txn"
-             data-txn-id="{{ txn.id }}">
+             data-txn-id="{{ txn.id }}"
+             tabindex="-1">
     </label>
   </th>
   <td>

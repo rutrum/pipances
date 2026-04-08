@@ -83,7 +83,9 @@ CATEGORY_NAMES = [
     "Transportation",
     "Shopping",
     "Income",
-    "Transfers",
+    "Credit Card Payment",
+    "Savings Transfer",
+    "Bank Migration",
 ]
 
 # === External Accounts (merchants/payees) with typical category and amount range ===
@@ -115,16 +117,6 @@ RECURRING = {
     "netflix": ("Netflix", "Entertainment", -1599),
     "spotify": ("Spotify", "Entertainment", -1299),
 }
-
-# Transfer external accounts (counterparty names)
-TRANSFER_EXTERNALS = [
-    "Transfer - FN Checking",
-    "Transfer - FN Savings",
-    "Transfer - Metro CU Checking",
-    "Transfer - Metro CU Savings",
-    "Transfer - Chase Visa",
-    "Transfer - Amex Blue Cash",
-]
 
 # 12 months: Oct 2025 through Sep 2026
 MONTHS = [
@@ -202,7 +194,6 @@ async def seed():
         all_external_names = (
             [m[0] for m in MERCHANTS]
             + [v[0] for v in RECURRING.values()]
-            + TRANSFER_EXTERNALS
         )
         for name in all_external_names:
             if name not in external_map:
@@ -260,22 +251,23 @@ async def seed():
             raw_desc_to: str,
             from_account: str,
             to_account: str,
+            category_name: str,
         ):
-            """Add both sides of a transfer."""
+            """Add both sides of a transfer. Both internal_id and external_id reference the same account."""
             add_txn(
                 txn_date,
                 -abs(amount_cents),
                 raw_desc_from,
-                f"Transfer - {to_account}",
-                "Transfers",
+                to_account,  # Just the account name - same as internal account
+                category_name,
                 from_account,
             )
             add_txn(
                 txn_date,
                 abs(amount_cents),
                 raw_desc_to,
-                f"Transfer - {from_account}",
-                "Transfers",
+                from_account,  # Just the account name - same as internal account
+                category_name,
                 to_account,
             )
 
@@ -333,6 +325,7 @@ async def seed():
                 "TRANSFER FROM SAVINGS",
                 savings,
                 checking,
+                "Savings Transfer",
             )
 
             # --- Transfer: Checking to Chase Visa payment (5th) ---
@@ -344,6 +337,7 @@ async def seed():
                 "PAYMENT RECEIVED",
                 checking,
                 "Chase Visa",
+                "Credit Card Payment",
             )
 
             # --- Transfer: Checking to Amex payment (8th, from Jan 2026) ---
@@ -356,6 +350,7 @@ async def seed():
                     "PAYMENT RECEIVED",
                     checking,
                     "Amex Blue Cash",
+                    "Credit Card Payment",
                 )
 
             # --- Bank switchover transfers (Feb 2026) ---
@@ -367,6 +362,7 @@ async def seed():
                     "ACH TRANSFER FROM FIRST NATIONAL",
                     "FN Checking",
                     "Metro CU Checking",
+                    "Bank Migration",
                 )
                 add_transfer_pair(
                     date(2026, 2, 3),
@@ -375,6 +371,7 @@ async def seed():
                     "ACH TRANSFER FROM FIRST NATIONAL",
                     "FN Savings",
                     "Metro CU Savings",
+                    "Bank Migration",
                 )
 
             # --- Random merchant transactions (8-12 per month) ---
