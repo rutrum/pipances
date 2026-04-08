@@ -18,6 +18,10 @@ def _format_dollars(cents: int) -> str:
 
 
 def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
+    if len(df) == 0:
+        return alt.Chart(pl.DataFrame()).to_json()
+    
+    # Truncate dates to month start
     monthly = (
         df.with_columns(
             pl.col("date").dt.truncate("1mo").alias("month"),
@@ -35,14 +39,28 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
             .alias("expenses"),
         )
         .sort("month")
-        .with_columns(
-            pl.col("income").truediv(100).alias("income"),
-            pl.col("expenses").truediv(100).alias("expenses"),
-        )
+    )
+    
+    # Get min and max months
+    min_month = monthly["month"].min()
+    max_month = monthly["month"].max()
+    
+    # Generate all months in range
+    all_months = pl.date_range(min_month, max_month, interval="1mo", eager=True)
+    
+    # Create full month range with 0 values for missing months
+    full_range = pl.DataFrame({"month": all_months})
+    monthly = full_range.join(monthly, on="month", how="left").fill_null(0)
+    
+    # Convert to dollar amounts and format month for display
+    monthly = monthly.with_columns(
+        pl.col("income").truediv(100).alias("income"),
+        pl.col("expenses").truediv(100).alias("expenses"),
+        pl.col("month").dt.strftime("%b %Y").alias("month_label"),
     )
 
     data = monthly.unpivot(
-        index="month",
+        index=["month", "month_label"],
         on=["income", "expenses"],
         variable_name="type",
         value_name="amount",
@@ -52,7 +70,12 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X("yearmonth(month):T", title="Month"),
+            x=alt.X(
+                "month_label:N",
+                title="Month",
+                sort=None,  # Preserve the chronological order from data
+                axis=alt.Axis(labelAngle=0),
+            ),
             y=alt.Y("amount:Q", title="Amount ($)"),
             color=alt.Color(
                 "type:N",
@@ -64,7 +87,7 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
             ),
             xOffset="type:N",
             tooltip=[
-                "yearmonth(month):T",
+                "month_label:N",
                 "type:N",
                 alt.Tooltip("amount:Q", format="$,.2f"),
             ],
