@@ -52,9 +52,7 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(
-                "yearmonth(month):T", title="Month", scale=alt.Scale(bandPosition=0)
-            ),
+            x=alt.X("yearmonth(month):T", title="Month"),
             y=alt.Y("amount:Q", title="Amount ($)"),
             color=alt.Color(
                 "type:N",

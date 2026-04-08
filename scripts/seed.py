@@ -201,6 +201,11 @@ async def seed():
                 session.add(acct)
                 await session.flush()
                 external_map[name] = acct
+        
+        # For transfers, external_map also references internal accounts by name
+        # (same account, no duplication)
+        for acct in internal_map.values():
+            external_map[acct.name] = acct
 
         # === Create import records (one per institution) ===
         import_fn = Import(institution="First National", filename="seed.py", row_count=0)
