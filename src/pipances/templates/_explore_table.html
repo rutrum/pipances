@@ -2,7 +2,7 @@
   <th class="cursor-pointer select-none"
       hx-get="/explore"
       hx-target="#explore-content"
-      hx-include="#explore-filters, #pagination-page-size"
+      hx-include="#explore-filters, #explore-pagination-page-size"
       hx-push-url="true"
       hx-vals='{{ {"sort": column, "dir": "desc" if sort == column and dir == "asc" else "asc", "page": "1"}|tojson }}'>
     {{ label }}
@@ -39,7 +39,7 @@
         <li>
           <a hx-get="/explore"
              hx-target="#explore-content"
-             hx-include="#explore-filters, #pagination-page-size"
+             hx-include="#explore-filters, #explore-pagination-page-size"
              hx-push-url="true"
              hx-vals='{{ {column: "", "page": "1"}|tojson }}'>All</a>
         </li>
@@ -47,7 +47,7 @@
           <li>
             <a hx-get="/explore"
                hx-target="#explore-content"
-               hx-include="#explore-filters, #pagination-page-size"
+               hx-include="#explore-filters, #explore-pagination-page-size"
                hx-push-url="true"
                hx-vals='{{ {column: acct, "page": "1"}|tojson }}'>{{ acct }}</a>
           </li>
@@ -102,14 +102,14 @@
                 <li>
                   <a hx-get="/explore"
                      hx-target="#explore-content"
-                     hx-include="#explore-filters, #pagination-page-size"
+                     hx-include="#explore-filters, #explore-pagination-page-size"
                      hx-push-url="true"
                      hx-vals='{{ {"category": "", "page": "1"}|tojson }}'>All</a>
                 </li>
                 <li>
                   <a hx-get="/explore"
                      hx-target="#explore-content"
-                     hx-include="#explore-filters, #pagination-page-size"
+                     hx-include="#explore-filters, #explore-pagination-page-size"
                      hx-push-url="true"
                      hx-vals='{{ {"category": "__uncategorized__", "page": "1"}|tojson }}'>Uncategorized</a>
                 </li>
@@ -117,7 +117,7 @@
                   <li>
                     <a hx-get="/explore"
                        hx-target="#explore-content"
-                       hx-include="#explore-filters, #pagination-page-size"
+                       hx-include="#explore-filters, #explore-pagination-page-size"
                        hx-push-url="true"
                        hx-vals='{{ {"category": cat, "page": "1"}|tojson }}'>{{ cat }}</a>
                   </li>
@@ -136,5 +136,9 @@
       </tbody>
     </table>
   </div>
+  {% set pagination_url = "/explore" %}
+  {% set pagination_target = "#explore-content" %}
+  {% set pagination_include = "#explore-filters" %}
+  {% set pagination_id = "explore-pagination" %}
   {% include "_pagination.html" %}
 {% endif %}

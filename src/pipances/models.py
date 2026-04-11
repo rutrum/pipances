@@ -74,7 +74,9 @@ class Transaction(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     import_id: Mapped[int] = mapped_column(ForeignKey("imports.id"), nullable=False)
     internal_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
-    external_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    external_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id"), nullable=True
+    )
     raw_description: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(String)
     date: Mapped[date] = mapped_column(Date, nullable=False)

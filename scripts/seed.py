@@ -569,7 +569,7 @@ async def seed():
                     )
 
         # Make ~10% uncategorized
-        uncategorized_count = len(transactions) // 10
+        uncategorized_count = 0  # All approved transactions should be categorized
         uncategorized_indices = random.sample(range(len(transactions)), uncategorized_count)
         for idx in uncategorized_indices:
             transactions[idx]["category_name"] = None
@@ -588,7 +588,7 @@ async def seed():
                 internal_id=internal_map[txn_data["internal"]].id,
                 external_id=external_map[txn_data["external_name"]].id,
                 raw_description=txn_data["raw_description"],
-                description=None,
+                description=txn_data["external_name"],  # Normalized description
                 date=txn_data["date"],
                 amount_cents=txn_data["amount_cents"],
                 status=TransactionStatus.APPROVED,
@@ -655,6 +655,90 @@ async def seed():
                 "internal": "Metro CU Checking",
                 "date": date(2026, 9, 22),
             },
+            {
+                "ext_name": "Amazon",
+                "raw_desc": "AMZN MKTP US PURCHASE",
+                "amount": -19800,
+                "internal": "Chase Visa",
+                "date": date(2026, 9, 10),
+            },
+            {
+                "ext_name": "Home Depot",
+                "raw_desc": "HOME DEPOT #5432",
+                "amount": -8500,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 11),
+            },
+            {
+                "ext_name": "BP Gas",
+                "raw_desc": "BP GAS STATION #8844",
+                "amount": -5900,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 12),
+            },
+            {
+                "ext_name": "Olive Garden",
+                "raw_desc": "OLIVE GARDEN ITALIAN",
+                "amount": -4200,
+                "internal": "Chase Visa",
+                "date": date(2026, 9, 13),
+            },
+            {
+                "ext_name": "Chick-fil-A",
+                "raw_desc": "CHICK FIL A #123",
+                "amount": -900,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 14),
+            },
+            {
+                "ext_name": "Netflix",
+                "raw_desc": "NETFLIX SUBSCRIPTION",
+                "amount": -1599,
+                "internal": "Chase Visa",
+                "date": date(2026, 9, 8),
+            },
+            {
+                "ext_name": "Water Utility",
+                "raw_desc": "CITY WATER BILL",
+                "amount": -4200,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 23),
+            },
+            {
+                "ext_name": "Electric Company",
+                "raw_desc": "ELECTRIC CO PMT",
+                "amount": -10200,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 24),
+            },
+            {
+                "ext_name": "AMC Theatres",
+                "raw_desc": "AMC MOVIES #123",
+                "amount": -2000,
+                "internal": "Amex Blue Cash",
+                "date": date(2026, 9, 25),
+            },
+            {
+                "ext_name": "Whole Foods",
+                "raw_desc": "WF MARKET #456",
+                "amount": -6500,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 26),
+            },
+            {
+                "ext_name": "Shell Gas",
+                "raw_desc": "SHELL GASOLINE 57432",
+                "amount": -3500,
+                "internal": "Chase Visa",
+                "date": date(2026, 9, 27),
+            },
+            {
+                "ext_name": "Target",
+                "raw_desc": "TGT #2847",
+                "amount": -12500,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 28),
+            },
         ]
 
         for i, pending_data in enumerate(pending_transactions):
@@ -662,7 +746,7 @@ async def seed():
             txn = Transaction(
                 import_id=imp.id,
                 internal_id=internal_map[pending_data["internal"]].id,
-                external_id=external_map[pending_data["ext_name"]].id,
+                external_id=None,  # Don't set external for pending transactions
                 raw_description=pending_data["raw_desc"],
                 description=None,
                 date=pending_data["date"],

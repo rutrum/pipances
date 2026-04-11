@@ -1,12 +1,12 @@
-<div id="inbox-pagination"
-     hx-swap-oob="outerHTML:#inbox-pagination"
+<div id="{{ pagination_id }}"
+     hx-swap-oob="outerHTML:#{{ pagination_id }}"
      class="flex items-center justify-between mt-4">
   <div class="join">
     {% if page > 1 %}
       <button class="btn btn-sm join-item"
               hx-get="{{ pagination_url }}"
               hx-target="{{ pagination_target }}"
-              hx-include="{{ pagination_include }}, #pagination-page-size"
+              hx-include="{{ pagination_include }}, #{{ pagination_id }}-page-size"
               hx-push-url="true"
               hx-vals='{"page": "{{ page - 1 }}"}'>« Prev</button>
     {% else %}
@@ -17,7 +17,7 @@
       <button class="btn btn-sm join-item"
               hx-get="{{ pagination_url }}"
               hx-target="{{ pagination_target }}"
-              hx-include="{{ pagination_include }}, #pagination-page-size"
+              hx-include="{{ pagination_include }}, #{{ pagination_id }}-page-size"
               hx-push-url="true"
               hx-vals='{"page": "{{ page + 1 }}"}'>Next »</button>
     {% else %}
@@ -26,11 +26,11 @@
   </div>
   <div class="flex items-center gap-2">
     <span class="text-sm opacity-70 whitespace-nowrap">{{ total_count }} transactions</span>
-    <select id="pagination-page-size"
+    <select id="{{ pagination_id }}-page-size"
             class="select select-bordered select-sm"
             hx-get="{{ pagination_url }}"
             hx-target="{{ pagination_target }}"
-            hx-include="{{ pagination_include }}, #pagination-page-size"
+            hx-include="{{ pagination_include }}, #{{ pagination_id }}-page-size"
             hx-push-url="true"
             hx-vals='{"page": "1"}'
             name="page_size">
