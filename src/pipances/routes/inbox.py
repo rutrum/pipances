@@ -131,6 +131,7 @@ async def inbox_page(request: Request):
         pagination = templates.get_template("_pagination.html").render(
             {
                 **ctx,
+                "pagination_id": "inbox-pagination",
                 "pagination_url": "/inbox",
                 "pagination_target": "#inbox-table",
                 "pagination_include": "#filter-bar",
@@ -194,6 +195,8 @@ async def commit_summary(request: Request):
         # Find external accounts only referenced by pending transactions
         new_external_names = set()
         for txn in marked:
+            if txn.external is None:
+                continue
             ext_id = txn.external_id
             approved_ref = await session.execute(
                 select(Transaction.id).where(
@@ -333,6 +336,7 @@ async def commit_inbox(request: Request):
             "page_size": page_size,
             "total_pages": total_pages,
             "total_count": remaining_count,
+            "pagination_id": "inbox-pagination",
             "pagination_url": "/inbox",
             "pagination_target": "#inbox-table",
             "pagination_include": "#filter-bar",
