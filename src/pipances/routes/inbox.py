@@ -134,6 +134,7 @@ async def inbox_page(request: Request):
                 "pagination_url": "/inbox",
                 "pagination_target": "#inbox-table",
                 "pagination_include": "#filter-bar",
+                "oob": True,
             }
         )
         pagination_oob = pagination

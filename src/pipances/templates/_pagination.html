@@ -1,5 +1,5 @@
 <div id="{{ pagination_id }}"
-     hx-swap-oob="outerHTML:#{{ pagination_id }}"
+     {% if oob %}hx-swap-oob="outerHTML:#{{ pagination_id }}"{% endif %}
      class="flex items-center justify-between mt-4">
   <div class="join">
     {% if page > 1 %}

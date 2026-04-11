@@ -1,83 +1,35 @@
-## Purpose
-Predict description, category, and external account for newly imported transactions based on patterns in previously approved transactions, reducing manual data entry while preserving human review.
+## MODIFIED Requirements
 
-## Requirements
+### Requirement: Model uses text-primary matching with structured re-ranking
+The prediction model SHALL use `raw_description` as the primary matching signal (text stage). Predictions SHALL be made by finding neighbors whose transaction descriptions are most similar via TF-IDF character n-grams, then re-ranking those neighbors based on agreement on secondary features (amount, date, account, institution).
 
-### Requirement: Prediction engine uses approved transactions as training data
-The system SHALL use all approved transactions as labeled training data for predicting fields on new pending transactions.
+#### Scenario: Feature extraction and two-stage matching
+- **GIVEN** a transaction with raw_description, amount_cents, date, internal_id, and import institution
+- **WHEN** the model makes predictions for this transaction
+- **THEN** the system SHALL:
+  1. Extract TF-IDF character n-grams (3-5 characters) from raw_description
+  2. Retrieve ~50 training transactions with highest text similarity (cosine distance on TF-IDF alone)
+  3. Adjust the similarity scores of those neighbors based on amount, date, and account agreement (multiplicative factors; structured features act as refinement, not as primary matching criteria)
+  4. Apply voting on the adjusted similarities to determine final predictions
+- **THEN** transactions with very different descriptions but identical amounts SHALL NOT automatically match
+- **THEN** transactions with identical descriptions but different amounts SHALL still be strong matches
 
-#### Scenario: Prediction with approved transaction history
-- **WHEN** new transactions are imported and approved transactions exist in the database
-- **THEN** the system SHALL fit a model on approved transactions and predict fields for the new transactions
+#### Scenario: Contextual features as secondary signals
+- **GIVEN** multiple training transactions with similar descriptions to a pending transaction
+- **WHEN** determining which neighbor prediction to use
+- **THEN** the system SHALL prefer neighbors with:
+  - Similar amount_cents (within a tolerance, e.g., 2x original)
+  - Same day-of-week or day-of-month patterns
+  - Same internal account
+  - Same importer institution
+- **THEN** these structural features SHALL NOT override text similarity decisions
+- **THEN** if two neighbors have very different text similarity scores, the higher text similarity SHALL win even if the lower-scoring neighbor has better amount match
 
-#### Scenario: Prediction with no approved transactions
-- **WHEN** new transactions are imported and zero approved transactions exist in the database
-- **THEN** the system SHALL skip prediction entirely
-- **THEN** all fields on new transactions SHALL remain at their default values (no description, no category, auto-created external)
+### Requirement: Backward compatibility
+The system's public API (fit/predict method signatures and database schema) SHALL remain unchanged.
 
-#### Scenario: Prediction with few approved transactions
-- **WHEN** new transactions are imported and few approved transactions exist
-- **THEN** the system SHALL still attempt prediction
-- **THEN** predictions with low confidence SHALL be omitted (fields left blank)
-
-### Requirement: Model uses text and contextual features
-The prediction model SHALL use `raw_description` as the primary feature, supplemented by amount, date patterns, internal account, and importer institution.
-
-#### Scenario: Feature extraction
-- **GIVEN** a transaction with raw_description, amount_cents, date, internal_id, and an import with institution
-- **THEN** the model SHALL extract: TF-IDF character n-grams from raw_description, scaled amount_cents, cyclically-encoded day-of-week and day-of-month, and one-hot-encoded internal_id and institution
-
-### Requirement: Two-stage confidence gating
-The system SHALL use two thresholds to filter low-quality predictions.
-
-#### Scenario: Neighbors below similarity floor
-- **WHEN** all kNN neighbors for a transaction have cosine similarity below the similarity floor
-- **THEN** no suggestion SHALL be made for any field on that transaction
-
-#### Scenario: Neighbors pass floor but disagree
-- **WHEN** kNN neighbors pass the similarity floor but no single value achieves agreement above the confidence threshold for a given field
-- **THEN** no suggestion SHALL be made for that field
-- **THEN** other fields with sufficient agreement MAY still receive suggestions
-
-#### Scenario: High-confidence prediction
-- **WHEN** kNN neighbors pass the similarity floor and a value achieves agreement above the confidence threshold for a field
-- **THEN** the field SHALL be set to the winning value
-- **THEN** the corresponding confidence column SHALL be set to the agreement score
-
-### Requirement: Per-field confidence tracking
-Each predictable field SHALL have a corresponding nullable float column storing the ML confidence score.
-
-#### Scenario: ML-suggested field
-- **WHEN** the model suggests a value for a field
-- **THEN** the field SHALL be populated with the suggested value
-- **THEN** the corresponding `ml_confidence_*` column SHALL be set to the confidence score (0.0–1.0)
-
-#### Scenario: Field not suggested
-- **WHEN** the model does not suggest a value for a field (insufficient confidence or no training data)
-- **THEN** the corresponding `ml_confidence_*` column SHALL be `None`
-
-#### Scenario: User edits an ML-suggested field
-- **WHEN** user modifies a field that has a non-null `ml_confidence_*` value
-- **THEN** the `ml_confidence_*` column SHALL be set to `None`
-- **THEN** the field value SHALL be the user's input
-
-### Requirement: Prediction runs at import time
-Predictions SHALL execute automatically during the CSV import flow, after dedup and insertion. Additionally, predictions MAY execute on-demand via user action in the inbox page.
-
-#### Scenario: Import triggers prediction
-- **WHEN** CSV import completes and new pending transactions have been inserted
-- **THEN** the system SHALL automatically run the prediction engine on the newly inserted transactions
-- **THEN** suggested field values and confidence scores SHALL be written to the database before the user is redirected to the inbox
-
-### Requirement: Predicted fields use existing entities only
-ML predictions for category and external account SHALL only reference entities that already exist in the database.
-
-#### Scenario: Predicted external account
-- **WHEN** the model suggests an external account for a transaction
-- **THEN** the suggested account SHALL be an existing account in the database
-- **THEN** the transaction's `external_id` SHALL be updated to the suggested account's ID
-
-#### Scenario: Predicted category
-- **WHEN** the model suggests a category for a transaction
-- **THEN** the suggested category SHALL be an existing category in the database
-- **THEN** the transaction's `category_id` SHALL be updated to the suggested category's ID
+#### Scenario: Existing code continues to work
+- **WHEN** existing code calls `TransactionPredictor.fit(...)` and `predict(...)`
+- **THEN** the method signatures SHALL be identical
+- **THEN** the system SHALL work with existing approved transaction data without migration
+- **THEN** the system SHALL accept retrained models without schema changes
