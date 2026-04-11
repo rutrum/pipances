@@ -88,34 +88,194 @@ CATEGORY_NAMES = [
     "Bank Migration",
 ]
 
-# === External Accounts (merchants/payees) with typical category and amount range ===
+# === Merchant Variants ===
+# Each merchant has multiple realistic raw_description variants (as seen in real bank exports)
+# and multiple approved transactions at different amounts to train the model on text, not amount
 
-MERCHANTS = [
-    ("Kroger", "Groceries", -12000, -3000),
-    ("Whole Foods", "Groceries", -15000, -4000),
-    ("Aldi", "Groceries", -8000, -2000),
-    ("Chipotle", "Dining", -1500, -800),
-    ("Olive Garden", "Dining", -6000, -2500),
-    ("Starbucks", "Dining", -800, -400),
-    ("Chick-fil-A", "Dining", -1400, -700),
-    ("AMC Theatres", "Entertainment", -2500, -1200),
-    ("Barnes & Noble", "Entertainment", -4000, -1000),
-    ("Shell Gas Station", "Transportation", -6500, -3000),
-    ("BP Gas Station", "Transportation", -5500, -2800),
-    ("Target", "Shopping", -10000, -2000),
-    ("Amazon", "Shopping", -15000, -1500),
-    ("Home Depot", "Shopping", -12000, -2500),
-    ("Comcast Internet", "Utilities", -7999, -7999),
-    ("Electric Company", "Utilities", -14000, -8500),
-    ("Water Utility", "Utilities", -5500, -3500),
-]
-
-# Recurring items
-RECURRING = {
-    "rent": ("Property Management LLC", "Rent", -140000),
-    "paycheck": ("Employer Direct Dep", "Income", 280000),
-    "netflix": ("Netflix", "Entertainment", -1599),
-    "spotify": ("Spotify", "Entertainment", -1299),
+MERCHANT_VARIANTS = {
+    "Kroger": {
+        "category": "Groceries",
+        "variants": [
+            "KROGER #1234",
+            "KROGER STORE #1234",
+            "KROGER #01234 CITY GA",
+            "KRG #1234",
+            "KROGER GROCERY #1234",
+        ],
+        "approved_amounts": [2500, 8700, 14500, 5200, 11300],  # Multiple amounts in cents
+    },
+    "Whole Foods": {
+        "category": "Groceries",
+        "variants": [
+            "WHOLE FOODS MKT",
+            "WHOLE FOODS MARKET",
+            "WF MARKET #456",
+            "WHOLE FOODS #0456",
+            "WHOLE FOODS MKT #456",
+        ],
+        "approved_amounts": [15000, 4000, 8500, 12000, 6500],
+    },
+    "Aldi": {
+        "category": "Groceries",
+        "variants": [
+            "ALDI STORE",
+            "ALDI #789",
+            "ALDI SUPERMARKET",
+            "ALDI DISCOUNT",
+        ],
+        "approved_amounts": [4000, 8000, 5500, 3200],
+    },
+    "Shell Gas": {
+        "category": "Transportation",
+        "variants": [
+            "SHELL OIL 57432",
+            "SHELL GAS STATION",
+            "SHELL #57432 GAS",
+            "SHELL 57432",
+            "SHELL GASOLINE 57432",
+        ],
+        "approved_amounts": [3500, 5200, 6800, 4100, 5900],
+    },
+    "BP Gas": {
+        "category": "Transportation",
+        "variants": [
+            "BP GAS STATION",
+            "BP #8844",
+            "BP GASOLINE",
+            "BP FUEL #8844",
+        ],
+        "approved_amounts": [2800, 4500, 5900, 3200],
+    },
+    "Chipotle": {
+        "category": "Dining",
+        "variants": [
+            "CHIPOTLE",
+            "CHIPOTLE MEXICAN GRL",
+            "CHIPOTLE #2156",
+            "CHIPOTLE ONLINE",
+        ],
+        "approved_amounts": [1000, 1500, 800, 1200],
+    },
+    "Olive Garden": {
+        "category": "Dining",
+        "variants": [
+            "OLIVE GARDEN",
+            "OLIVE GARDEN #345",
+            "OG RESTAURANT",
+            "OLIVE GARDEN ITALIAN",
+        ],
+        "approved_amounts": [3500, 6000, 4200, 5500],
+    },
+    "Starbucks": {
+        "category": "Dining",
+        "variants": [
+            "STARBUCKS",
+            "STARBUCKS #9012",
+            "STARBUCKS COFFEE",
+            "SBUX #9012",
+        ],
+        "approved_amounts": [400, 800, 600, 700],
+    },
+    "Chick-fil-A": {
+        "category": "Dining",
+        "variants": [
+            "CHICK FIL A",
+            "CHICK-FIL-A",
+            "CFA #123",
+            "CHICK FIL A #123",
+        ],
+        "approved_amounts": [700, 1400, 900, 1100],
+    },
+    "Target": {
+        "category": "Shopping",
+        "variants": [
+            "TARGET",
+            "TARGET #2847",
+            "TARGET STORE #2847",
+            "TGT #2847",
+            "TARGET RETAIL",
+        ],
+        "approved_amounts": [3000, 10000, 15000, 8500, 12500],
+    },
+    "Amazon": {
+        "category": "Shopping",
+        "variants": [
+            "AMAZON.COM",
+            "AMZN MKTP US",
+            "AMAZON MARKETPLACE",
+            "AMAZON.COM MKTP",
+            "AMZN PURCHASE",
+        ],
+        "approved_amounts": [2500, 15000, 8500, 45000, 12000],
+    },
+    "Home Depot": {
+        "category": "Shopping",
+        "variants": [
+            "HOME DEPOT",
+            "HOME DEPOT #5432",
+            "HOME DEPOT SUPPLY",
+            "HD #5432",
+        ],
+        "approved_amounts": [4500, 12000, 8900, 15600],
+    },
+    "Comcast": {
+        "category": "Utilities",
+        "variants": [
+            "COMCAST",
+            "COMCAST INTERNET",
+            "COMCAST CABLE",
+            "COMCAST #999",
+        ],
+        "approved_amounts": [7999, 7999, 7999],  # Recurring exact amount
+    },
+    "Electric Company": {
+        "category": "Utilities",
+        "variants": [
+            "ELECTRIC CO",
+            "ELECTRIC CO PMT",
+            "ELECTRIC UTILITY",
+            "CITY ELECTRIC",
+        ],
+        "approved_amounts": [8500, 14000, 10200, 9800],
+    },
+    "Water Utility": {
+        "category": "Utilities",
+        "variants": [
+            "WATER UTILITY",
+            "CITY WATER",
+            "WATER DEPARTMENT",
+            "WATER BILL",
+        ],
+        "approved_amounts": [3500, 5500, 4200, 3800],
+    },
+    "AMC Theatres": {
+        "category": "Entertainment",
+        "variants": [
+            "AMC THEATRES",
+            "AMC THEATRE #123",
+            "AMC MOVIES",
+            "AMC #123",
+        ],
+        "approved_amounts": [1500, 2500, 1200, 2000],
+    },
+    "Netflix": {
+        "category": "Entertainment",
+        "variants": [
+            "NETFLIX",
+            "NETFLIX.COM",
+            "NETFLIX SUBSCRIPTION",
+        ],
+        "approved_amounts": [1599, 1599, 1599],  # Recurring exact amount
+    },
+    "Spotify": {
+        "category": "Entertainment",
+        "variants": [
+            "SPOTIFY",
+            "SPOTIFY AB",
+            "SPOTIFY PREMIUM",
+        ],
+        "approved_amounts": [1299, 1299, 1299],  # Recurring exact amount
+    },
 }
 
 # 12 months: Oct 2025 through Sep 2026
@@ -136,6 +296,10 @@ MONTHS = [
 
 # Bank switchover happens in Feb 2026
 SWITCHOVER_MONTH = (2026, 2)
+
+# Recurring transactions
+RECURRING_RENT = ("Property Management LLC", "Rent", -140000, "RENT PAYMENT ACH")
+RECURRING_PAYCHECK = ("Employer Direct Dep", "Income", 280000, "EMPLOYER DIRECT DEP")
 
 
 def random_date_in_month(year: int, month: int) -> date:
@@ -191,19 +355,18 @@ async def seed():
 
         # === Create external accounts ===
         external_map: dict[str, Account] = {}
-        all_external_names = (
-            [m[0] for m in MERCHANTS]
-            + [v[0] for v in RECURRING.values()]
-        )
+        all_external_names = list(MERCHANT_VARIANTS.keys()) + [
+            RECURRING_RENT[0],
+            RECURRING_PAYCHECK[0],
+        ]
         for name in all_external_names:
             if name not in external_map:
                 acct = Account(name=name, kind=AccountKind.EXTERNAL)
                 session.add(acct)
                 await session.flush()
                 external_map[name] = acct
-        
+
         # For transfers, external_map also references internal accounts by name
-        # (same account, no duplication)
         for acct in internal_map.values():
             external_map[acct.name] = acct
 
@@ -263,7 +426,7 @@ async def seed():
                 txn_date,
                 -abs(amount_cents),
                 raw_desc_from,
-                to_account,  # Just the account name - same as internal account
+                to_account,
                 category_name,
                 from_account,
             )
@@ -271,11 +434,12 @@ async def seed():
                 txn_date,
                 abs(amount_cents),
                 raw_desc_to,
-                from_account,  # Just the account name - same as internal account
+                from_account,
                 category_name,
                 to_account,
             )
 
+        # --- Generate approved transactions with merchant variants ---
         for year, month in MONTHS:
             checking = checking_for_month(year, month)
             savings = savings_for_month(year, month)
@@ -284,10 +448,10 @@ async def seed():
             # --- Recurring: Rent on the 1st ---
             add_txn(
                 date(year, month, 1),
-                RECURRING["rent"][2],
-                "RENT PAYMENT ACH",
-                RECURRING["rent"][0],
-                RECURRING["rent"][1],
+                RECURRING_RENT[2],
+                RECURRING_RENT[3],
+                RECURRING_RENT[0],
+                RECURRING_RENT[1],
                 checking,
             )
 
@@ -295,30 +459,28 @@ async def seed():
             for pay_day in [1, 15]:
                 add_txn(
                     date(year, month, pay_day),
-                    RECURRING["paycheck"][2],
-                    "EMPLOYER DIRECT DEP",
-                    RECURRING["paycheck"][0],
-                    RECURRING["paycheck"][1],
+                    RECURRING_PAYCHECK[2],
+                    RECURRING_PAYCHECK[3],
+                    RECURRING_PAYCHECK[0],
+                    RECURRING_PAYCHECK[1],
                     checking,
                 )
 
-            # --- Recurring: Netflix (12th) ---
+            # --- Recurring subscriptions (Netflix, Spotify) ---
             add_txn(
                 date(year, month, 12),
-                RECURRING["netflix"][2],
-                "NETFLIX SUBSCRIPTION",
-                RECURRING["netflix"][0],
-                RECURRING["netflix"][1],
+                -MERCHANT_VARIANTS["Netflix"]["approved_amounts"][0],
+                MERCHANT_VARIANTS["Netflix"]["variants"][0],
+                "Netflix",
+                MERCHANT_VARIANTS["Netflix"]["category"],
                 checking,
             )
-
-            # --- Recurring: Spotify (18th) ---
             add_txn(
                 date(year, month, 18),
-                RECURRING["spotify"][2],
-                "SPOTIFY PREMIUM",
-                RECURRING["spotify"][0],
-                RECURRING["spotify"][1],
+                -MERCHANT_VARIANTS["Spotify"]["approved_amounts"][0],
+                MERCHANT_VARIANTS["Spotify"]["variants"][0],
+                "Spotify",
+                MERCHANT_VARIANTS["Spotify"]["category"],
                 checking,
             )
 
@@ -379,24 +541,32 @@ async def seed():
                     "Bank Migration",
                 )
 
-            # --- Random merchant transactions (8-12 per month) ---
-            num_random = random.randint(8, 12)
-            for _ in range(num_random):
-                merchant_name, cat_name, min_amt, max_amt = random.choice(MERCHANTS)
-                amount = random.randint(min_amt, max_amt)
-                # Pick payment method: credit card ~40%, checking ~60%
-                if random.random() < 0.4 and cards:
-                    internal = random.choice(cards)
-                else:
-                    internal = checking
-                add_txn(
-                    random_date_in_month(year, month),
-                    amount,
-                    merchant_name.upper(),
-                    merchant_name,
-                    cat_name,
-                    internal,
+            # --- Merchant transactions using variants ---
+            # For each merchant, create transactions with variants and different amounts
+            for merchant_name, merchant_data in MERCHANT_VARIANTS.items():
+                if merchant_name in ["Netflix", "Spotify"]:
+                    continue  # Already handled as recurring
+
+                # Pick 2-3 random approved amounts for this month
+                num_txns = random.randint(2, 3)
+                selected_amounts = random.sample(
+                    merchant_data["approved_amounts"],
+                    min(num_txns, len(merchant_data["approved_amounts"])),
                 )
+
+                for amount in selected_amounts:
+                    # Pick a random variant of the raw description
+                    raw_desc = random.choice(merchant_data["variants"])
+                    internal = random.choice([checking] + (cards if random.random() < 0.3 else []))
+
+                    add_txn(
+                        random_date_in_month(year, month),
+                        -abs(amount),  # Expenses are negative
+                        raw_desc,
+                        merchant_name,
+                        merchant_data["category"],
+                        internal,
+                    )
 
         # Make ~10% uncategorized
         uncategorized_count = len(transactions) // 10
@@ -427,28 +597,76 @@ async def seed():
             session.add(txn)
             import_counts[imp.institution] = import_counts.get(imp.institution, 0) + 1
 
-        # === Generate pending transactions (inbox) ===
-        pending_merchants = [
-            ("Kroger", "KROGER #1234", -8743, "Metro CU Checking"),
-            ("Whole Foods", "WHOLE FOODS MKT", -6521, "Chase Visa"),
-            ("Shell Gas Station", "SHELL OIL 57432", -4899, "Metro CU Checking"),
-            ("Amazon", "AMZN MKTP US", -3299, "Amex Blue Cash"),
-            ("Chipotle", "CHIPOTLE ONLINE", -1247, "Chase Visa"),
-            ("Electric Company", "ELECTRIC CO PMT", -11200, "Metro CU Checking"),
-            ("Starbucks", "STARBUCKS #9012", -575, "Amex Blue Cash"),
-            ("Target", "TARGET T-2847", -5432, "Metro CU Checking"),
+        # === Generate pending transactions ===
+        pending_transactions = [
+            {
+                "ext_name": "Kroger",
+                "raw_desc": "KROGER STORE #1234",
+                "amount": -2350,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 15),
+            },
+            {
+                "ext_name": "Whole Foods",
+                "raw_desc": "WHOLE FOODS MARKET",
+                "amount": -8900,
+                "internal": "Chase Visa",
+                "date": date(2026, 9, 16),
+            },
+            {
+                "ext_name": "Shell Gas",
+                "raw_desc": "SHELL 57432 GAS",
+                "amount": -4500,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 17),
+            },
+            {
+                "ext_name": "Target",
+                "raw_desc": "UNKNOWN RETAIL STORE",
+                "amount": -3500,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 18),
+            },
+            {
+                "ext_name": "Aldi",
+                "raw_desc": "GROCERIES SUPERMARKET",
+                "amount": -6200,
+                "internal": "Chase Visa",
+                "date": date(2026, 9, 19),
+            },
+            {
+                "ext_name": "Starbucks",
+                "raw_desc": "STARBUCKS #9012",
+                "amount": -12500,
+                "internal": "Amex Blue Cash",
+                "date": date(2026, 9, 20),
+            },
+            {
+                "ext_name": "Chipotle",
+                "raw_desc": "CHPTLE MEX GRL",
+                "amount": -1100,
+                "internal": "Chase Visa",
+                "date": date(2026, 9, 21),
+            },
+            {
+                "ext_name": "Comcast",
+                "raw_desc": "COMCAST INTERNET",
+                "amount": -7999,
+                "internal": "Metro CU Checking",
+                "date": date(2026, 9, 22),
+            },
         ]
 
-        for i, (ext_name, raw_desc, amount, internal_name) in enumerate(pending_merchants):
-            imp = import_for_account(internal_name)
+        for i, pending_data in enumerate(pending_transactions):
+            imp = import_for_account(pending_data["internal"])
             txn = Transaction(
                 import_id=imp.id,
-                internal_id=internal_map[internal_name].id,
-                external_id=external_map[ext_name].id,
-                raw_description=raw_desc,
+                internal_id=internal_map[pending_data["internal"]].id,
+                external_id=external_map[pending_data["ext_name"]].id,
+                raw_description=pending_data["raw_desc"],
                 description=None,
-                date=date(2026, 9, 15 + i),
-                amount_cents=amount,
+                date=pending_data["date"],
+                amount_cents=pending_data["amount"],
                 status=TransactionStatus.PENDING,
             )
             session.add(txn)
@@ -463,7 +681,7 @@ async def seed():
         await session.commit()
 
     approved_count = len(transactions)
-    pending_count = len(pending_merchants)
+    pending_count = len(pending_transactions)
     print(f"Seeded {approved_count} approved + {pending_count} pending transactions")
     print(f"  {len(INTERNAL_ACCOUNTS)} internal accounts")
     print(f"  {len(external_map)} external accounts")

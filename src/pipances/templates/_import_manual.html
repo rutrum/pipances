@@ -1,13 +1,14 @@
 {% if not accounts %}
   <div class="alert alert-warning">
     <span>No accounts available.
-      <a href="/data/accounts" class="link link-primary">Create an account</a> first.</span>
+      <a href="/data/accounts" class="link link-primary">Create an account</a>
+    first.</span>
   </div>
 {% else %}
   <form hx-post="/import/manual"
         hx-target="#manual-error"
         hx-target-422="#manual-error">
-    <div class="form-control w-full mb-4 items-center">
+    <div class="form-control w-full mb-4">
       <label class="label">
         <span class="label-text">Account</span>
       </label>
@@ -15,14 +16,16 @@
         <option disabled selected value="">Select an account</option>
         <optgroup label="Internal Accounts">
           {% for account in accounts %}
-            {% if account.kind != 'external' %}
+            {% if account.kind != 'external'
+              %}
               <option value="{{ account.name }}">{{ account.name }}</option>
             {% endif %}
           {% endfor %}
         </optgroup>
         <optgroup label="External Accounts">
           {% for account in accounts %}
-            {% if account.kind == 'external' %}
+            {% if account.kind == 'external'
+              %}
               <option value="{{ account.name }}">{{ account.name }}</option>
             {% endif %}
           {% endfor %}
@@ -78,18 +81,18 @@
   </form>
   <script>
     (function () {
-      var btn = document.getElementById("add-row-btn");
-      var tbody = document.getElementById("manual-rows");
-      btn.addEventListener("click", function () {
-        var row = document.createElement("tr");
-        row.innerHTML =
-          '<td><input type="date" name="date[]" class="input input-bordered input-sm w-full" /></td>' +
-          '<td><input type="number" name="amount[]" step="0.01" class="input input-bordered input-sm w-full" placeholder="0.00" /></td>' +
-          '<td><input type="text" name="description[]" class="input input-bordered input-sm w-full" placeholder="Description" /></td>' +
-          '<td><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove()"><i data-lucide="x" class="w-4 h-4"></i></button></td>';
-        tbody.appendChild(row);
-        if (window.lucide) lucide.createIcons();
-      });
+        var btn = document.getElementById("add-row-btn");
+        var tbody = document.getElementById("manual-rows");
+        btn.addEventListener("click", function () {
+            var row = document.createElement("tr");
+            row.innerHTML =
+                '<td><input type="date" name="date[]" class="input input-bordered input-sm w-full" /></td>' +
+                '<td><input type="number" name="amount[]" step="0.01" class="input input-bordered input-sm w-full" placeholder="0.00" /></td>' +
+                '<td><input type="text" name="description[]" class="input input-bordered input-sm w-full" placeholder="Description" /></td>' +
+                '<td><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove()"><i data-lucide="x" class="w-4 h-4"></i></button></td>';
+            tbody.appendChild(row);
+            if (window.lucide) lucide.createIcons();
+        });
     })();
   </script>
 {% endif %}

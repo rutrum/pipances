@@ -366,8 +366,13 @@ async def commit_inbox(request: Request):
 
 @router.post("/inbox/retrain", response_class=HTMLResponse)
 async def retrain_inbox(request: Request):
+    # Extract sort parameters from filter bar
+    form_data = await request.form()
+    sort_col = form_data.get("sort", "date")
+    sort_dir = form_data.get("dir", "asc")
+
     async with async_session() as session:
-        result = await session.execute(
+        query = (
             select(Transaction)
             .where(Transaction.status == TransactionStatus.PENDING)
             .options(
@@ -377,6 +382,15 @@ async def retrain_inbox(request: Request):
                 selectinload(Transaction.import_record),
             )
         )
+
+        # Apply sort order from filter bar
+        col = SORT_COLUMNS.get(sort_col, Transaction.date)
+        if sort_dir == "desc":
+            query = query.order_by(col.desc())
+        else:
+            query = query.order_by(col.asc())
+
+        result = await session.execute(query)
         pending = result.scalars().all()
 
         if not pending:
@@ -468,6 +482,10 @@ async def retrain_inbox(request: Request):
 
         await session.commit()
 
+        # Refresh relationships so template renders correct data
+        for txn in pending:
+            await session.refresh(txn, ["category", "external"])
+
     toast = templates.get_template("_toast.html").render(
         {
             "message": f"Retrained model and updated {updated_count} suggestion{'s' if updated_count != 1 else ''}.",
@@ -477,6 +495,8 @@ async def retrain_inbox(request: Request):
 
     rows = ""
     for txn in pending:
-        rows += templates.get_template("_inbox_row.html").render({"txn": txn})
+        rows += templates.get_template("_inbox_row.html").render(
+            {"txn": txn, "oob": True}
+        )
 
     return HTMLResponse(rows + toast)

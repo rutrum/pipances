@@ -77,7 +77,16 @@
       input.addEventListener('blur', function() {
         blurTimeout = setTimeout(function() {
           input.classList.add('pointer-events-none');
-          revert();
+          // If the input is empty, submit it; otherwise revert
+          if (input.value.trim() === "") {
+            htmx.ajax('PATCH', '/transactions/{{ txn_id }}', {
+              target: '#txn-{{ txn_id }}',
+              swap: 'outerHTML',
+              values: { '{{ field_name }}': '' }
+            });
+          } else {
+            revert();
+          }
         }, 200);
       });
 

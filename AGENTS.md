@@ -60,6 +60,21 @@ Some features I don't want for an initial release, despite them being good ideas
 - Tailwind CSS — standalone CLI (no Node.js required)
 - DaisyUI — Tailwind plugin for component classes (btn, card, table, modal, etc.)
 
+## DaisyUI Best Practices
+
+**Use DaisyUI components as-is — do NOT override with custom Tailwind classes unless absolutely necessary and user-confirmed.**
+
+- DaisyUI components are designed with proper spacing, alignment, and responsive behavior built-in
+- Only add custom Tailwind classes to DaisyUI components when:
+  1. The desired behavior is explicitly missing from DaisyUI
+  2. The user confirms the visual need (via screenshot/browser testing)
+  3. Standard DaisyUI classes don't provide the required functionality
+- Examples of what NOT to do:
+  - ❌ Adding `items-center` to `form-control` — the component handles alignment correctly by default
+  - ❌ Adding custom padding/margins to `btn` — use DaisyUI's `btn-sm`, `btn-lg`, `btn-xl` variants instead
+  - ❌ Customizing `select`, `input`, `textarea` directly — use DaisyUI variants like `input-bordered`, `select-primary`
+- Default DaisyUI structure works: `<div class="form-control w-full"><label class="label"><span class="label-text">...</span></label><select class="select select-bordered w-full">...</select></div>`
+
 # Agent Preferences
 
 - Do NOT write bash statements over multiple lines; use && or ; instead
@@ -99,6 +114,48 @@ Some features I don't want for an initial release, despite them being good ideas
 - When HTMX can't handle an interaction (e.g. arrow key navigation), use minimal inline `<script>` in the partial. Keep JS self-contained in an IIFE. Bridge to HTMX by triggering clicks on elements that carry `hx-*` attributes, rather than making fetch calls from JS.
 - For cancel/revert on Escape or blur, use PATCH with empty values to re-render the row (the existing PATCH endpoint returns the full row partial).
 - For layout pages with swappable content (e.g. Data page sidebar): use `{{ data_content_html | safe }}` in the layout template, not `{% block %}`. Pre-render the partial in the route and pass it as a context variable. This way the same partial works for both HTMX swaps (returned directly) and full-page renders (embedded in the layout).
+
+### Out-of-Band (OOB) Swap Pattern
+
+**Rule of Thumb:** Templates always include `hx-swap-oob` attributes. No conditional parameters. Buttons that trigger OOB-only responses use `hx-target="none"` and `hx-swap="none"`.
+
+**Why:** 
+- Buttons that target a DOM element with `hx-target="#elem"` destroy that element during the `innerHTML` swap before OOB elements can be processed
+- This breaks any OOB swaps targeting descendants of the destroyed element
+- Result: rows disappear, records vanish, state gets lost
+
+**Pattern:**
+
+Template (`_inbox_row.html`):
+```html
+<tr id="txn-{{ txn.id }}" hx-swap-oob="outerHTML:#txn-{{ txn.id }}">
+  <!-- row content -->
+</tr>
+```
+
+Button (`inbox.html`):
+```html
+<button class="btn btn-secondary"
+        hx-post="/inbox/retrain"
+        hx-target="none"
+        hx-swap="none">Retrain</button>
+```
+
+Endpoint (`inbox.py`):
+```python
+rows = ""
+for txn in pending:
+    rows += templates.get_template("_inbox_row.html").render({"txn": txn})
+toast = templates.get_template("_toast.html").render({...})
+return HTMLResponse(rows + toast)  # No special parameters, no string manipulation
+```
+
+**Anti-patterns to avoid:**
+- ❌ Conditional `oob` parameter: `render({"txn": txn, "oob": True})` — adds state management burden
+- ❌ Post-render string manipulation: `row_html.replace('id="', 'id="txn-123" hx-swap-oob="..."')` — breaks when templates change
+- ❌ Hand-constructed HTML with OOB: `f'<tr hx-swap-oob="...">{...}</tr>'` — loses template ownership, hard to style
+
+**Key insight:** HTMX ignores `hx-swap-oob` on initial page load (only processes it from responses). So templates can unconditionally include it without side effects.
 
 ## Nix
 
