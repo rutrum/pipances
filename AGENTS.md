@@ -93,6 +93,7 @@ Some features I don't want for an initial release, despite them being good ideas
 - Code quality recipes: `just lint` (check Python + templates), `just fmt` (auto-format Python + templates), `just check` (CI-style strict check)
 - Run `just fmt` after making changes to keep formatting consistent
 - Ruff handles Python linting/formatting; djLint handles Jinja2/HTML templates
+- UI regression tests: `just test-ui` (Playwright, must run via `nix develop`); unit tests: `just test`
 
 ## Browser Testing
 
@@ -106,6 +107,7 @@ Some features I don't want for an initial release, despite them being good ideas
 - Refs often fail for HTMX-attributed links (e.g. sidebar `<a hx-get="...">`) — fall back to `eval 'document.querySelector("a[hx-push-url=\"/data/foo\"]").click()'` for these
 - After typing into a form field, use snapshot to verify the value landed, then click submit via ref
 - For HTMX-driven pages, add `sleep 0.5` or `wait --load networkidle` after interactions that trigger HTMX requests before taking screenshots
+- In Playwright tests (`tests/ui/`), prefer `expect(locator).to_be_visible()` over `page.wait_for_load_state("networkidle")` — `expect` polls until the specific element changes, which is faster and more expressive than waiting for all network activity to settle
 
 ## HTMX Conventions
 
@@ -179,6 +181,13 @@ Whenever the user mentions something as "TODO" or "we'll handle that later" etc,
 - When making design decisions or large changes AFTER apply, its CRITICAL to update the change artifacts to match the new requirements and design decisions
 - Specs should capture END USER BEHAVIOR.  Specs should not capture internal facing changes, tooling, or deployment changes.
   - When writing a change that omits specs, don't include a specs directory.
+
+## Git Operations
+
+**NEVER COMMIT or PUSH. Ever.** Git operations are handled by the user. Your job is to:
+- Stage files when asked: `git add <files>`
+- Keep uncommitted changes ready for the user to review
+- Leave all commit/push decisions to the user
 
 ## Self Improvement
 

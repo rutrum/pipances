@@ -1,17 +1,29 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
+# Per-artifact rules
 rules:
   tasks:
     - Unless explicitly stated, always stop after this final artifact until user approves all artifacts
+    - |
+      UI-tests-first rule: for any change that touches the UI and has associated specs,
+      the tasks list MUST begin with a block of UI test tasks BEFORE any implementation tasks.
+      These tests should be written first, run to confirm they FAIL (proving the feature is not
+      yet implemented), then implementation proceeds, and the final task block verifies all
+      UI tests now PASS.
+
+      Structure tasks as follows when UI specs are present:
+
+        ## 0. UI Test Scaffolding (write first, must fail before implementing)
+        - [ ] 0.1 Create tests/ui/test_<spec-name>.py with Playwright tests for each scenario in the spec
+        - [ ] 0.2 Run `just test-ui` and confirm all new tests FAIL (xfail or assertion error is acceptable, server error is not)
+
+        ## 1. <First implementation phase> ...
+        (implementation tasks)
+
+        ## N. Verification
+        - [ ] N.1 Run `just test-ui` and confirm all tests from step 0 now PASS
+        - [ ] N.2 Run `just test` to confirm no unit test regressions
+
+      Each UI test task should map directly to a scenario from the spec (one test per scenario).
+      Test file location: tests/ui/test_<spec-slug>.py
+      Tests use the live_server + seeded DB fixtures from tests/ui/conftest.py.

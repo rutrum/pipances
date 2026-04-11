@@ -53,8 +53,17 @@ seed: reset-db
     uv run python scripts/seed.py
     touch src/pipances/__init__.py
 
-# Run tests
+# Run unit/API tests (no browser required)
 test:
+    uv run pytest tests/ -v --ignore=tests/ui
+
+# Run UI/browser tests against a live server with seeded data
+# Must run via nix develop to get system Chromium shared libraries
+test-ui:
+    nix develop -c uv run pytest tests/ui/ -v --base-url=http://localhost:8099 --asyncio-mode=strict
+
+# Run all tests (unit + UI)
+test-all:
     uv run pytest tests/ -v
 
 # Full check (CI-style, exits non-zero on issues)
@@ -62,4 +71,4 @@ check:
     uv run ruff format --check src/ importers/ tests/
     uv run ruff check src/ importers/ tests/
     uv run djlint src/pipances/templates/ --lint
-    uv run pytest tests/
+    uv run pytest tests/ --ignore=tests/ui
