@@ -7,6 +7,7 @@ and categorical features via a ColumnTransformer + kNN pipeline.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from dataclasses import dataclass
 
 import numpy as np
@@ -101,6 +102,10 @@ class TransactionPredictor:
         self._train_doms: np.ndarray | None = None
         self._train_internal_ids: np.ndarray | None = None
         self._train_institutions: np.ndarray | None = None
+        # Frequency tracking for recurrence threshold (minimum 2 occurrences)
+        self._description_freq: Counter = Counter()
+        self._category_freq: Counter = Counter()
+        self._external_freq: Counter = Counter()
 
     def fit(
         self,
@@ -138,6 +143,9 @@ class TransactionPredictor:
         if not raw_descriptions:
             self._knn = None
             self._text_knn = None
+            self._description_freq = Counter()
+            self._category_freq = Counter()
+            self._external_freq = Counter()
             return
 
         features = _build_feature_matrix(
@@ -208,6 +216,10 @@ class TransactionPredictor:
         self._train_doms = np.array(days_of_month)
         self._train_internal_ids = np.array(internal_ids)
         self._train_institutions = np.array(institutions)
+        # Compute frequency of each value for recurrence threshold filtering
+        self._description_freq = Counter([d for d in descriptions if d is not None])
+        self._category_freq = Counter([c for c in category_ids if c is not None])
+        self._external_freq = Counter(external_ids)
 
     def predict(
         self,
@@ -305,12 +317,30 @@ class TransactionPredictor:
             pred.description = self._vote_field(
                 "description", adjusted_sims, neighbor_indices
             )
+            # Filter out single-occurrence values (recurrence threshold)
+            if pred.description is not None and not self._meets_recurrence_threshold(
+                "description", pred.description.value
+            ):
+                pred.description = None
+
             pred.category_id = self._vote_field(
                 "category_id", adjusted_sims, neighbor_indices
             )
+            # Filter out single-occurrence values (recurrence threshold)
+            if pred.category_id is not None and not self._meets_recurrence_threshold(
+                "category_id", pred.category_id.value
+            ):
+                pred.category_id = None
+
             pred.external_id = self._vote_field(
                 "external_id", adjusted_sims, neighbor_indices
             )
+            # Filter out single-occurrence values (recurrence threshold)
+            if pred.external_id is not None and not self._meets_recurrence_threshold(
+                "external_id", pred.external_id.value
+            ):
+                pred.external_id = None
+
             results.append(pred)
 
         return results
@@ -401,6 +431,32 @@ class TransactionPredictor:
         factors *= institution_factors
 
         return factors
+
+    def _meets_recurrence_threshold(self, field: str, value: object) -> bool:
+        """Check if a value meets the minimum recurrence threshold (≥2 occurrences).
+
+        Each field (description, category_id, external_id) tracks frequency of values
+        seen during training. Values appearing fewer than 2 times are filtered out
+        from predictions to avoid noise from one-off, non-recurring values.
+
+        Args:
+            field: Field name ("description", "category_id", or "external_id")
+            value: The value to check (e.g., "Groceries", 5, 42)
+
+        Returns:
+            True if value appears ≥2 times in training data, False otherwise
+        """
+        if field == "description":
+            freq = self._description_freq
+        elif field == "category_id":
+            freq = self._category_freq
+        elif field == "external_id":
+            freq = self._external_freq
+        else:
+            # Unknown field, allow it (defensive)
+            return True
+
+        return freq.get(value, 0) >= 2
 
     def _vote_field(
         self,

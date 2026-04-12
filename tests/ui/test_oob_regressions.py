@@ -16,26 +16,13 @@ Bug 2: Commit modal doesn't dismiss and table doesn't update after confirming.
 
 from playwright.sync_api import Page, expect
 
-
-def _pagination(page: Page):
-    """Locator for the data transactions pagination container."""
-    return page.locator("#data-transactions-pagination")
-
-
-def _page_label(page: Page, n: int):
-    """Locator for the 'Page N of ...' span inside the pagination."""
-    return _pagination(page).locator(f"span:has-text('Page {n} of')")
-
-
-def _inbox_approve_btn(page: Page):
-    """First enabled individual Approve button in the inbox table (not 'Approve Selected')."""
-    return page.locator("#inbox-table button[hx-patch]:text-is('Approve')").first
-
-
-def _inbox_approved_btn(page: Page):
-    """First green 'Approved' button — confirms the Approve click was processed."""
-    return page.locator("#inbox-table button:text-is('Approved')").first
-
+from tests.ui.helpers import (
+    confirm_commit,
+    data_page_label,
+    data_pagination,
+    do_approve,
+    open_commit_dialog,
+)
 
 # ============================================================
 # Bug 1: Pagination persists after navigating pages
@@ -45,8 +32,8 @@ def _inbox_approved_btn(page: Page):
 def test_data_transactions_pagination_visible_on_load(page: Page, goto):
     """Baseline: pagination renders on initial page load."""
     goto("/data/transactions")
-    expect(_pagination(page)).to_be_visible()
-    expect(_page_label(page, 1)).to_be_visible()
+    expect(data_pagination(page)).to_be_visible()
+    expect(data_page_label(page, 1)).to_be_visible()
 
 
 def test_data_transactions_pagination_persists_after_next(page: Page, goto):
@@ -60,26 +47,26 @@ def test_data_transactions_pagination_persists_after_next(page: Page, goto):
     """
     goto("/data/transactions")
     page.click("button:text('Next »')")
-    expect(_page_label(page, 2)).to_be_visible()
-    expect(_pagination(page)).to_be_visible()
+    expect(data_page_label(page, 2)).to_be_visible()
+    expect(data_pagination(page)).to_be_visible()
 
 
 def test_data_transactions_pagination_persists_after_multiple_pages(page: Page, goto):
     """Pagination survives multiple sequential page navigations."""
     goto("/data/transactions")
     page.click("button:text('Next »')")
-    expect(_page_label(page, 2)).to_be_visible()  # wait for first swap before clicking again
+    expect(data_page_label(page, 2)).to_be_visible()
     page.click("button:text('Next »')")
-    expect(_page_label(page, 3)).to_be_visible()
-    expect(_pagination(page)).to_be_visible()
+    expect(data_page_label(page, 3)).to_be_visible()
+    expect(data_pagination(page)).to_be_visible()
 
 
 def test_data_transactions_prev_button_updates_pagination(page: Page, goto):
     """Prev button also keeps pagination intact."""
     goto("/data/transactions?page=3")
     page.click("button:text('« Prev')")
-    expect(_page_label(page, 2)).to_be_visible()
-    expect(_pagination(page)).to_be_visible()
+    expect(data_page_label(page, 2)).to_be_visible()
+    expect(data_pagination(page)).to_be_visible()
 
 
 # ============================================================
@@ -92,9 +79,7 @@ def test_commit_modal_appears_when_approved_transactions_exist(
 ):
     """Baseline: commit button opens a modal when approved transactions exist."""
     goto("/inbox")
-    _inbox_approve_btn(page).click()
-    expect(_inbox_approved_btn(page)).to_be_visible()  # row flipped to Approved
-
+    do_approve(page)
     page.click("button:text('Commit')")
     expect(page.locator("#commit-dialog-container dialog")).to_be_visible()
     expect(page.locator("#commit-dialog-container")).to_contain_text("Commit")
@@ -103,12 +88,8 @@ def test_commit_modal_appears_when_approved_transactions_exist(
 def test_commit_modal_dismisses_on_cancel(page: Page, goto, approvable_txn):
     """Clicking Cancel closes the dialog without committing."""
     goto("/inbox")
-    _inbox_approve_btn(page).click()
-    expect(_inbox_approved_btn(page)).to_be_visible()
-
-    page.click("button:text('Commit')")
-    expect(page.locator("#commit-dialog-container dialog")).to_be_visible()
-
+    do_approve(page)
+    open_commit_dialog(page)
     page.click("button:text('Cancel')")
     expect(page.locator("#commit-dialog-container")).to_be_empty()
 
@@ -123,13 +104,9 @@ def test_commit_modal_dismisses_after_confirm(page: Page, goto, approvable_txn):
     so the modal remained open.
     """
     goto("/inbox")
-    _inbox_approve_btn(page).click()
-    expect(_inbox_approved_btn(page)).to_be_visible()
-
-    page.click("button:text('Commit')")
-    expect(page.locator("#commit-dialog-container dialog")).to_be_visible()
-
-    page.click("button:text('Confirm')")
+    do_approve(page)
+    open_commit_dialog(page)
+    confirm_commit(page)
     expect(page.locator("#commit-dialog-container")).to_be_empty()
 
 
@@ -142,16 +119,9 @@ def test_commit_table_updates_after_confirm(page: Page, goto, approvable_txn):
     """
     goto("/inbox")
     rows_before = page.locator("#inbox-table tr").count()
-
-    _inbox_approve_btn(page).click()
-    expect(_inbox_approved_btn(page)).to_be_visible()
-
-    page.click("button:text('Commit')")
-    expect(page.locator("#commit-dialog-container dialog")).to_be_visible()
-
-    page.click("button:text('Confirm')")
-    expect(page.locator("#commit-dialog-container")).to_be_empty()  # swap fully settled
-
+    do_approve(page)
+    open_commit_dialog(page)
+    confirm_commit(page)
     rows_after = page.locator("#inbox-table tr").count()
     assert rows_after < rows_before, (
         f"Expected fewer rows after commit ({rows_after} >= {rows_before})"
@@ -161,13 +131,9 @@ def test_commit_table_updates_after_confirm(page: Page, goto, approvable_txn):
 def test_commit_toast_appears_after_confirm(page: Page, goto, approvable_txn):
     """A success toast is shown after a successful commit."""
     goto("/inbox")
-    _inbox_approve_btn(page).click()
-    expect(_inbox_approved_btn(page)).to_be_visible()
-
-    page.click("button:text('Commit')")
-    expect(page.locator("#commit-dialog-container dialog")).to_be_visible()
-
-    page.click("button:text('Confirm')")
+    do_approve(page)
+    open_commit_dialog(page)
+    confirm_commit(page)
     expect(page.locator("#toast-container")).to_contain_text("Committed")
 
 

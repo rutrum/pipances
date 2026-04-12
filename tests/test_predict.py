@@ -387,3 +387,300 @@ class TestExtremeAmounts:
         # Should still suggest Groceries
         assert predictions[0].category_id is not None
         assert predictions[0].category_id.value == 1
+
+
+class TestRecurrenceThreshold:
+    """Test minimum recurrence threshold enforcement (≥2 occurrences required)."""
+
+    def test_single_occurrence_filtered_out(self):
+        """Single-occurrence values are filtered out (returns None)."""
+        predictor = TransactionPredictor()
+
+        # Train with KROGER appearing 2x and UNIQUE_SHOP appearing 1x
+        predictor.fit(
+            raw_descriptions=["KROGER", "KROGER", "UNIQUE_SHOP"],
+            amounts=[5000, 5000, 3000],
+            days_of_week=[1, 1, 2],
+            days_of_month=[15, 15, 20],
+            internal_ids=["Checking", "Checking", "Checking"],
+            institutions=["Bank1", "Bank1", "Bank1"],
+            descriptions=["Groceries", "Groceries", "Unique Shop"],
+            category_ids=[1, 1, 2],
+            external_ids=[1, 1, 2],
+        )
+
+        # Predict on UNIQUE_SHOP (should not suggest the single-occurrence value)
+        predictions = predictor.predict(
+            raw_descriptions=["UNIQUE_SHOP"],
+            amounts=[3000],
+            days_of_week=[2],
+            days_of_month=[20],
+            internal_ids=["Checking"],
+            institutions=["Bank1"],
+        )
+
+        # Description should be None (filtered by recurrence threshold)
+        assert predictions[0].description is None
+        # Category should be None (only 1 occurrence)
+        assert predictions[0].category_id is None
+        # External should be None (only 1 occurrence)
+        assert predictions[0].external_id is None
+
+    def test_two_occurrences_passes_threshold(self):
+        """Values appearing exactly 2 times pass the threshold."""
+        predictor = TransactionPredictor()
+
+        predictor.fit(
+            raw_descriptions=["TARGET", "TARGET"],
+            amounts=[10000, 10500],
+            days_of_week=[3, 3],
+            days_of_month=[10, 12],
+            internal_ids=["Checking", "Checking"],
+            institutions=["Bank1", "Bank1"],
+            descriptions=["Shopping", "Shopping"],
+            category_ids=[3, 3],
+            external_ids=[3, 3],
+        )
+
+        predictions = predictor.predict(
+            raw_descriptions=["TARGET"],
+            amounts=[10200],
+            days_of_week=[3],
+            days_of_month=[11],
+            internal_ids=["Checking"],
+            institutions=["Bank1"],
+        )
+
+        # Should pass threshold (≥2 occurrences)
+        assert predictions[0].description is not None
+        assert predictions[0].description.value == "Shopping"
+        assert predictions[0].category_id is not None
+        assert predictions[0].category_id.value == 3
+
+    def test_threshold_applied_independently_per_field(self):
+        """Threshold applied independently to each field."""
+        predictor = TransactionPredictor()
+
+        # KROGER: description "Groceries" (1x), category 1 (2x), external 1 (2x)
+        predictor.fit(
+            raw_descriptions=["KROGER", "KROGER", "OTHER"],
+            amounts=[5000, 5000, 3000],
+            days_of_week=[1, 1, 2],
+            days_of_month=[15, 15, 20],
+            internal_ids=["Checking", "Checking", "Checking"],
+            institutions=["Bank1", "Bank1", "Bank1"],
+            descriptions=["Groceries", "Different", "Other"],
+            category_ids=[1, 1, 2],
+            external_ids=[1, 1, 2],
+        )
+
+        predictions = predictor.predict(
+            raw_descriptions=["KROGER"],
+            amounts=[5000],
+            days_of_week=[1],
+            days_of_month=[15],
+            internal_ids=["Checking"],
+            institutions=["Bank1"],
+        )
+
+        # Description has no 2+ consensus, filtered
+        assert predictions[0].description is None
+        # Category: both trainings have 1, passes threshold
+        assert predictions[0].category_id is not None
+        assert predictions[0].category_id.value == 1
+
+    def test_frequency_counters_created_correctly(self):
+        """Frequency counters are populated during fit()."""
+        predictor = TransactionPredictor()
+
+        predictor.fit(
+            raw_descriptions=["A", "A", "B"],
+            amounts=[1000, 1000, 2000],
+            days_of_week=[1, 1, 2],
+            days_of_month=[10, 10, 20],
+            internal_ids=["X", "X", "Y"],
+            institutions=["Bank1", "Bank1", "Bank2"],
+            descriptions=["Desc_A", "Desc_A", "Desc_B"],
+            category_ids=[1, 1, 2],
+            external_ids=[10, 10, 20],
+        )
+
+        # Verify counters match expected frequencies
+        assert predictor._description_freq["Desc_A"] == 2
+        assert predictor._description_freq["Desc_B"] == 1
+        assert predictor._category_freq[1] == 2
+        assert predictor._category_freq[2] == 1
+        assert predictor._external_freq[10] == 2
+        assert predictor._external_freq[20] == 1
+
+    def test_empty_training_data_doesnt_crash(self):
+        """Empty training data doesn't crash predictor."""
+        predictor = TransactionPredictor()
+
+        predictor.fit(
+            raw_descriptions=[],
+            amounts=[],
+            days_of_week=[],
+            days_of_month=[],
+            internal_ids=[],
+            institutions=[],
+            descriptions=[],
+            category_ids=[],
+            external_ids=[],
+        )
+
+        # Counters should be empty
+        assert len(predictor._description_freq) == 0
+        assert len(predictor._category_freq) == 0
+        assert len(predictor._external_freq) == 0
+
+        # Predict should return all None fields (no training data)
+        predictions = predictor.predict(
+            raw_descriptions=["anything"],
+            amounts=[100],
+            days_of_week=[1],
+            days_of_month=[1],
+            internal_ids=["X"],
+            institutions=["Bank"],
+        )
+
+        assert predictions[0].description is None
+        assert predictions[0].category_id is None
+        assert predictions[0].external_id is None
+
+
+class TestRecurrenceIntegration:
+    """Integration tests for recurrence threshold with realistic workflows."""
+
+    def test_full_workflow_realistic_data(self):
+        """Full workflow: train on realistic data, predict respects threshold."""
+        predictor = TransactionPredictor()
+
+        # Realistic training: some recurring merchants, some one-off
+        predictor.fit(
+            raw_descriptions=[
+                "KROGER #12",
+                "KROGER #14",
+                "KROGER #12",
+                "SHELL GAS",
+                "AMAZON",
+                "AMAZON",
+            ],
+            amounts=[5000, 4800, 5200, 4500, 10000, 10500],
+            days_of_week=[3, 5, 3, 4, 2, 2],
+            days_of_month=[15, 18, 22, 10, 5, 12],
+            internal_ids=["Checking"] * 6,
+            institutions=["Bank1"] * 6,
+            descriptions=[
+                "Groceries",
+                "Groceries",
+                "Groceries",
+                "Gas",
+                "Shopping",
+                "Shopping",
+            ],
+            category_ids=[1, 1, 1, 2, 3, 3],
+            external_ids=[1, 1, 1, 2, 3, 3],
+        )
+
+        # Predict: SHELL_GAS appears only once, should be filtered
+        predictions = predictor.predict(
+            raw_descriptions=["SHELL GAS"],
+            amounts=[4500],
+            days_of_week=[4],
+            days_of_month=[10],
+            internal_ids=["Checking"],
+            institutions=["Bank1"],
+        )
+
+        # Single-occurrence SHELL_GAS description should be None
+        assert predictions[0].description is None
+
+        # Predict: AMAZON appears 2x, should pass
+        predictions = predictor.predict(
+            raw_descriptions=["AMAZON"],
+            amounts=[10200],
+            days_of_week=[2],
+            days_of_month=[8],
+            internal_ids=["Checking"],
+            institutions=["Bank1"],
+        )
+
+        # AMAZON passes threshold
+        assert predictions[0].description is not None
+        assert predictions[0].description.value == "Shopping"
+
+    def test_retrain_recomputes_frequencies(self):
+        """Retrain recomputes frequency counters from new training data."""
+        predictor = TransactionPredictor()
+
+        # First training
+        predictor.fit(
+            raw_descriptions=["A", "B"],
+            amounts=[1000, 2000],
+            days_of_week=[1, 1],
+            days_of_month=[10, 10],
+            internal_ids=["X", "X"],
+            institutions=["Bank", "Bank"],
+            descriptions=["Desc_A", "Desc_B"],
+            category_ids=[1, 2],
+            external_ids=[10, 20],
+        )
+
+        # Each has count 1
+        assert predictor._description_freq["Desc_A"] == 1
+        assert predictor._description_freq["Desc_B"] == 1
+
+        # Retrain with new data where Desc_A appears 2x
+        predictor.fit(
+            raw_descriptions=["A", "A"],
+            amounts=[1000, 1100],
+            days_of_week=[1, 1],
+            days_of_month=[10, 11],
+            internal_ids=["X", "X"],
+            institutions=["Bank", "Bank"],
+            descriptions=["Desc_A", "Desc_A"],
+            category_ids=[1, 1],
+            external_ids=[10, 10],
+        )
+
+        # Now Desc_A has count 2
+        assert predictor._description_freq["Desc_A"] == 2
+        # Old Desc_B is gone
+        assert predictor._description_freq["Desc_B"] == 0
+
+    def test_backward_compatibility_existing_data(self):
+        """Backward compatible: existing approved transaction data works unchanged."""
+        predictor = TransactionPredictor()
+
+        # Simulate existing approved transaction workflow
+        predictor.fit(
+            raw_descriptions=["STORE1", "STORE1", "STORE2"],
+            amounts=[5000, 5000, 3000],
+            days_of_week=[1, 2, 1],
+            days_of_month=[15, 20, 10],
+            internal_ids=["Checking", "Savings", "Checking"],
+            institutions=["Bank1", "Bank1", "Bank2"],
+            descriptions=["Shopping", "Shopping", "Other"],
+            category_ids=[1, 1, 2],
+            external_ids=[1, 1, 2],
+        )
+
+        # Predictions should still work (API unchanged)
+        predictions = predictor.predict(
+            raw_descriptions=["STORE1"],
+            amounts=[5000],
+            days_of_week=[1],
+            days_of_month=[15],
+            internal_ids=["Checking"],
+            institutions=["Bank1"],
+        )
+
+        # Type checks (backward compat: still returns correct types)
+        assert isinstance(predictions, list)
+        assert len(predictions) == 1
+        assert predictions[0] is not None
+        # Description may be None (filtered) or a string, but type is consistent
+        if predictions[0].description is not None:
+            assert hasattr(predictions[0].description, "value")
+            assert hasattr(predictions[0].description, "confidence")

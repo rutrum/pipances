@@ -1,10 +1,10 @@
 <tr id="inbox-thead">
-  <th>
+  <th class="w-[4%]">
     <label>
       <input type="checkbox" id="select-all" class="checkbox">
     </label>
   </th>
-  <th class="cursor-pointer select-none"
+  <th class="w-[11%] cursor-pointer select-none"
       hx-get="/inbox"
       hx-target="#inbox-table"
       hx-include="#filter-bar, #pagination-page-size"
@@ -19,7 +19,7 @@
       {% endif %}
     {% endif %}
   </th>
-  <th class="text-right cursor-pointer select-none"
+  <th class="w-[9%] text-right cursor-pointer select-none"
       hx-get="/inbox"
       hx-target="#inbox-table"
       hx-include="#filter-bar, #pagination-page-size"
@@ -34,7 +34,7 @@
       {% endif %}
     {% endif %}
   </th>
-  <th class="cursor-pointer select-none"
+  <th class="w-[28%] cursor-pointer select-none"
       hx-get="/inbox"
       hx-target="#inbox-table"
       hx-include="#filter-bar, #pagination-page-size"
@@ -49,7 +49,7 @@
       {% endif %}
     {% endif %}
   </th>
-  <th>Category</th>
-  <th>External</th>
-  <th></th>
+  <th class="w-[15%]">Category</th>
+  <th class="w-[19%]">External</th>
+  <th class="w-[14%]"></th>
 </tr>

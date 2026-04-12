@@ -154,6 +154,103 @@ def approvable_txn(ui_db):
     conn.close()
 
 
+@pytest.fixture
+def bulk_pending_txns(ui_db):
+    """
+    Insert 10 extra pending transactions so the total pending count exceeds 25
+    (the minimum valid page size). Marks one as approvable (description set).
+
+    Yields the approvable transaction ID. Cleans up all inserted rows after
+    the test, even if it was committed.
+
+    With seed's 20 + 10 inserted = 30 pending. After committing 1: 29 remaining.
+    At page_size=25 that's 2 pages, which is the minimum needed to test
+    pagination behaviour after a commit.
+    """
+    conn = sqlite3.connect(str(ui_db))
+
+    # Grab real foreign-key IDs from the seeded data
+    import_id = conn.execute("SELECT id FROM imports LIMIT 1").fetchone()[0]
+    internal_id = conn.execute(
+        "SELECT id FROM accounts WHERE kind != 'external' LIMIT 1"
+    ).fetchone()[0]
+
+    inserted_ids = []
+    for i in range(10):
+        conn.execute(
+            """
+            INSERT INTO transactions
+                (import_id, internal_id, raw_description, date, amount_cents, status, marked_for_approval)
+            VALUES (?, ?, ?, '2025-01-01', -100, 'pending', 0)
+            """,
+            (import_id, internal_id, f"UI_TEST_BULK_{i}"),
+        )
+        inserted_ids.append(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
+
+    # Make the first inserted row approvable
+    approvable_id = inserted_ids[0]
+    conn.execute(
+        "UPDATE transactions SET description='Bulk Test Transaction' WHERE id=?",
+        (approvable_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    yield approvable_id
+
+    # Remove all inserted rows (whether committed or still pending)
+    conn = sqlite3.connect(str(ui_db))
+    placeholders = ",".join("?" * len(inserted_ids))
+    conn.execute(f"DELETE FROM transactions WHERE id IN ({placeholders})", inserted_ids)
+    conn.commit()
+    conn.close()
+
+
+@pytest.fixture
+def approvable_txn_with_new_category(ui_db):
+    """
+    Like approvable_txn, but also creates a brand-new category not referenced
+    by any approved transaction, and assigns it to the pending transaction.
+    Yields (txn_id, category_name). Fully restores after the test.
+    """
+    category_name = "UITestCategory_Unique"
+    conn = sqlite3.connect(str(ui_db))
+
+    # Create a fresh category guaranteed not to exist in approved transactions
+    conn.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (category_name,))
+    conn.commit()
+    cat_id = conn.execute(
+        "SELECT id FROM categories WHERE name=?", (category_name,)
+    ).fetchone()[0]
+
+    # Pick a pending transaction and set description + category
+    row = conn.execute(
+        "SELECT id FROM transactions WHERE status='pending' LIMIT 1"
+    ).fetchone()
+    if row is None:
+        conn.close()
+        pytest.skip("No pending transactions available for this test")
+    txn_id = row[0]
+    conn.execute(
+        "UPDATE transactions SET description='Test Transaction', category_id=? WHERE id=?",
+        (cat_id, txn_id),
+    )
+    conn.commit()
+    conn.close()
+
+    yield txn_id, category_name
+
+    # Restore transaction and remove the test category
+    conn = sqlite3.connect(str(ui_db))
+    conn.execute(
+        "UPDATE transactions SET description=NULL, marked_for_approval=0, status='pending', category_id=NULL WHERE id=?",
+        (txn_id,),
+    )
+    conn.execute("DELETE FROM categories WHERE name=?", (category_name,))
+    conn.commit()
+    conn.close()
+
+
 # === Re-export commonly used playwright assertions ===
 # Tests can import `expect` from here instead of playwright directly.
 __all__ = ["expect"]

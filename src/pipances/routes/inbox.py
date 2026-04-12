@@ -289,6 +289,7 @@ async def commit_inbox(request: Request):
     filter_date_to = form.get("date_to", "").strip()
     filter_internal_id = form.get("internal_id", "").strip()
     filter_import_id = form.get("import_id", "").strip()
+    page_size = safe_int(form.get("page_size"), 25, min_val=1, max_val=100)
 
     async with async_session() as session:
         query = (
@@ -314,7 +315,7 @@ async def commit_inbox(request: Request):
         if imp_id:
             query = query.where(Transaction.import_id == imp_id)
 
-        result = await session.execute(query)
+        result = await session.execute(query.limit(page_size))
         transactions = result.scalars().all()
 
         # Count all remaining (unfiltered) for badge
@@ -326,8 +327,7 @@ async def commit_inbox(request: Request):
         remaining_count = total_result.scalar() or 0
 
     # Calculate pagination for remaining transactions
-    page_size = 25  # Default page size
-    total_pages = (remaining_count + page_size - 1) // page_size
+    total_pages = max(1, ceil(remaining_count / page_size))
 
     badge = templates.get_template("_badge.html").render({"count": remaining_count})
     pagination = templates.get_template("_pagination.html").render(
