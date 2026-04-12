@@ -206,12 +206,15 @@ async def explore_page(request: Request):
         weekly_chart = weekly_spending_chart(df)
 
     ctx = {
+        # Chart and stats data
         "has_data": has_data,
         "stats": stats,
         "monthly_chart": monthly_chart,
         "top_chart": top_chart,
         "weekly_chart": weekly_chart,
+        # Transaction table data
         "transactions": page_transactions,
+        # Filters and sorting
         "preset": preset,
         "date_from": str(date_from) if date_from else "",
         "date_to": str(date_to) if date_to else "",
@@ -223,10 +226,17 @@ async def explore_page(request: Request):
         "internal_accounts": internal_accounts,
         "external_accounts": external_accounts,
         "category_options": category_options,
+        # Pagination
         "page": page,
         "page_size": page_size,
         "total_pages": total_pages,
         "total_count": total_count,
+        # Table template parameters (for _transaction_table.html)
+        "endpoint": "/explore",
+        "target": "#explore-content",
+        "include_selector": "#explore-filters, #explore-pagination-page-size",
+        "filters_container_id": "explore-filters",
+        "pagination_id": "explore-pagination",
     }
 
     is_htmx = request.headers.get("HX-Request") == "true"

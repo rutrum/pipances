@@ -32,6 +32,19 @@ Categories are currently read-only (rename only, no delete, no create) in the Da
 ## CI/CD pipeline
 Set up automated testing (and possibly linting/formatting checks) on push/PR. Now that `just check` runs tests, a CI pipeline can gate merges on passing checks.
 
+## UI tests for table sorting/navigation
+
+The consolidate-transaction-tables refactoring introduced macro-based sort headers across Explore, Data/Transactions, and Inbox. A bug where sort arrows disappeared and direction toggling broke was caught during manual testing but would have been caught immediately by automated UI tests. Write Playwright tests to cover:
+
+1. Click sort header → verify arrow appears with correct direction
+2. Click again → verify arrow toggles to opposite direction  
+3. Verify sorting applies to all three pages (Explore, Data/Transactions, Inbox)
+4. Verify sort persists across filter/pagination changes
+
+This is critical regression coverage for a core UX pattern used across the app.
+
+**Note:** UI tests discovered that Inbox pagination doesn't preserve sort state (sort parameters reset to date/asc when navigating pages). Explore and Data/Transactions work correctly. This may be a separate bug in the inbox pagination include_selector.
+
 ## Fix OOB swap fragility
 
 The codebase uses three different patterns for HTMX out-of-band swaps, all based on string manipulation:

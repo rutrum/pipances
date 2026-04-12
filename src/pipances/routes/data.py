@@ -293,17 +293,45 @@ async def data_categories_page(request: Request):
         result = await session.execute(query)
         categories = result.all()
 
+    # Convert to list of dicts for template
+    categories_data = [
+        {"id": cat.id, "name": cat.name, "txn_count": cat.txn_count}
+        for cat in categories
+    ]
+
+    columns = [
+        {
+            "key": "name",
+            "label": "Name",
+            "type": "editable",
+            "id_key": "id",
+            "edit_endpoint": "/categories/{id}/edit-name",
+        },
+        {"key": "txn_count", "label": "Transactions"},
+        {
+            "key": "_explore",
+            "label": "",
+            "type": "link",
+            "href": "/explore?category={name}",
+            "icon": "compass",
+            "title": "View in Explore",
+        },
+    ]
+
+    ctx = {
+        "title": "Categories",
+        "empty_message": "No categories yet. Categories are created automatically when you assign them to transactions.",
+        "columns": columns,
+        "rows": categories_data,
+        "tbody_id": "categories-table-body",
+        "row_id_key": "id",
+    }
+
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(
-            templates.get_template("_data_categories.html").render(
-                {"categories": categories}
-            )
-        )
+        return HTMLResponse(templates.get_template("_data_table.html").render(ctx))
 
-    content_html = templates.get_template("_data_categories.html").render(
-        {"categories": categories}
-    )
+    content_html = templates.get_template("_data_table.html").render(ctx)
     return templates.TemplateResponse(
         request,
         "data.html",
@@ -486,7 +514,9 @@ async def data_transactions_page(request: Request):
         shared = await shared_context("data", session)
 
     ctx = {
+        # Transaction table data
         "transactions": transactions,
+        # Filters and sorting
         "preset": preset,
         "date_from": str(date_from) if date_from else "",
         "date_to": str(date_to) if date_to else "",
@@ -498,10 +528,17 @@ async def data_transactions_page(request: Request):
         "internal_accounts": internal_accounts,
         "external_accounts": external_accounts,
         "category_options": category_options,
+        # Pagination
         "page": page,
         "page_size": page_size,
         "total_pages": total_pages,
         "total_count": total_count,
+        # Table template parameters (for _transaction_table.html)
+        "endpoint": "/data/transactions",
+        "target": "#data-content",
+        "include_selector": "#data-txn-filters, #data-transactions-pagination-page-size",
+        "filters_container_id": "data-txn-filters",
+        "pagination_id": "data-transactions-pagination",
     }
 
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -539,17 +576,31 @@ async def data_external_accounts_page(request: Request):
         result = await session.execute(query)
         accounts = [{"name": row.name, "txn_count": row.txn_count} for row in result]
 
+    columns = [
+        {"key": "name", "label": "Name"},
+        {"key": "txn_count", "label": "Transactions"},
+        {
+            "key": "_explore",
+            "label": "",
+            "type": "link",
+            "href": "/explore?external={name}",
+            "icon": "compass",
+            "title": "View in Explore",
+        },
+    ]
+
+    ctx = {
+        "title": "External Accounts",
+        "empty_message": "No external accounts yet. They are created automatically when you import transactions.",
+        "columns": columns,
+        "rows": accounts,
+    }
+
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(
-            templates.get_template("_data_external_accounts.html").render(
-                {"accounts": accounts}
-            )
-        )
+        return HTMLResponse(templates.get_template("_data_table.html").render(ctx))
 
-    content_html = templates.get_template("_data_external_accounts.html").render(
-        {"accounts": accounts}
-    )
+    content_html = templates.get_template("_data_table.html").render(ctx)
     return templates.TemplateResponse(
         request,
         "data.html",
@@ -586,17 +637,23 @@ async def data_importers_page(request: Request):
 
     importers = _discover_importers()
 
+    columns = [
+        {"key": "name", "label": "Name"},
+        {"key": "filename", "label": "Filename"},
+    ]
+
+    ctx = {
+        "title": "Importers",
+        "empty_message": "No importers available.",
+        "columns": columns,
+        "rows": importers,
+    }
+
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(
-            templates.get_template("_data_importers.html").render(
-                {"importers": importers}
-            )
-        )
+        return HTMLResponse(templates.get_template("_data_table.html").render(ctx))
 
-    content_html = templates.get_template("_data_importers.html").render(
-        {"importers": importers}
-    )
+    content_html = templates.get_template("_data_table.html").render(ctx)
     return templates.TemplateResponse(
         request,
         "data.html",
@@ -616,15 +673,40 @@ async def data_imports_page(request: Request):
         )
         imports = result.scalars().all()
 
+    columns = [
+        {"key": "institution", "label": "Institution"},
+        {
+            "key": "filename",
+            "label": "Filename",
+            "type": "null_safe",
+            "null_value": "—",
+        },
+        {
+            "key": "imported_at",
+            "label": "Imported At",
+            "type": "date",
+            "format": "%Y-%m-%d %H:%M",
+        },
+        {
+            "key": "row_count",
+            "label": "Rows",
+            "type": "null_safe",
+            "null_value": "—",
+        },
+    ]
+
+    ctx = {
+        "title": "Import History",
+        "empty_message": "No imports yet. Upload a CSV file to get started.",
+        "columns": columns,
+        "rows": imports,
+    }
+
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(
-            templates.get_template("_data_imports.html").render({"imports": imports})
-        )
+        return HTMLResponse(templates.get_template("_data_table.html").render(ctx))
 
-    content_html = templates.get_template("_data_imports.html").render(
-        {"imports": imports}
-    )
+    content_html = templates.get_template("_data_table.html").render(ctx)
     return templates.TemplateResponse(
         request,
         "data.html",

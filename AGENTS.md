@@ -87,6 +87,7 @@ Some features I don't want for an initial release, despite them being good ideas
 
 - Use `just --list` to see available build/test/run commands before guessing
 - Common recipes: `just serve` (dev server on 8097), `just css` (build CSS), `just css-watch` (watch mode), `just sync` (install deps)
+  - If just serve fails because the port is taken, that likely means that the hot-reloaded server is already running, and you may continue.
 - Test data: `just seed` (resets DB and populates with deterministic test data via `scripts/seed.py`), `just reset-db` (deletes DB only)
 - After `just seed`, the server must be restarted to pick up the new database file
 - `test_export.csv` in project root contains April 2026 data for testing the CSV import workflow
@@ -180,7 +181,7 @@ Whenever the user mentions something as "TODO" or "we'll handle that later" etc,
 
 - When making design decisions or large changes AFTER apply, its CRITICAL to update the change artifacts to match the new requirements and design decisions
 - Specs should capture END USER BEHAVIOR.  Specs should not capture internal facing changes, tooling, or deployment changes.
-  - When writing a change that omits specs, don't include a specs directory.
+  - **When a change has no new or modified capabilities (e.g., refactoring), omit the specs directory entirely.** Code reorganization, template consolidation, and other internal changes don't need specs. No README, no placeholder file — just don't create the directory. The proposal and design are enough.
 
 ## Git Operations
 

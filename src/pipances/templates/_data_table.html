@@ -1,0 +1,45 @@
+{% macro render_cell(row, col) %}
+  {% if col.type == "editable" %}
+    <span class="cursor-pointer hover:underline"
+          hx-get="{{ col.edit_endpoint.format(id=row[col.id_key]) }}"
+          hx-target="this"
+          hx-swap="innerHTML">{{ row[col.key] }}</span>
+  {% elif col.type == "link" %}
+    <a href="{{ col.href.format(**row) }}"
+       class="btn btn-ghost btn-xs"
+       {% if col.title %}title="{{ col.title }}"{% endif %}>
+      <i data-lucide="{{ col.icon }}" class="w-4 h-4"></i>
+    </a>
+  {% elif col.type == "badge" %}
+    <div class="badge {{ col.badge_class or 'badge-primary' }}">{{ row[col.key] }}</div>
+  {% elif col.type == "date" %}
+    {{ row[col.key].strftime(col.format or "%Y-%m-%d %H:%M") }}
+  {% elif col.type == "null_safe" %}
+    {{ row[col.key] if row[col.key] is not none else col.null_value or "—" }}
+  {% else %}
+    {# default: plain text #}
+    {{ row[col.key] }}
+  {% endif %}
+{% endmacro %}
+{% if title %}<h2 class="text-lg font-semibold mb-4">{{ title }}</h2>{% endif %}
+{% if not rows %}
+  <div class="alert alert-info mb-4">
+    <span>{{ empty_message }}</span>
+  </div>
+{% endif %}
+<div class="overflow-x-auto">
+  <table class="table table-zebra w-full">
+    <thead>
+      <tr>
+        {% for col in columns %}<th>{{ col.label }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody {% if tbody_id %}id="{{ tbody_id }}"{% endif %}>
+      {% for row in rows %}
+        <tr {% if row_id_key %}id="{{ row_id_key }}-{{ row[row_id_key] }}"{% endif %}>
+          {% for col in columns %}<td>{{ render_cell(row, col) }}</td>{% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

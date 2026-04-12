@@ -1,54 +1,13 @@
+{% import "_table_macros.html" as table_macros %}
 <tr id="inbox-thead">
   <th class="w-[4%]">
     <label>
       <input type="checkbox" id="select-all" class="checkbox">
     </label>
   </th>
-  <th class="w-[11%] cursor-pointer select-none"
-      hx-get="/inbox"
-      hx-target="#inbox-table"
-      hx-include="#filter-bar, #pagination-page-size"
-      hx-push-url="true"
-      hx-vals='{"sort": "date", "dir": "{% if sort|default('date') == 'date' and dir|default('asc') == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
-    Date
-    {% if sort|default('date') == 'date' %}
-      {% if dir|default('asc') == 'asc' %}
-        ▲
-      {% else %}
-        ▼
-      {% endif %}
-    {% endif %}
-  </th>
-  <th class="w-[9%] text-right cursor-pointer select-none"
-      hx-get="/inbox"
-      hx-target="#inbox-table"
-      hx-include="#filter-bar, #pagination-page-size"
-      hx-push-url="true"
-      hx-vals='{"sort": "amount", "dir": "{% if sort|default('date') == 'amount' and dir|default('asc') == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
-    Amount ($)
-    {% if sort|default('date') == 'amount' %}
-      {% if dir|default('asc') == 'asc' %}
-        ▲
-      {% else %}
-        ▼
-      {% endif %}
-    {% endif %}
-  </th>
-  <th class="w-[28%] cursor-pointer select-none"
-      hx-get="/inbox"
-      hx-target="#inbox-table"
-      hx-include="#filter-bar, #pagination-page-size"
-      hx-push-url="true"
-      hx-vals='{"sort": "description", "dir": "{% if sort|default('date') == 'description' and dir|default('asc') == 'asc' %}desc{% else %}asc{% endif %}", "page": "1"}'>
-    Description
-    {% if sort|default('date') == 'description' %}
-      {% if dir|default('asc') == 'asc' %}
-        ▲
-      {% else %}
-        ▼
-      {% endif %}
-    {% endif %}
-  </th>
+  {{ table_macros.sort_header('date', 'Date', '/inbox', '#inbox-table', '#filter-bar, #pagination-page-size', sort, dir, 'w-[11%]') }}
+  {{ table_macros.sort_header('amount', 'Amount ($)', '/inbox', '#inbox-table', '#filter-bar, #pagination-page-size', sort, dir, 'w-[9%] text-right') }}
+  {{ table_macros.sort_header('description', 'Description', '/inbox', '#inbox-table', '#filter-bar, #pagination-page-size', sort, dir, 'w-[28%]') }}
   <th class="w-[15%]">Category</th>
   <th class="w-[19%]">External</th>
   <th class="w-[14%]"></th>

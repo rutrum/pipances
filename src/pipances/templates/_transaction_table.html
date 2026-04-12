@@ -1,0 +1,119 @@
+{# 
+  Unified transaction table partial used by Explore and Data/Transactions pages.
+  
+  REQUIRED CONTEXT VARIABLES:
+    - endpoint: URL to GET for sorting/filtering (e.g., '/explore', '/data/transactions')
+    - target: HTMX target selector (e.g., '#explore-content', '#data-content')
+    - include_selector: HTMX include selector for form state (e.g., '#explore-filters, #explore-pagination-page-size')
+    - filters_container_id: ID for the hidden filter inputs container (e.g., 'explore-filters', 'data-txn-filters')
+    - pagination_id: ID prefix for pagination (e.g., 'explore-pagination', 'data-transactions-pagination')
+    - transactions: list of transaction objects to display
+    - sort: current sort column
+    - dir: current sort direction ('asc' or 'desc')
+    - external_accounts: list of external account names for filter dropdown
+    - internal_accounts: list of internal account names for filter dropdown
+    - category_options: list of category names for filter dropdown
+    - external_filter: currently selected external account filter
+    - internal_filter: currently selected internal account filter
+    - category_filter: currently selected category filter
+    - page_info: dict with keys 'page', 'total_pages', 'page_size'
+#}
+{% import "_table_macros.html" as table_macros %}
+{# Filter state container - hidden inputs that track current filters/sorts #}
+<div id="{{ filters_container_id }}">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ dir }}">
+  {% if external_filter %}<input type="hidden" name="external" value="{{ external_filter }}">{% endif %}
+  {% if internal_filter %}<input type="hidden" name="internal" value="{{ internal_filter }}">{% endif %}
+  {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+</div>
+{% if not transactions %}
+  <div class="alert alert-info mt-4">
+    <span>No transactions found for the selected filters.</span>
+    <button class="btn btn-ghost btn-sm"
+            hx-get="{{ endpoint }}"
+            hx-target="{{ target }}"
+            hx-push-url="true"
+            hx-vals='{"preset": "all", "page": "1"}'>Clear filters</button>
+  </div>
+{% else %}
+  <div class="overflow-visible">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          {# Sortable headers (via macros) #}
+          {{ table_macros.sort_header('date', 'Date', endpoint, target, include_selector, sort, dir) }}
+          {{ table_macros.sort_header('amount', 'Amount ($)', endpoint, target, include_selector, sort, dir) }}
+          {{ table_macros.sort_header('description', 'Description', endpoint, target, include_selector, sort, dir) }}
+          {# Category filter (custom, not a macro - has Uncategorized special case) #}
+          <th>
+            <div class="dropdown dropdown-top dropdown-end">
+              <div tabindex="0"
+                   role="button"
+                   class="flex items-center gap-1 cursor-pointer select-none">
+                Category
+                {% if category_filter %}
+                  <span class="badge badge-sm badge-primary">
+                    {% if category_filter == '__uncategorized__' %}
+                      Uncategorized
+                    {% else %}
+                      {{ category_filter }}
+                    {% endif %}
+                  </span>
+                {% else %}
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       class="h-3 w-3 opacity-50"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                {% endif %}
+              </div>
+              <ul tabindex="0"
+                  class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-sm">
+                <li>
+                  <a hx-get="{{ endpoint }}"
+                     hx-target="{{ target }}"
+                     hx-include="{{ include_selector }}"
+                     hx-push-url="true"
+                     hx-vals='{{ {"category": "", "page": "1"}|tojson }}'>All</a>
+                </li>
+                <li>
+                  <a hx-get="{{ endpoint }}"
+                     hx-target="{{ target }}"
+                     hx-include="{{ include_selector }}"
+                     hx-push-url="true"
+                     hx-vals='{{ {"category": "__uncategorized__", "page": "1"}|tojson }}'>Uncategorized</a>
+                </li>
+                {% for cat in category_options %}
+                  <li>
+                    <a hx-get="{{ endpoint }}"
+                       hx-target="{{ target }}"
+                       hx-include="{{ include_selector }}"
+                       hx-push-url="true"
+                       hx-vals='{{ {"category": cat, "page": "1"}|tojson }}'>{{ cat }}</a>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </th>
+          {# Filter headers (via macros) #}
+          {{ table_macros.filter_header('external', 'External', external_accounts, external_filter, endpoint, target, include_selector) }}
+          {{ table_macros.filter_header('internal', 'Internal', internal_accounts, internal_filter, endpoint, target, include_selector) }}
+        </tr>
+      </thead>
+      <tbody>
+        {% for txn in transactions %}
+          {% include "_txn_row.html" %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {# Pagination #}
+  {% set pagination_url = endpoint %}
+  {% set pagination_target = target %}
+  {% set pagination_include = include_selector %}
+  {% set pagination_id = pagination_id %}
+  {% include "_pagination.html" %}
+{% endif %}

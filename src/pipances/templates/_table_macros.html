@@ -1,0 +1,86 @@
+{# Reusable table header macros for transaction tables #}
+{# 
+  Usage:
+    {% import "_table_macros.html" as table_macros %}
+    
+    {{ table_macros.sort_header('date', 'Date', '/explore', '#explore-content', '#explore-filters, #explore-pagination-page-size') }}
+    {{ table_macros.filter_header('external', 'External', external_accounts, external_filter, '/explore', '#explore-content', '#explore-filters, #explore-pagination-page-size') }}
+  
+  Parameters:
+    sort_header:
+      - column: field name (e.g., 'date', 'amount')
+      - label: display text (e.g., 'Date')
+      - endpoint: URL to GET (e.g., '/explore', '/data/transactions')
+      - target: HTMX target selector (e.g., '#explore-content')
+      - include_selector: HTMX include selector for form state
+      - current_sort: current sort column from context (e.g., 'date')
+      - current_dir: current sort direction from context ('asc' or 'desc')
+      - width_class: optional Tailwind width classes (e.g., 'w-[11%]')
+    
+    filter_header:
+      - column: field name for the filter parameter
+      - label: display text
+      - accounts: list of filter options
+      - current_filter: currently selected value (for badge display)
+      - endpoint: URL to GET
+      - target: HTMX target selector
+      - include_selector: HTMX include selector
+#}
+{% macro sort_header(column, label, endpoint, target, include_selector, current_sort, current_dir, width_class='') %}
+  <th class="cursor-pointer select-none {% if width_class %}{{ width_class }}{% endif %}"
+      hx-get="{{ endpoint }}"
+      hx-target="{{ target }}"
+      hx-include="{{ include_selector }}"
+      hx-push-url="true"
+      hx-vals='{{ {"sort": column, "dir": "desc" if current_sort == column and current_dir == "asc" else "asc", "page": "1"}|tojson }}'>
+    {{ label }}
+    {% if current_sort == column %}
+      {% if current_dir == 'asc' %}
+        ▲
+      {% else %}
+        ▼
+      {% endif %}
+    {% endif %}
+  </th>
+{% endmacro %}
+{% macro filter_header(column, label, accounts, current_filter, endpoint, target, include_selector) %}
+  <th>
+    <div class="dropdown dropdown-top dropdown-end">
+      <div tabindex="0"
+           role="button"
+           class="flex items-center gap-1 cursor-pointer select-none">
+        {{ label }}
+        {% if current_filter %}
+          <span class="badge badge-sm badge-primary">{{ current_filter }}</span>
+        {% else %}
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="h-3 w-3 opacity-50"
+               fill="none"
+               viewBox="0 0 24 24"
+               stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+        {% endif %}
+      </div>
+      <ul tabindex="0"
+          class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-sm">
+        <li>
+          <a hx-get="{{ endpoint }}"
+             hx-target="{{ target }}"
+             hx-include="{{ include_selector }}"
+             hx-push-url="true"
+             hx-vals='{{ {column: "", "page": "1"}|tojson }}'>All</a>
+        </li>
+        {% for acct in accounts %}
+          <li>
+            <a hx-get="{{ endpoint }}"
+               hx-target="{{ target }}"
+               hx-include="{{ include_selector }}"
+               hx-push-url="true"
+               hx-vals='{{ {column: acct, "page": "1"}|tojson }}'>{{ acct }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </th>
+{% endmacro %}
