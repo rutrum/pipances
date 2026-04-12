@@ -37,7 +37,7 @@
 
 ## 8. Verification
 
-- [x] 8.1 Navigate to localhost:8097 in browser, verify navbar appears with Upload and Inbox links
+- [x] 8.1 Navigate to localhost:8098 in browser, verify navbar appears with Upload and Inbox links
 - [x] 8.2 Go to /upload, verify importer and account dropdowns are populated, upload sample.csv, verify redirect to inbox
 - [x] 8.3 On /inbox, verify transactions appear in table, test inline editing of description and external account
 - [x] 8.4 Test approval checkbox toggles, then commit — verify marked transactions disappear from inbox

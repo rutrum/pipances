@@ -21,6 +21,24 @@ from pipances.utils import safe_date, safe_int
 router = APIRouter()
 
 
+def _render_inbox_pagination(page: int, page_size: int, total_count: int) -> str:
+    """Render inbox pagination with OOB swap attribute."""
+    total_pages = max(1, ceil(total_count / page_size))
+    return templates.get_template("shared/_pagination.html").render(
+        {
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "pagination_id": "inbox-pagination",
+            "pagination_url": "/inbox",
+            "pagination_target": "#inbox-table",
+            "pagination_include": "#filter-bar",
+            "oob": True,
+        }
+    )
+
+
 @router.get("/inbox", response_class=HTMLResponse)
 async def inbox_page(request: Request):
     params = request.query_params
@@ -128,17 +146,7 @@ async def inbox_page(request: Request):
         rows = ""
         for txn in transactions:
             rows += templates.get_template("inbox/_inbox_row.html").render({"txn": txn})
-        pagination = templates.get_template("shared/_pagination.html").render(
-            {
-                **ctx,
-                "pagination_id": "inbox-pagination",
-                "pagination_url": "/inbox",
-                "pagination_target": "#inbox-table",
-                "pagination_include": "#filter-bar",
-                "oob": True,
-            }
-        )
-        pagination_oob = pagination
+        pagination_oob = _render_inbox_pagination(page, page_size, total_count)
         thead = templates.get_template("inbox/_inbox_thead.html").render(ctx)
         thead_oob = thead.replace(
             '<tr id="inbox-thead">',
@@ -248,7 +256,9 @@ async def commit_inbox(request: Request):
             )
             rows = ""
             for txn in remaining.scalars().all():
-                rows += templates.get_template("inbox/_inbox_row.html").render({"txn": txn})
+                rows += templates.get_template("inbox/_inbox_row.html").render(
+                    {"txn": txn}
+                )
             return HTMLResponse(rows + toast)
 
         committed_count = len(marked)
@@ -326,23 +336,10 @@ async def commit_inbox(request: Request):
         )
         remaining_count = total_result.scalar() or 0
 
-    # Calculate pagination for remaining transactions
-    total_pages = max(1, ceil(remaining_count / page_size))
-
-    badge = templates.get_template("shared/_badge.html").render({"count": remaining_count})
-    pagination = templates.get_template("shared/_pagination.html").render(
-        {
-            "page": 1,
-            "page_size": page_size,
-            "total_pages": total_pages,
-            "total_count": remaining_count,
-            "pagination_id": "inbox-pagination",
-            "pagination_url": "/inbox",
-            "pagination_target": "#inbox-table",
-            "pagination_include": "#filter-bar",
-            "oob": True,
-        }
+    badge = templates.get_template("shared/_badge.html").render(
+        {"count": remaining_count}
     )
+    pagination = _render_inbox_pagination(1, page_size, remaining_count)
     toast = templates.get_template("shared/_toast.html").render(
         {
             "message": f"Committed {committed_count} transaction{'s' if committed_count != 1 else ''}.",

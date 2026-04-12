@@ -12,24 +12,9 @@
       <label class="label">
         <span class="label-text">Account</span>
       </label>
-      <select name="account" class="select select-bordered w-full" required>
+      <select name="account" class="select w-full" required>
         <option disabled selected value="">Select an account</option>
-        <optgroup label="Internal Accounts">
-          {% for account in accounts %}
-            {% if account.kind != 'external'
-              %}
-              <option value="{{ account.name }}">{{ account.name }}</option>
-            {% endif %}
-          {% endfor %}
-        </optgroup>
-        <optgroup label="External Accounts">
-          {% for account in accounts %}
-            {% if account.kind == 'external'
-              %}
-              <option value="{{ account.name }}">{{ account.name }}</option>
-            {% endif %}
-          {% endfor %}
-        </optgroup>
+        {% for account in accounts %}<option value="{{ account.name }}">{{ account.name }}</option>{% endfor %}
       </select>
     </div>
     <div class="overflow-x-auto mb-4">

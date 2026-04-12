@@ -24,7 +24,7 @@ Standard NixOS module signature `{ config, lib, pkgs, ... }` — no blueprint ex
 |--------|------|---------|-------------|
 | `enable` | bool | `false` | Enable the service |
 | `package` | package | (required) | The app package — consumer must set this |
-| `port` | int | `8097` | Listening port |
+| `port` | int | `8098` | Listening port |
 | `host` | str | `"0.0.0.0"` | Bind address |
 | `dataDir` | str | `"/var/lib/pipances"` | Database directory |
 | `importersDir` | nullOr path | `null` | Custom importers directory (replaces built-in) |

@@ -69,7 +69,11 @@ def _delete_temp_file(token: str) -> None:
 
 async def _get_active_accounts():
     async with async_session() as session:
-        result = await session.execute(select(Account).where(Account.active == True))
+        result = await session.execute(
+            select(Account).where(
+                Account.active == True, Account.kind != AccountKind.EXTERNAL
+            )
+        )
         return result.scalars().all()
 
 
@@ -79,7 +83,9 @@ async def import_page(request: Request):
         shared = await shared_context("import", session)
         result = await session.execute(select(Account).where(Account.active == True))
         accounts = result.scalars().all()
-    csv_html = templates.get_template("import/_import_csv.html").render(accounts=accounts)
+    csv_html = templates.get_template("import/_import_csv.html").render(
+        accounts=accounts
+    )
     return templates.TemplateResponse(
         request,
         "pages/import.html",

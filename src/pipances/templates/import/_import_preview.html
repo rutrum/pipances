@@ -14,7 +14,7 @@
         <label class="label">
           <span class="label-text">Select Importer</span>
         </label>
-        <select name="importer" class="select select-bordered w-full" required>
+        <select name="importer" class="select w-full" required>
           {% for key, info in successes.items() %}
             <option value="{{ key }}" {% if key == auto_importer %}selected{% endif %}>{{ info.name }}</option>
           {% endfor %}
@@ -26,29 +26,17 @@
         <span class="label-text">Account</span>
       </label>
       <select name="account"
-              class="select select-bordered w-full"
+              class="select w-full"
               required
               hx-post="/import/preview/dedup"
               hx-include="closest form"
               hx-target="#csv-preview"
               hx-target-422="#commit-error">
         <option disabled {% if not selected_account %}selected{% endif %} value="">Select an account</option>
-        <optgroup label="Internal Accounts">
-          {% for account in accounts %}
-            {% if account.kind != 'external' %}
-              <option value="{{ account.name }}"
-                      {% if selected_account == account.name %}selected{% endif %}>{{ account.name }}</option>
-            {% endif %}
-          {% endfor %}
-        </optgroup>
-        <optgroup label="External Accounts">
-          {% for account in accounts %}
-            {% if account.kind == 'external' %}
-              <option value="{{ account.name }}"
-                      {% if selected_account == account.name %}selected{% endif %}>{{ account.name }}</option>
-            {% endif %}
-          {% endfor %}
-        </optgroup>
+        {% for account in accounts %}
+          <option value="{{ account.name }}"
+                  {% if selected_account == account.name %}selected{% endif %}>{{ account.name }}</option>
+        {% endfor %}
       </select>
     </div>
     <div class="mb-2 text-sm text-base-content/70">

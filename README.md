@@ -43,7 +43,7 @@ Or add to a NixOS configuration:
   services.pipances = {
     enable = true;
     # dataDir = "/var/lib/pipances";  # default
-    # port = 8097;                     # default
+    # port = 8098;                     # default
     # importersDir = ./my-importers;   # optional
   };
 }
@@ -56,7 +56,7 @@ The OCI image is built via Nix:
 ```sh
 nix build .#docker
 podman load < result
-podman run -p 8097:8097 -v pipances-data:/data pipances:latest
+podman run -p 8098:8098 -v pipances-data:/data pipances:latest
 ```
 
 ### Python
@@ -67,7 +67,7 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 git clone https://github.com/rutrum/pipances
 cd pipances
 just setup        # sync deps and build CSS
-just serve        # run dev server on port 8097
+just serve        # run dev server on port 8098
 ```
 
 ## Configuration
@@ -78,7 +78,7 @@ Pipances is configured via environment variables:
 |---|---|---|
 | `PIPANCES_DB_PATH` | `./pipances.db` | Path to the SQLite database file |
 | `PIPANCES_HOST` | `0.0.0.0` | Address to bind the web server |
-| `PIPANCES_PORT` | `8097` | Port to listen on |
+| `PIPANCES_PORT` | `8098` | Port to listen on |
 | `PIPANCES_IMPORTERS_DIR` | `./importers` | Directory containing importer modules |
 | `PIPANCES_STATIC_DIR` | `./static` | Directory for static assets (CSS/JS) |
 

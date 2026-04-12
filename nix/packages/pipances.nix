@@ -80,7 +80,7 @@ pkgs.writeShellApplication {
     export PIPANCES_DB_PATH="''${PIPANCES_DB_PATH:-./pipances.db}"
     exec uvicorn pipances.main:app \
       --host "''${PIPANCES_HOST:-0.0.0.0}" \
-      --port "''${PIPANCES_PORT:-8097}" \
+      --port "''${PIPANCES_PORT:-8098}" \
       "$@"
   '';
 }

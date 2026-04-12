@@ -1,7 +1,7 @@
 {# Reusable table header macros for transaction tables #}
 {# 
   Usage:
-    {% import "_table_macros.html" as table_macros %}
+    {% import "shared/_table_macros.html" as table_macros %}
     
     {{ table_macros.sort_header('date', 'Date', '/explore', '#explore-content', '#explore-filters, #explore-pagination-page-size') }}
     {{ table_macros.filter_header('external', 'External', external_accounts, external_filter, '/explore', '#explore-content', '#explore-filters, #explore-pagination-page-size') }}

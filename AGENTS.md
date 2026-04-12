@@ -86,7 +86,7 @@ Some features I don't want for an initial release, despite them being good ideas
 ## Build and Run
 
 - Use `just --list` to see available build/test/run commands before guessing
-- Common recipes: `just serve` (dev server on 8097), `just css` (build CSS), `just css-watch` (watch mode), `just sync` (install deps)
+- Common recipes: `just serve` (dev server on 8098), `just css` (build CSS), `just css-watch` (watch mode), `just sync` (install deps)
   - If just serve fails because the port is taken, that likely means that the hot-reloaded server is already running, and you may continue.
 - Test data: `just seed` (resets DB and populates with deterministic test data via `scripts/seed.py`), `just reset-db` (deletes DB only)
 - After `just seed`, the server must be restarted to pick up the new database file

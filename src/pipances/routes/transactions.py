@@ -158,7 +158,9 @@ async def update_transaction(txn_id: int, request: Request):
 
         await session.commit()
         await session.refresh(txn, ["internal", "external", "category"])
-        return templates.TemplateResponse(request, "inbox/_inbox_row.html", {"txn": txn})
+        return templates.TemplateResponse(
+            request, "inbox/_inbox_row.html", {"txn": txn}
+        )
 
 
 @router.get("/transactions/{txn_id}/edit-description", response_class=HTMLResponse)

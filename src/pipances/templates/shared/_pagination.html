@@ -1,33 +1,41 @@
 <div id="{{ pagination_id }}"
      {% if oob %}hx-swap-oob="outerHTML:#{{ pagination_id }}"{% endif %}
-     class="flex items-center justify-between mt-4">
+     class="flex items-center justify-between mt-4 gap-4">
+  
+  <!-- Navigation: Prev, Page Info, Next -->
   <div class="join">
     {% if page > 1 %}
-      <button class="btn btn-sm join-item"
+      <button class="btn join-item"
               hx-get="{{ pagination_url }}"
               hx-target="{{ pagination_target }}"
               hx-include="{{ pagination_include }}, #{{ pagination_id }}-page-size"
               hx-push-url="true"
               hx-vals='{"page": "{{ page - 1 }}"}'>« Prev</button>
     {% else %}
-      <button class="btn btn-sm join-item btn-disabled">« Prev</button>
+      <button class="btn join-item btn-disabled">« Prev</button>
     {% endif %}
-    <span class="text-sm">Page {{ page }} of {{ total_pages }}</span>
+    <button class="btn join-item cursor-default pointer-events-none">
+      Page {{ page }} of {{ total_pages }}
+    </button>
     {% if page < total_pages %}
-      <button class="btn btn-sm join-item"
+      <button class="btn join-item"
               hx-get="{{ pagination_url }}"
               hx-target="{{ pagination_target }}"
               hx-include="{{ pagination_include }}, #{{ pagination_id }}-page-size"
               hx-push-url="true"
               hx-vals='{"page": "{{ page + 1 }}"}'>Next »</button>
     {% else %}
-      <button class="btn btn-sm join-item btn-disabled">Next »</button>
+      <button class="btn join-item btn-disabled">Next »</button>
     {% endif %}
   </div>
-  <div class="flex items-center gap-2">
-    <span class="text-sm opacity-70 whitespace-nowrap">{{ total_count }} transactions</span>
+
+  <!-- Page Size: Transaction Count + Selector -->
+  <div class="join">
+    <button class="btn join-item cursor-default pointer-events-none">
+      {{ total_count }} transactions
+    </button>
     <select id="{{ pagination_id }}-page-size"
-            class="select select-bordered select-sm"
+            class="select join-item"
             hx-get="{{ pagination_url }}"
             hx-target="{{ pagination_target }}"
             hx-include="{{ pagination_include }}, #{{ pagination_id }}-page-size"

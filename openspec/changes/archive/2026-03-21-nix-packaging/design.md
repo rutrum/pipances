@@ -57,7 +57,7 @@ Use `pkgs.dockerTools.buildLayeredImage` which creates efficient layer caching. 
 - Static assets (JS + built CSS)
 - A wrapper script as the entrypoint that sets env vars and runs uvicorn
 
-The image exposes port 8097 and expects a volume mount for the SQLite database.
+The image exposes port 8098 and expects a volume mount for the SQLite database.
 
 ### 5. Package structure
 

@@ -14,7 +14,7 @@ pkgs.dockerTools.buildLayeredImage {
   config = {
     Cmd = [ "pipances" ];
     ExposedPorts = {
-      "8097/tcp" = { };
+      "8098/tcp" = { };
     };
     Env = [
       "PIPANCES_DB_PATH=/data/pipances.db"

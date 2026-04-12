@@ -25,7 +25,7 @@ in
 
     port = lib.mkOption {
       type = lib.types.port;
-      default = 8097;
+      default = 8098;
       description = "Port to listen on.";
     };
 
