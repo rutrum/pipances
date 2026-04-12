@@ -43,6 +43,24 @@
   </td>
   <td class="pl-5">
     {% if txn.marked_for_approval %}
+      {{ txn.external.name }}
+    {% else %}
+      <span class="flex items-center gap-1 cursor-pointer hover:underline"
+            {% if txn.ml_confidence_external %}title="ML suggested ({{ (txn.ml_confidence_external * 100)|round|int }}% confidence)"{% endif %}
+            hx-get="/transactions/{{ txn.id }}/edit-external"
+            hx-target="this"
+            hx-swap="innerHTML">
+        {% if txn.ml_confidence_external %}<span class="status status-info flex-shrink-0"></span>{% endif %}
+        {% if txn.external %}
+          {{ txn.external.name }}
+        {% else %}
+          <span class="italic text-base-content/40">click to edit</span>
+        {% endif %}
+      </span>
+    {% endif %}
+  </td>
+  <td class="pl-5">
+    {% if txn.marked_for_approval %}
       {% if txn.category %}
         {{ txn.category.name }}
       {% else %}
@@ -60,20 +78,6 @@
         {% else %}
           <span class="italic text-base-content/40">click to edit</span>
         {% endif %}
-      </span>
-    {% endif %}
-  </td>
-  <td class="pl-5">
-    {% if txn.marked_for_approval %}
-      {{ txn.external.name }}
-    {% else %}
-      <span class="flex items-center gap-1 cursor-pointer hover:underline"
-            {% if txn.ml_confidence_external %}title="ML suggested ({{ (txn.ml_confidence_external * 100)|round|int }}% confidence)"{% endif %}
-            hx-get="/transactions/{{ txn.id }}/edit-external"
-            hx-target="this"
-            hx-swap="innerHTML">
-        {% if txn.ml_confidence_external %}<span class="status status-info flex-shrink-0"></span>{% endif %}
-        {{ txn.external.name }}
       </span>
     {% endif %}
   </td>

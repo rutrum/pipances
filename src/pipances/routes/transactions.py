@@ -210,11 +210,12 @@ async def edit_external(txn_id: int, request: Request):
         )
     if txn is None:
         return HTMLResponse("Not found", status_code=404)
+    current_value = txn.external.name if txn.external else ""
     return templates.TemplateResponse(
         request,
         "shared/_combo_edit.html",
         {
-            "current_value": txn.external.name,
+            "current_value": current_value,
             "entity": "external-accounts",
             "txn_id": txn_id,
             "field_name": "external",
