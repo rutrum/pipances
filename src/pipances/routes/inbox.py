@@ -127,8 +127,8 @@ async def inbox_page(request: Request):
     if is_htmx:
         rows = ""
         for txn in transactions:
-            rows += templates.get_template("_inbox_row.html").render({"txn": txn})
-        pagination = templates.get_template("_pagination.html").render(
+            rows += templates.get_template("inbox/_inbox_row.html").render({"txn": txn})
+        pagination = templates.get_template("shared/_pagination.html").render(
             {
                 **ctx,
                 "pagination_id": "inbox-pagination",
@@ -139,7 +139,7 @@ async def inbox_page(request: Request):
             }
         )
         pagination_oob = pagination
-        thead = templates.get_template("_inbox_thead.html").render(ctx)
+        thead = templates.get_template("inbox/_inbox_thead.html").render(ctx)
         thead_oob = thead.replace(
             '<tr id="inbox-thead">',
             '<tr id="inbox-thead" hx-swap-oob="outerHTML:#inbox-thead">',
@@ -148,7 +148,7 @@ async def inbox_page(request: Request):
         return HTMLResponse(rows + pagination_oob + thead_oob)
 
     ctx |= shared
-    return templates.TemplateResponse(request, "inbox.html", ctx)
+    return templates.TemplateResponse(request, "pages/inbox.html", ctx)
 
 
 @router.get("/inbox/commit-summary", response_class=HTMLResponse)
@@ -168,7 +168,7 @@ async def commit_summary(request: Request):
         marked = result.scalars().all()
 
         if not marked:
-            toast = templates.get_template("_toast.html").render(
+            toast = templates.get_template("shared/_toast.html").render(
                 {
                     "message": "Nothing to commit -- no transactions are approved.",
                     "type": "warning",
@@ -209,7 +209,7 @@ async def commit_summary(request: Request):
 
     return templates.TemplateResponse(
         request,
-        "_commit_summary.html",
+        "inbox/_commit_summary.html",
         {
             "commit_count": commit_count,
             "new_categories": sorted(new_category_names),
@@ -230,7 +230,7 @@ async def commit_inbox(request: Request):
         marked = result.scalars().all()
 
         if not marked:
-            toast = templates.get_template("_toast.html").render(
+            toast = templates.get_template("shared/_toast.html").render(
                 {
                     "message": "Nothing to commit -- no transactions are marked.",
                     "type": "warning",
@@ -248,7 +248,7 @@ async def commit_inbox(request: Request):
             )
             rows = ""
             for txn in remaining.scalars().all():
-                rows += templates.get_template("_inbox_row.html").render({"txn": txn})
+                rows += templates.get_template("inbox/_inbox_row.html").render({"txn": txn})
             return HTMLResponse(rows + toast)
 
         committed_count = len(marked)
@@ -329,8 +329,8 @@ async def commit_inbox(request: Request):
     # Calculate pagination for remaining transactions
     total_pages = max(1, ceil(remaining_count / page_size))
 
-    badge = templates.get_template("_badge.html").render({"count": remaining_count})
-    pagination = templates.get_template("_pagination.html").render(
+    badge = templates.get_template("shared/_badge.html").render({"count": remaining_count})
+    pagination = templates.get_template("shared/_pagination.html").render(
         {
             "page": 1,
             "page_size": page_size,
@@ -343,7 +343,7 @@ async def commit_inbox(request: Request):
             "oob": True,
         }
     )
-    toast = templates.get_template("_toast.html").render(
+    toast = templates.get_template("shared/_toast.html").render(
         {
             "message": f"Committed {committed_count} transaction{'s' if committed_count != 1 else ''}.",
             "type": "success",
@@ -365,7 +365,7 @@ async def commit_inbox(request: Request):
 
     rows = ""
     for txn in transactions:
-        rows += templates.get_template("_inbox_row.html").render({"txn": txn})
+        rows += templates.get_template("inbox/_inbox_row.html").render({"txn": txn})
     return HTMLResponse(rows + oob)
 
 
@@ -399,7 +399,7 @@ async def retrain_inbox(request: Request):
         pending = result.scalars().all()
 
         if not pending:
-            toast = templates.get_template("_toast.html").render(
+            toast = templates.get_template("shared/_toast.html").render(
                 {"message": "No pending transactions to retrain.", "type": "warning"}
             )
             return HTMLResponse(toast)
@@ -412,7 +412,7 @@ async def retrain_inbox(request: Request):
         approved = result.scalars().all()
 
         if not approved:
-            toast = templates.get_template("_toast.html").render(
+            toast = templates.get_template("shared/_toast.html").render(
                 {
                     "message": "No training data available. Approve some transactions first.",
                     "type": "warning",
@@ -491,7 +491,7 @@ async def retrain_inbox(request: Request):
         for txn in pending:
             await session.refresh(txn, ["category", "external"])
 
-    toast = templates.get_template("_toast.html").render(
+    toast = templates.get_template("shared/_toast.html").render(
         {
             "message": f"Retrained model and updated {updated_count} suggestion{'s' if updated_count != 1 else ''}.",
             "type": "success",
@@ -500,7 +500,7 @@ async def retrain_inbox(request: Request):
 
     rows = ""
     for txn in pending:
-        rows += templates.get_template("_inbox_row.html").render(
+        rows += templates.get_template("inbox/_inbox_row.html").render(
             {"txn": txn, "oob": True}
         )
 

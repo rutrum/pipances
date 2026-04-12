@@ -241,9 +241,9 @@ async def explore_page(request: Request):
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        content_html = templates.get_template("_explore_content.html").render(ctx)
+        content_html = templates.get_template("explore/_explore_content.html").render(ctx)
         # OOB swap the date range buttons
-        date_range_oob = templates.get_template("_explore_date_range.html").render(
+        date_range_oob = templates.get_template("explore/_explore_date_range.html").render(
             {"preset": preset, "date_from": ctx["date_from"], "date_to": ctx["date_to"]}
         )
         # OOB swap the hidden filter inputs so they stay in sync
@@ -268,4 +268,4 @@ async def explore_page(request: Request):
         return HTMLResponse(content_html + date_range_oob + filters_oob)
 
     ctx |= shared
-    return templates.TemplateResponse(request, "explore.html", ctx)
+    return templates.TemplateResponse(request, "pages/explore.html", ctx)

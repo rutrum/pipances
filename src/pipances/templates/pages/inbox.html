@@ -151,11 +151,11 @@
       </div>
       <table class="table table-fixed w-full">
         <thead>
-          {% include "_inbox_thead.html" %}
+          {% include "inbox/_inbox_thead.html" %}
         </thead>
         <tbody id="inbox-table">
           {% for txn in transactions %}
-            {% include "_inbox_row.html" %}
+            {% include "inbox/_inbox_row.html" %}
           {% endfor %}
         </tbody>
       </table>
@@ -164,7 +164,7 @@
         {% set pagination_target = "#inbox-table" %}
         {% set pagination_include = "#filter-bar" %}
         {% set pagination_id = "inbox-pagination" %}
-        {% include "_pagination.html" %}
+        {% include "shared/_pagination.html" %}
       </div>
       <script>
       (function() {

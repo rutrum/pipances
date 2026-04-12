@@ -5,7 +5,7 @@
 {% block content %}
   <div class="container mx-auto p-6">
     <h1 class="text-2xl font-bold mb-4">Explore</h1>
-    {% include "_explore_date_range.html" %}
+    {% include "explore/_explore_date_range.html" %}
     {# Hidden inputs carrying current filter/sort state for HTMX includes #}
     <div id="explore-filters">
       <input type="hidden" name="sort" value="{{ sort }}">
@@ -19,6 +19,6 @@
     <script src="/static/js/vega-lite.min.js"></script>
     <script src="/static/js/vega-embed.min.js"></script>
     {# Main content area (stats + charts + table) #}
-    <div id="explore-content">{% include "_explore_content.html" %}</div>
+    <div id="explore-content">{% include "explore/_explore_content.html" %}</div>
   </div>
 {% endblock content %}

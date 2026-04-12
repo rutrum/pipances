@@ -79,10 +79,10 @@ async def import_page(request: Request):
         shared = await shared_context("import", session)
         result = await session.execute(select(Account).where(Account.active == True))
         accounts = result.scalars().all()
-    csv_html = templates.get_template("_import_csv.html").render(accounts=accounts)
+    csv_html = templates.get_template("import/_import_csv.html").render(accounts=accounts)
     return templates.TemplateResponse(
         request,
-        "import.html",
+        "pages/import.html",
         {
             "import_tab": "csv",
             "import_content_html": csv_html,
@@ -96,7 +96,7 @@ async def import_csv_partial(request: Request):
     accounts = await _get_active_accounts()
     return templates.TemplateResponse(
         request,
-        "_import_csv.html",
+        "import/_import_csv.html",
         {"accounts": accounts},
     )
 
@@ -106,7 +106,7 @@ async def import_manual_partial(request: Request):
     accounts = await _get_active_accounts()
     return templates.TemplateResponse(
         request,
-        "_import_manual.html",
+        "import/_import_manual.html",
         {"accounts": accounts},
     )
 
@@ -159,7 +159,7 @@ async def import_preview(request: Request):
 
         return templates.TemplateResponse(
             request,
-            "_import_preview.html",
+            "import/_import_preview.html",
             {
                 "token": token,
                 "successes": successes,
@@ -223,7 +223,7 @@ async def import_preview_dedup(request: Request):
 
         return templates.TemplateResponse(
             request,
-            "_import_preview.html",
+            "import/_import_preview.html",
             {
                 "token": token,
                 "successes": {importer_key: {"name": importer_info.name}},

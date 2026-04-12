@@ -18,7 +18,7 @@
     - category_filter: currently selected category filter
     - page_info: dict with keys 'page', 'total_pages', 'page_size'
 #}
-{% import "_table_macros.html" as table_macros %}
+{% import "shared/_table_macros.html" as table_macros %}
 {# Filter state container - hidden inputs that track current filters/sorts #}
 <div id="{{ filters_container_id }}">
   <input type="hidden" name="sort" value="{{ sort }}">
@@ -105,7 +105,7 @@
       </thead>
       <tbody>
         {% for txn in transactions %}
-          {% include "_txn_row.html" %}
+          {% include "shared/_txn_row.html" %}
         {% endfor %}
       </tbody>
     </table>
@@ -115,5 +115,5 @@
   {% set pagination_target = target %}
   {% set pagination_include = include_selector %}
   {% set pagination_id = pagination_id %}
-  {% include "_pagination.html" %}
+  {% include "shared/_pagination.html" %}
 {% endif %}

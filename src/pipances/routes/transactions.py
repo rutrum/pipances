@@ -97,7 +97,7 @@ async def bulk_update_transactions(request: Request):
     # Return OOB swaps for each affected row
     html = ""
     for txn in transactions:
-        row = templates.get_template("_inbox_row.html").render({"txn": txn})
+        row = templates.get_template("inbox/_inbox_row.html").render({"txn": txn})
         html += row
     return HTMLResponse(html)
 
@@ -158,7 +158,7 @@ async def update_transaction(txn_id: int, request: Request):
 
         await session.commit()
         await session.refresh(txn, ["internal", "external", "category"])
-        return templates.TemplateResponse(request, "_inbox_row.html", {"txn": txn})
+        return templates.TemplateResponse(request, "inbox/_inbox_row.html", {"txn": txn})
 
 
 @router.get("/transactions/{txn_id}/edit-description", response_class=HTMLResponse)
@@ -169,7 +169,7 @@ async def edit_description(txn_id: int, request: Request):
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         request,
-        "_edit_input.html",
+        "shared/_edit_input.html",
         {
             "field_name": "description",
             "value": txn.description or "",
@@ -190,7 +190,7 @@ async def edit_description_combo(txn_id: int, request: Request):
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         request,
-        "_combo_edit.html",
+        "shared/_combo_edit.html",
         {
             "current_value": txn.description or "",
             "entity": "descriptions",
@@ -210,7 +210,7 @@ async def edit_external(txn_id: int, request: Request):
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         request,
-        "_combo_edit.html",
+        "shared/_combo_edit.html",
         {
             "current_value": txn.external.name,
             "entity": "external-accounts",
@@ -231,7 +231,7 @@ async def edit_category(txn_id: int, request: Request):
     current_value = txn.category.name if txn.category else ""
     return templates.TemplateResponse(
         request,
-        "_combo_edit.html",
+        "shared/_combo_edit.html",
         {
             "current_value": current_value,
             "entity": "categories",
