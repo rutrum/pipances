@@ -1,102 +1,228 @@
 <div class="combo-box relative w-full">
+  {# Unique anchor name for CSS anchor positioning #}
+  {% set anchor_id = "combo-anchor-" ~ txn_id ~ "-" ~ field_name %}
+  {% set popover_id = "combo-results-" ~ txn_id ~ "-" ~ field_name %}
+
   <input type="text"
-         class="w-full bg-transparent p-0 text-sm border-0 border-b border-transparent focus:border-base-300 outline-none transition-colors"
+         id="combo-input-{{ txn_id }}-{{ field_name }}"
+         class="input input-bordered input-sm w-full"
+         style="anchor-name: --{{ anchor_id }};"
          value="{{ current_value }}"
          autocomplete="off"
          hx-get="/api/combo/{{ entity }}?txn_id={{ txn_id }}&field={{ field_name }}"
-         hx-trigger="input changed delay:200ms, focus"
-         hx-target="#combo-results-{{ txn_id }}-{{ field_name }}"
+         hx-trigger="input changed"
+         hx-target="#{{ popover_id }}"
          hx-include="this"
          name="q"
          autofocus>
-  <div id="combo-results-{{ txn_id }}-{{ field_name }}"
-       class="absolute z-50 w-full bg-base-100 border border-base-300 rounded-box shadow-lg mt-1 max-h-48 overflow-y-auto">
+
+  {#
+    Popover container — renders in top layer via Popover API.
+    Uses CSS anchor positioning to tether to the input above.
+    Falls back to absolute positioning for browsers without anchor support.
+  #}
+  <div id="{{ popover_id }}"
+       popover="manual"
+       class="combo-popover bg-base-100 border border-base-300 rounded-box shadow-xl p-0 m-0"
+       style="
+         position-anchor: --{{ anchor_id }};
+         inset: auto;
+         left: anchor(left);
+         top: anchor(bottom);
+         width: anchor-size(width);
+         margin-top: 4px;
+         position-try-fallbacks: flip-block;
+         max-height: 12rem;
+         overflow-y: auto;
+       ">
   </div>
+
+  {# Safari / browsers without CSS anchor positioning fallback #}
+  <style>
+    @supports not (anchor-name: --x) {
+      #{{ popover_id }} {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        margin-top: 4px;
+        z-index: 9999;
+      }
+    }
+    /* Reset browser default popover styles */
+    #{{ popover_id }}:popover-open {
+      display: block;
+    }
+    #{{ popover_id }} {
+      display: none;
+    }
+  </style>
+
   <script>
     (function() {
-      const wrapper = document.getElementById('combo-results-{{ txn_id }}-{{ field_name }}').parentElement;
-      const input = wrapper.querySelector('input');
-      const resultsId = 'combo-results-{{ txn_id }}-{{ field_name }}';
-      let highlightIndex = -1;
+      var inputId    = 'combo-input-{{ txn_id }}-{{ field_name }}';
+      var popoverId  = '{{ popover_id }}';
+      var txnId      = '{{ txn_id }}';
+      var fieldName  = '{{ field_name }}';
+
+      var input   = document.getElementById(inputId);
+      var popover = document.getElementById(popoverId);
+      var wrapper = input.parentElement;
+
+      var highlightIndex = -1;
+      var isOpen = false;
+
+      // ── Helpers ──────────────────────────────────────────────────────────
 
       function getItems() {
-        const results = document.getElementById(resultsId);
-        return results ? results.querySelectorAll('[data-combo-item]') : [];
+        return popover ? Array.from(popover.querySelectorAll('[data-combo-item]')) : [];
       }
 
       function updateHighlight() {
-        const items = getItems();
-        items.forEach(function(item, i) {
+        getItems().forEach(function(item, i) {
           if (i === highlightIndex) {
-            item.classList.add('bg-primary', 'text-primary-content');
+            item.classList.add('menu-active');
           } else {
-            item.classList.remove('bg-primary', 'text-primary-content');
+            item.classList.remove('menu-active');
           }
         });
       }
 
+      function openPopover() {
+        if (!isOpen && popover) {
+          popover.showPopover();
+          isOpen = true;
+        }
+      }
+
+      function closePopover() {
+        if (isOpen && popover) {
+          popover.hidePopover();
+          isOpen = false;
+        }
+        highlightIndex = -1;
+      }
+
       function revert() {
-        // Re-render the whole row to restore original state
-        htmx.ajax('PATCH', '/transactions/{{ txn_id }}', {
-          target: '#txn-{{ txn_id }}',
+        htmx.ajax('PATCH', '/transactions/' + txnId, {
+          target: '#txn-' + txnId,
           swap: 'outerHTML',
           values: {}
         });
+        closePopover();
       }
 
+      // ── Show on focus (only when popover not already open) ────────────────
+
+      // Removed 'focus' from hx-trigger to avoid re-firing when Playwright
+      // or the browser re-focuses the input while the popover is already open.
+      input.addEventListener('focus', function() {
+        if (!isOpen) {
+          htmx.trigger(input, 'input');
+        }
+      });
+
+      // ── Open/close driven by MutationObserver on popover content ──────────
+
+      // MutationObserver watches the popover element for DOM changes (HTMX swap).
+      // More reliable than htmx:afterSwap because it directly observes the target.
+      new MutationObserver(function() {
+        if (popover.querySelector('[data-combo-item]')) {
+          openPopover();
+        } else {
+          closePopover();
+        }
+        highlightIndex = -1;
+      }).observe(popover, { childList: true });
+
+      // ── Keyboard navigation ───────────────────────────────────────────────
+
       input.addEventListener('keydown', function(e) {
-        const items = getItems();
+        var items = getItems();
 
         if (e.key === 'ArrowDown') {
           e.preventDefault();
           if (!items.length) return;
           highlightIndex = (highlightIndex + 1) % items.length;
           updateHighlight();
+
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
           if (!items.length) return;
           highlightIndex = (highlightIndex - 1 + items.length) % items.length;
           updateHighlight();
+
         } else if (e.key === 'Enter') {
           e.preventDefault();
           if (highlightIndex >= 0 && highlightIndex < items.length) {
+            // An item is highlighted — select it
             items[highlightIndex].click();
+          } else {
+            // Nothing highlighted: only act if the sole item is a Create option
+            var nonCreateItems = items.filter(function(el) {
+              return !el.hasAttribute('data-combo-create');
+            });
+            if (items.length === 1 && nonCreateItems.length === 0) {
+              // Only item is Create — fire it
+              items[0].click();
+            }
+            // Otherwise (selectable items present with no highlight) → do nothing
           }
+
         } else if (e.key === 'Escape') {
-          e.preventDefault();
+          // Don't preventDefault — allow the native <dialog> Escape handling to proceed.
+          // Close the popover and revert field state, but let Escape bubble to the dialog.
+          closePopover();
           revert();
         }
       });
 
-      // Reset highlight when results update
-      new MutationObserver(function() { highlightIndex = -1; })
-        .observe(document.getElementById(resultsId), {childList: true});
+      // ── Dismiss on click outside ──────────────────────────────────────────
 
-      // Cancel on blur (delayed to allow click on dropdown items)
-      let blurTimeout;
-      input.addEventListener('blur', function() {
-        blurTimeout = setTimeout(function() {
-          input.classList.add('pointer-events-none');
-          // If the input is empty, submit it; otherwise revert
-          if (input.value.trim() === "") {
-            htmx.ajax('PATCH', '/transactions/{{ txn_id }}', {
-              target: '#txn-{{ txn_id }}',
-              swap: 'outerHTML',
-              values: { '{{ field_name }}': '' }
-            });
-          } else {
-            revert();
-          }
-        }, 200);
-      });
-
-      // Prevent blur-revert when clicking a dropdown item
-      wrapper.addEventListener('mousedown', function(e) {
-        if (e.target !== input) {
-          clearTimeout(blurTimeout);
-          input.classList.remove('pointer-events-none');
+      // focusout: if focus moves outside both the input and the popover, dismiss
+      wrapper.addEventListener('focusout', function(e) {
+        var relatedTarget = e.relatedTarget;
+        // If focus went to something inside the popover, don't dismiss
+        if (relatedTarget && (popover.contains(relatedTarget) || wrapper.contains(relatedTarget))) {
+          return;
         }
+        // Focus left the combo entirely
+        setTimeout(function() {
+          if (!popover.contains(document.activeElement) && document.activeElement !== input) {
+            // If input is empty, save empty value (user intentionally cleared the field).
+            // If input has text but no selection was made, revert to saved value.
+            if (input.value.trim() === '') {
+              closePopover();
+              htmx.ajax('PATCH', '/transactions/' + txnId, {
+                target: '#txn-' + txnId,
+                swap: 'outerHTML',
+                values: { [fieldName]: '' }
+              });
+            } else if (isOpen) {
+              revert();
+            }
+          }
+        }, 50);
       });
+
+      // Also handle document-level clicks for when focus doesn't shift (e.g. clicking modal backdrop)
+      function onDocumentClick(e) {
+        if (!isOpen) return;
+        if (wrapper.contains(e.target) || popover.contains(e.target)) return;
+        revert();
+      }
+      document.addEventListener('click', onDocumentClick);
+
+      // Cleanup document listener when the modal closes (avoid leaks)
+      var modalEl = wrapper.closest('dialog');
+      if (modalEl) {
+        modalEl.addEventListener('close', function() {
+          document.removeEventListener('click', onDocumentClick);
+        }, { once: true });
+      }
+
+      // ── Reset highlight is handled by the open/close MutationObserver above ──
+
     })();
   </script>
 </div>

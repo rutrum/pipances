@@ -435,3 +435,34 @@ async def test_combo_search_with_underscore(client, seed_accounts, seed_categori
     # _ should not match single chars — only items with literal _
     for cat_name in ["Groceries", "Dining", "Transport"]:
         assert cat_name not in resp.text
+
+
+# === Inbox: OOB thead swap ===
+
+
+async def test_inbox_htmx_response_includes_thead_oob(client, seed_accounts):
+    """HTMX request to /inbox must include the thead with hx-swap-oob.
+
+    This is a regression guard for pipances-857.  If the str.replace() approach
+    ever silently fails (e.g. because the template changed attribute order),
+    the thead OOB attribute would be missing and sort arrows would stop updating
+    after HTMX navigations.  The template-based approach must emit the attribute
+    unconditionally when oob=True is passed.
+    """
+    resp = await client.get("/inbox", headers={"HX-Request": "true"})
+    assert resp.status_code == 200
+    assert "<html" not in resp.text
+    assert 'id="inbox-thead"' in resp.text
+    assert 'hx-swap-oob="outerHTML:#inbox-thead"' in resp.text
+
+
+async def test_inbox_full_page_does_not_include_thead_oob(client, seed_accounts):
+    """Full-page render must NOT emit hx-swap-oob on the thead.
+
+    hx-swap-oob in a full-page response has no effect but is a sign that
+    the template is leaking OOB attributes unconditionally.
+    The attribute should only appear in HTMX partial responses.
+    """
+    resp = await client.get("/inbox")
+    assert resp.status_code == 200
+    assert 'hx-swap-oob="outerHTML:#inbox-thead"' not in resp.text

@@ -59,25 +59,14 @@
       </table>
     </div>
     <div class="flex justify-between items-center">
-      <button type="button" class="btn btn-outline btn-sm" id="add-row-btn">+ Add Row</button>
+      <button type="button"
+              class="btn btn-outline btn-sm"
+              hx-get="/import/manual/row"
+              hx-target="#manual-rows"
+              hx-swap="beforeend">+ Add Row</button>
       <button type="submit" class="btn btn-primary">Add to Inbox</button>
     </div>
     <div id="manual-error" class="mt-4"></div>
   </form>
-  <script>
-    (function () {
-        var btn = document.getElementById("add-row-btn");
-        var tbody = document.getElementById("manual-rows");
-        btn.addEventListener("click", function () {
-            var row = document.createElement("tr");
-            row.innerHTML =
-                '<td><input type="date" name="date[]" class="input input-bordered input-sm w-full" /></td>' +
-                '<td><input type="number" name="amount[]" step="0.01" class="input input-bordered input-sm w-full" placeholder="0.00" /></td>' +
-                '<td><input type="text" name="description[]" class="input input-bordered input-sm w-full" placeholder="Description" /></td>' +
-                '<td><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove()"><i data-lucide="x" class="w-4 h-4"></i></button></td>';
-            tbody.appendChild(row);
-            if (window.lucide) lucide.createIcons();
-        });
-    })();
-  </script>
+
 {% endif %}

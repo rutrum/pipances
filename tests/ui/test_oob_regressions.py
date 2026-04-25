@@ -137,6 +137,39 @@ def test_commit_toast_appears_after_confirm(page: Page, goto, approvable_txn):
     expect(page.locator("#toast-container")).to_contain_text("Committed")
 
 
+# ============================================================
+# Bug 3: inbox thead sort arrow does not update after HTMX sort
+# ============================================================
+
+
+def test_inbox_thead_oob_swap_updates_sort_arrow(page: Page, goto):
+    """
+    Regression: clicking a sort header must update the sort arrow via OOB swap
+    on #inbox-thead.
+
+    Before fix: the thead OOB attribute was injected via str.replace() on
+    '<tr id="inbox-thead">'. Any template change that altered attribute order
+    (e.g. adding a class) would silently break the match, leaving the thead
+    un-swapped. The sort arrow would not update even though the rows did.
+
+    After fix: _inbox_thead.html emits hx-swap-oob unconditionally via
+    {%% if oob %%} — no string manipulation required.
+    """
+    goto("/inbox")
+
+    # Default sort is date ASC — up arrow should be visible
+    expect(page.locator("#inbox-thead th:has-text('Date ▲')")).to_be_visible()
+
+    # Click the Date header to sort DESC
+    page.locator("#inbox-thead th:has-text('Date')").first.click()
+    page.wait_for_load_state("networkidle")
+
+    # If OOB swap fired, the thead now shows a down arrow
+    expect(page.locator("#inbox-thead th:has-text('Date ▼')")).to_be_visible()
+    # Up arrow must be gone — proves the thead was replaced, not just augmented
+    expect(page.locator("#inbox-thead th:has-text('Date ▲')")).not_to_be_visible()
+
+
 def test_commit_no_approved_shows_warning_not_modal(page: Page, goto):
     """
     Clicking Commit with nothing approved shows a warning toast, not a modal.

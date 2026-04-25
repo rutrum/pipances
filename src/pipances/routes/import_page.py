@@ -117,6 +117,11 @@ async def import_manual_partial(request: Request):
     )
 
 
+@router.get("/import/manual/row", response_class=HTMLResponse)
+async def import_manual_row(request: Request):
+    return templates.TemplateResponse(request, "import/_import_manual_row.html", {})
+
+
 @router.post("/import/preview", response_class=HTMLResponse)
 async def import_preview(request: Request):
     form = await request.form()

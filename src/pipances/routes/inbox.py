@@ -147,11 +147,8 @@ async def inbox_page(request: Request):
         for txn in transactions:
             rows += templates.get_template("inbox/_inbox_row.html").render({"txn": txn})
         pagination_oob = _render_inbox_pagination(page, page_size, total_count)
-        thead = templates.get_template("inbox/_inbox_thead.html").render(ctx)
-        thead_oob = thead.replace(
-            '<tr id="inbox-thead">',
-            '<tr id="inbox-thead" hx-swap-oob="outerHTML:#inbox-thead">',
-            1,
+        thead_oob = templates.get_template("inbox/_inbox_thead.html").render(
+            {**ctx, "oob": True}
         )
         return HTMLResponse(rows + pagination_oob + thead_oob)
 

@@ -17,7 +17,9 @@
     {% include "shared/_navbar.html" %}
     {% block content %}
     {% endblock content %}
-    <div id="toast-container" class="toast toast-end toast-bottom"></div>
+    <div id="toast-container" class="toast toast-end toast-bottom">
+      {% block initial_toast %}{% endblock %}
+    </div>
     <script>
     function dismissToast(el) {
       el.style.transition = 'opacity 0.3s';

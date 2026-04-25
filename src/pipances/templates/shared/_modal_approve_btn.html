@@ -1,0 +1,27 @@
+<div id="modal-approve-btn-{{ txn.id }}"
+     class="flex justify-center mt-8"
+     hx-swap-oob="outerHTML:#modal-approve-btn-{{ txn.id }}">
+  {% if txn.marked_for_approval %}
+    <button class="btn btn-warning btn-lg"
+            hx-patch="/transactions/{{ txn.id }}"
+            hx-vals='{"marked_for_approval": "toggle"}'
+            hx-target="#txn-{{ txn.id }}"
+            hx-swap="outerHTML"
+            hx-on::after-request="if(event.detail.xhr.status === 200) { document.getElementById('transaction-edit-modal-{{ txn.id }}').close(); }">
+      Unapprove
+    </button>
+  {% elif txn.description and txn.external %}
+    <button class="btn btn-primary btn-lg"
+            hx-patch="/transactions/{{ txn.id }}"
+            hx-vals='{"marked_for_approval": "toggle"}'
+            hx-target="#txn-{{ txn.id }}"
+            hx-swap="outerHTML"
+            hx-on::after-request="if(event.detail.xhr.status === 200) { document.getElementById('transaction-edit-modal-{{ txn.id }}').close(); }">
+      Approve
+    </button>
+  {% else %}
+    <button class="btn btn-primary btn-lg btn-disabled" disabled>
+      Approve
+    </button>
+  {% endif %}
+</div>

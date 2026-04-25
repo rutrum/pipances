@@ -4,6 +4,8 @@
   <th>
     <label>
       <input type="checkbox"
+             name="ids"
+             value="{{ txn.id }}"
              class="checkbox select-txn"
              data-txn-id="{{ txn.id }}"
              tabindex="-1">
@@ -16,79 +18,57 @@
   <td class="font-mono whitespace-nowrap text-right {% if txn.amount_cents < 0 %}text-error{% else %}text-success{% endif %}">
     {{ "%.2f"|format(txn.amount_cents / 100) }}
   </td>
+  <!-- Description -->
   <td class="pl-5">
-    <div>
-      {% if txn.marked_for_approval %}
-        {% if txn.description %}
-          {{ txn.description }}
-        {% else %}
-          <span class="italic text-base-content/40">no description</span>
-        {% endif %}
+    <div class="flex items-center gap-1"
+         {% if txn.ml_confidence_description %}title="ML suggested ({{ (txn.ml_confidence_description * 100)|round|int }}% confidence)"{% endif %}>
+      {% if txn.ml_confidence_description %}<span class="status status-info flex-shrink-0"></span>{% endif %}
+      {% if txn.description %}
+        {{ txn.description }}
       {% else %}
-        <span class="flex items-center gap-1 cursor-pointer hover:underline"
-              {% if txn.ml_confidence_description %}title="ML suggested ({{ (txn.ml_confidence_description * 100)|round|int }}% confidence)"{% endif %}
-              hx-get="/transactions/{{ txn.id }}/edit-description-combo"
-              hx-target="this"
-              hx-swap="innerHTML">
-          {% if txn.ml_confidence_description %}<span class="status status-info flex-shrink-0"></span>{% endif %}
-          {% if txn.description %}
-            {{ txn.description }}
-          {% else %}
-            <span class="italic text-base-content/40">click to edit</span>
-          {% endif %}
-        </span>
+        <span class="italic text-base-content/40">no description</span>
       {% endif %}
     </div>
     <div class="text-xs opacity-50">{{ txn.raw_description }}</div>
   </td>
+  <!-- External account -->
   <td class="pl-5">
-    {% if txn.marked_for_approval %}
-      {{ txn.external.name }}
-    {% else %}
-      <span class="flex items-center gap-1 cursor-pointer hover:underline"
-            {% if txn.ml_confidence_external %}title="ML suggested ({{ (txn.ml_confidence_external * 100)|round|int }}% confidence)"{% endif %}
-            hx-get="/transactions/{{ txn.id }}/edit-external"
-            hx-target="this"
-            hx-swap="innerHTML">
-        {% if txn.ml_confidence_external %}<span class="status status-info flex-shrink-0"></span>{% endif %}
-        {% if txn.external %}
-          {{ txn.external.name }}
-        {% else %}
-          <span class="italic text-base-content/40">click to edit</span>
-        {% endif %}
-      </span>
-    {% endif %}
+    <div class="flex items-center gap-1"
+         {% if txn.ml_confidence_external %}title="ML suggested ({{ (txn.ml_confidence_external * 100)|round|int }}% confidence)"{% endif %}>
+      {% if txn.ml_confidence_external %}<span class="status status-info flex-shrink-0"></span>{% endif %}
+      {% if txn.external %}
+        {{ txn.external.name }}
+      {% else %}
+        <span class="italic text-base-content/40">no external account</span>
+      {% endif %}
+    </div>
   </td>
+  <!-- Category -->
   <td class="pl-5">
-    {% if txn.marked_for_approval %}
+    <div class="flex items-center gap-1"
+         {% if txn.ml_confidence_category %}title="ML suggested ({{ (txn.ml_confidence_category * 100)|round|int }}% confidence)"{% endif %}>
+      {% if txn.ml_confidence_category %}<span class="status status-info flex-shrink-0"></span>{% endif %}
       {% if txn.category %}
         {{ txn.category.name }}
       {% else %}
         <span class="italic text-base-content/40">no category</span>
       {% endif %}
-    {% else %}
-      <span class="flex items-center gap-1 cursor-pointer hover:underline"
-            {% if txn.ml_confidence_category %}title="ML suggested ({{ (txn.ml_confidence_category * 100)|round|int }}% confidence)"{% endif %}
-            hx-get="/transactions/{{ txn.id }}/edit-category"
-            hx-target="this"
-            hx-swap="innerHTML">
-        {% if txn.ml_confidence_category %}<span class="status status-info flex-shrink-0"></span>{% endif %}
-        {% if txn.category %}
-          {{ txn.category.name }}
-        {% else %}
-          <span class="italic text-base-content/40">click to edit</span>
-        {% endif %}
-      </span>
-    {% endif %}
+    </div>
   </td>
   <th>
+    {% if not txn.marked_for_approval %}
+      <button class="btn btn-sm btn-ghost"
+              hx-get="/transactions/{{ txn.id }}/edit-modal"
+              hx-target="#edit-modal-container"
+              hx-swap="innerHTML">Edit</button>
+    {% endif %}
     {% if txn.marked_for_approval %}
       <button class="btn btn-success btn-sm"
               hx-patch="/transactions/{{ txn.id }}"
               hx-vals='{"marked_for_approval": "toggle"}'
               hx-target="#txn-{{ txn.id }}"
               hx-swap="outerHTML">Approved</button>
-    {% elif txn.description %}
+    {% elif txn.description and txn.external %}
       <button class="btn btn-outline btn-sm"
               hx-patch="/transactions/{{ txn.id }}"
               hx-vals='{"marked_for_approval": "toggle"}'

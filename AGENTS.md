@@ -120,7 +120,7 @@ Some features I don't want for an initial release, despite them being good ideas
 
 ### Out-of-Band (OOB) Swap Pattern
 
-**Rule of Thumb:** Templates always include `hx-swap-oob` attributes. No conditional parameters. Buttons that trigger OOB-only responses use `hx-target="none"` and `hx-swap="none"`.
+**Rule of Thumb:** Templates always include `hx-swap-oob` attributes. No conditional parameters. Buttons that trigger OOB-only responses use only `hx-swap="none"` (do NOT use `hx-target="none"` — HTMX cannot resolve `none` as a CSS selector and will abort the request).
 
 **Why:** 
 - Buttons that target a DOM element with `hx-target="#elem"` destroy that element during the `innerHTML` swap before OOB elements can be processed
@@ -140,7 +140,6 @@ Button (`inbox.html`):
 ```html
 <button class="btn btn-secondary"
         hx-post="/inbox/retrain"
-        hx-target="none"
         hx-swap="none">Retrain</button>
 ```
 

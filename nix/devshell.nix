@@ -4,6 +4,7 @@ pkgs.mkShell {
     uv
     tailwindcss_4
     just
+    nodejs
     perSystem.self.agent-browser
     perSystem.self.skills
     sqlite

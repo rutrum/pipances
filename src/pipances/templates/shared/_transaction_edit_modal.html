@@ -1,0 +1,123 @@
+<dialog id="transaction-edit-modal-{{ txn.id }}" class="modal">
+  <div class="modal-box w-full max-w-2xl">
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="font-bold text-lg">Edit Transaction</h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
+    <!-- Transaction context as table (no header) -->
+    <div class="mb-6 overflow-x-auto">
+      <table class="table table-sm table-zebra">
+        <tbody>
+          <tr>
+            <td class="w-1/3 font-semibold">Date</td>
+            <td>{{ txn.date }}</td>
+          </tr>
+          <tr>
+            <td class="font-semibold">Amount</td>
+            <td class="font-mono {% if txn.amount_cents < 0 %}text-error{% else %}text-success{% endif %}">
+              {{ "%.2f"|format(txn.amount_cents / 100) }}
+            </td>
+          </tr>
+          <tr>
+            <td class="font-semibold">Account</td>
+            <td>{{ txn.internal.name }}</td>
+          </tr>
+          <tr>
+            <td class="font-semibold">Raw Description</td>
+            <td class="font-mono text-xs">{{ txn.raw_description }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Editable form section with combo boxes -->
+    <div class="space-y-4">
+      <!-- Description field with combo box -->
+      <div class="form-control w-full">
+        <label class="label">
+          <span class="label-text">Description</span>
+        </label>
+        {% set txn_id = txn.id %}
+        {% set current_value = txn.description or '' %}
+        {% set entity = "descriptions" %}
+        {% set field_name = "description" %}
+        {% include "shared/_combo_edit.html" %}
+        <div data-error-description class="text-error text-sm mt-1"></div>
+      </div>
+      <!-- External account field with combo box -->
+      <div class="form-control w-full">
+        <label class="label">
+          <span class="label-text">External Account</span>
+        </label>
+        {% set external_display = external_accounts|selectattr('id', 'equalto', txn.external_id)|map(attribute='name')|first or '' %}
+        {% set txn_id = txn.id %}
+        {% set current_value = external_display %}
+        {% set entity = "external-accounts" %}
+        {% set field_name = "external_id" %}
+        {% include "shared/_combo_edit.html" %}
+        <div data-error-external class="text-error text-sm mt-1"></div>
+      </div>
+      <!-- Category field with combo box -->
+      <div class="form-control w-full">
+        <label class="label">
+          <span class="label-text">Category</span>
+        </label>
+        {% set category_display = categories|selectattr('id', 'equalto', txn.category_id)|map(attribute='name')|first or '' %}
+        {% set txn_id = txn.id %}
+        {% set current_value = category_display %}
+        {% set entity = "categories" %}
+        {% set field_name = "category_id" %}
+        {% include "shared/_combo_edit.html" %}
+        <div data-error-category class="text-error text-sm mt-1"></div>
+      </div>
+    </div>
+    <!-- Centered approve/unapprove button —
+         ID is stable so combo PATCH responses can OOB-update it. -->
+    <div id="modal-approve-btn-{{ txn.id }}" class="flex justify-center mt-8">
+      {% if txn.marked_for_approval %}
+        <button class="btn btn-warning btn-lg"
+                hx-patch="/transactions/{{ txn.id }}"
+                hx-vals='{"marked_for_approval": "toggle"}'
+                hx-target="#txn-{{ txn.id }}"
+                hx-swap="outerHTML"
+                hx-on::after-request="if(event.detail.xhr.status === 200) { document.getElementById('transaction-edit-modal-{{ txn.id }}').close(); }">
+          Unapprove
+        </button>
+      {% elif txn.description and txn.external %}
+        <button class="btn btn-primary btn-lg"
+                hx-patch="/transactions/{{ txn.id }}"
+                hx-vals='{"marked_for_approval": "toggle"}'
+                hx-target="#txn-{{ txn.id }}"
+                hx-swap="outerHTML"
+                hx-on::after-request="if(event.detail.xhr.status === 200) { document.getElementById('transaction-edit-modal-{{ txn.id }}').close(); }">
+          Approve
+        </button>
+      {% else %}
+        <button class="btn btn-primary btn-lg btn-disabled" disabled>
+          Approve
+        </button>
+      {% endif %}
+    </div>
+  </div>
+  <!-- No backdrop close: this is an editing modal.
+       Close via Escape key or the Approve / Unapprove button. -->
+</dialog>
+<script>
+  // Auto-show dialog on load
+  (function() {
+    const modal = document.getElementById('transaction-edit-modal-{{ txn.id }}');
+    if (modal) {
+      modal.showModal();
+
+      // When modal closes, refresh the row and clear the container
+      modal.addEventListener('close', function() {
+        htmx.ajax('GET', '/transactions/{{ txn.id }}/row', {
+          target: '#txn-{{ txn.id }}',
+          swap: 'outerHTML'
+        });
+        document.getElementById('edit-modal-container').innerHTML = '';
+      }, {once: true});
+    }
+  })();
+</script>

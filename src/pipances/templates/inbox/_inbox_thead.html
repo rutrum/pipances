@@ -1,5 +1,5 @@
 {% import "shared/_table_macros.html" as table_macros %}
-<tr id="inbox-thead">
+<tr id="inbox-thead" {% if oob %}hx-swap-oob="outerHTML:#inbox-thead"{% endif %}>
   <th class="w-[4%]">
     <label>
       <input type="checkbox" id="select-all" class="checkbox">

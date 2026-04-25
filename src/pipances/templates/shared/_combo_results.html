@@ -1,29 +1,65 @@
-{% for item in items %}
-  <div data-combo-item
-       class="px-3 py-2 cursor-pointer hover:bg-base-200 text-sm"
-       hx-patch="/transactions/{{ txn_id }}"
-       hx-target="#txn-{{ txn_id }}"
-       hx-swap="outerHTML"
-       hx-vals='{{ {field_name: item.name}|tojson }}'>{{ item.name }}</div>
-{% endfor %}
-{% if query and not exact_match %}
-  <div data-combo-item
-       class="px-3 py-2 cursor-pointer hover:bg-base-200 text-sm border-t border-base-300 flex items-center gap-1"
-       hx-patch="/transactions/{{ txn_id }}"
-       hx-target="#txn-{{ txn_id }}"
-       hx-swap="outerHTML"
-       hx-vals='{{ {field_name: query}|tojson }}'>
-    <span class="text-success font-bold">+</span> Create "{{ query }}"
-  </div>
-{% endif %}
-{% if not query %}
-  <div data-combo-item
-       class="px-3 py-2 cursor-pointer hover:bg-base-200 text-sm text-base-content/60 border-t border-base-300"
-       hx-patch="/transactions/{{ txn_id }}"
-       hx-target="#txn-{{ txn_id }}"
-       hx-swap="outerHTML"
-       hx-vals='{{ {field_name: ""}|tojson }}'>
-    <span class="italic">Clear</span>
-  </div>
-{% endif %}
-{% if not items and not query %}<div class="px-3 py-2 text-sm text-base-content/50">No items</div>{% endif %}
+{% set after_req %}
+  var p=document.getElementById('combo-results-{{ txn_id }}-{{ field_name }}');
+  if(p){
+    if(p.hidePopover) p.hidePopover();
+    p.innerHTML='';
+    var inp=document.getElementById('combo-input-{{ txn_id }}-{{ field_name }}');
+    if(inp) inp.value=this.dataset.comboValue;
+  }
+{% endset %}
+<ul class="menu menu-sm p-1 w-full">
+  {% for item in items %}
+    <li>
+      <button type="button"
+              tabindex="-1"
+              data-combo-item
+              data-combo-value="{{ item.name | e }}"
+              class="text-left"
+              hx-patch="/transactions/{{ txn_id }}"
+              hx-target="#txn-{{ txn_id }}"
+              hx-swap="outerHTML"
+              hx-vals='{{ {field_name: item.name}|tojson }}'
+              hx-on::after-request="{{ after_req | trim }}">{{ item.name }}</button>
+    </li>
+  {% endfor %}
+
+  {% if query and not exact_match %}
+    <li class="border-t border-base-300 mt-1 pt-1">
+      <button type="button"
+              tabindex="-1"
+              data-combo-item
+              data-combo-create
+              data-combo-value="{{ query | e }}"
+              class="text-left text-success font-medium"
+              hx-patch="/transactions/{{ txn_id }}"
+              hx-target="#txn-{{ txn_id }}"
+              hx-swap="outerHTML"
+              hx-vals='{{ {field_name: query}|tojson }}'
+              hx-on::after-request="{{ after_req | trim }}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Create "{{ query }}"
+      </button>
+    </li>
+  {% endif %}
+
+  {% if not query %}
+    <li class="border-t border-base-300 mt-1 pt-1">
+      <button type="button"
+              tabindex="-1"
+              data-combo-item
+              data-combo-value=""
+              class="text-left text-base-content/50 italic"
+              hx-patch="/transactions/{{ txn_id }}"
+              hx-target="#txn-{{ txn_id }}"
+              hx-swap="outerHTML"
+              hx-vals='{{ {field_name: ""}|tojson }}'
+              hx-on::after-request="{{ after_req | trim }}">Clear</button>
+    </li>
+  {% endif %}
+
+  {% if not items and not query %}
+    <li class="px-2 py-1 text-sm text-base-content/50">No items</li>
+  {% endif %}
+</ul>

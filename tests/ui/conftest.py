@@ -251,6 +251,133 @@ def approvable_txn_with_new_category(ui_db):
     conn.close()
 
 
+@pytest.fixture
+def description_only_txn(ui_db):
+    """
+    Pending transaction with description set, external NULL, category NULL.
+    Used to test that Approve is disabled when external is missing.
+    """
+    conn = sqlite3.connect(str(ui_db))
+    row = conn.execute(
+        "SELECT id FROM transactions WHERE status='pending' LIMIT 1"
+    ).fetchone()
+    if row is None:
+        conn.close()
+        pytest.skip("No pending transactions available")
+    txn_id = row[0]
+    conn.execute(
+        "UPDATE transactions SET description='Desc Only Test', external_id=NULL, category_id=NULL WHERE id=?",
+        (txn_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    yield txn_id
+
+    conn = sqlite3.connect(str(ui_db))
+    conn.execute(
+        "UPDATE transactions SET description=NULL, external_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        (txn_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+@pytest.fixture
+def description_and_external_txn(ui_db):
+    """
+    Pending transaction with description + external set, category NULL.
+    The minimum fields to enable Approve (per spec: description + external required).
+    Yields (txn_id, ext_name).
+    """
+    conn = sqlite3.connect(str(ui_db))
+    ext = conn.execute(
+        "SELECT id, name FROM accounts WHERE kind='external' ORDER BY name LIMIT 1"
+    ).fetchone()
+    if ext is None:
+        conn.close()
+        pytest.skip("No external accounts in DB")
+    ext_id, ext_name = ext
+    row = conn.execute(
+        "SELECT id FROM transactions WHERE status='pending' LIMIT 1"
+    ).fetchone()
+    if row is None:
+        conn.close()
+        pytest.skip("No pending transactions available")
+    txn_id = row[0]
+    conn.execute(
+        "UPDATE transactions SET description='Desc And External Test', external_id=?, category_id=NULL WHERE id=?",
+        (ext_id, txn_id),
+    )
+    conn.commit()
+    conn.close()
+
+    yield txn_id, ext_name
+
+    conn = sqlite3.connect(str(ui_db))
+    conn.execute(
+        "UPDATE transactions SET description=NULL, external_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        (txn_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+@pytest.fixture
+def full_txn(ui_db):
+    """
+    Pending transaction with description, external, and category all set to known
+    starting values.  Also provides alternate values to change to in sequential tests.
+    Yields a dict with keys: id, description, ext_name, cat_name,
+                             alt_description, alt_ext_name, alt_cat_name.
+    """
+    conn = sqlite3.connect(str(ui_db))
+    exts = conn.execute(
+        "SELECT id, name FROM accounts WHERE kind='external' ORDER BY name LIMIT 2"
+    ).fetchall()
+    cats = conn.execute(
+        "SELECT id, name FROM categories ORDER BY name LIMIT 2"
+    ).fetchall()
+    if len(exts) < 2 or len(cats) < 2:
+        conn.close()
+        pytest.skip("Not enough external accounts or categories in DB")
+    ext1_id, ext1_name = exts[0]
+    ext2_id, ext2_name = exts[1]
+    cat1_id, cat1_name = cats[0]
+    cat2_id, cat2_name = cats[1]
+    row = conn.execute(
+        "SELECT id FROM transactions WHERE status='pending' LIMIT 1"
+    ).fetchone()
+    if row is None:
+        conn.close()
+        pytest.skip("No pending transactions available")
+    txn_id = row[0]
+    conn.execute(
+        "UPDATE transactions SET description='Full Test Transaction', external_id=?, category_id=? WHERE id=?",
+        (ext1_id, cat1_id, txn_id),
+    )
+    conn.commit()
+    conn.close()
+
+    yield {
+        "id": txn_id,
+        "description": "Full Test Transaction",
+        "ext_name": ext1_name,
+        "cat_name": cat1_name,
+        "alt_description": "Updated Full Description",
+        "alt_ext_name": ext2_name,
+        "alt_cat_name": cat2_name,
+    }
+
+    conn = sqlite3.connect(str(ui_db))
+    conn.execute(
+        "UPDATE transactions SET description=NULL, external_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        (txn_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
 # === Re-export commonly used playwright assertions ===
 # Tests can import `expect` from here instead of playwright directly.
 __all__ = ["expect"]
