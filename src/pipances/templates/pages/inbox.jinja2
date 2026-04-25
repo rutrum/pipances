@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base.jinja2" %}
 {% block title %}
   Inbox - Pipances
 {% endblock title %}
@@ -149,11 +149,11 @@
       </div>
       <table class="table table-fixed w-full">
         <thead>
-          {% include "inbox/_inbox_thead.html" %}
+          {% include "inbox/_inbox_thead.jinja2" %}
         </thead>
         <tbody id="inbox-table">
           {% for txn in transactions %}
-            {% include "inbox/_inbox_row.html" %}
+            {% include "inbox/_inbox_row.jinja2" %}
           {% endfor %}
         </tbody>
       </table>
@@ -162,7 +162,7 @@
         {% set pagination_target = "#inbox-table" %}
         {% set pagination_include = "#filter-bar" %}
         {% set pagination_id = "inbox-pagination" %}
-        {% include "shared/_pagination.html" %}
+        {% include "shared/_pagination.jinja2" %}
       </div>
       <script>
       (function() {

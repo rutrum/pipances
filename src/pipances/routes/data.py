@@ -67,24 +67,24 @@ async def data_accounts_page(request: Request):
         if "show_closed" in request.query_params:
             rows = ""
             for account in accounts:
-                rows += templates.get_template("data/_account_row.html").render(
+                rows += templates.get_template("data/_account_row.jinja2").render(
                     {"account": account, "show_closed": show_closed}
                 )
-            rows += templates.get_template("data/_account_input_row.html").render()
+            rows += templates.get_template("data/_account_input_row.jinja2").render()
             return HTMLResponse(rows)
         # Sidebar click: return the full accounts partial
         return HTMLResponse(
-            templates.get_template("data/_data_accounts.html").render(
+            templates.get_template("data/_data_accounts.jinja2").render(
                 {"accounts": accounts, "show_closed": show_closed}
             )
         )
 
-    content_html = templates.get_template("data/_data_accounts.html").render(
+    content_html = templates.get_template("data/_data_accounts.jinja2").render(
         {"accounts": accounts, "show_closed": show_closed}
     )
     return templates.TemplateResponse(
         request,
-        "pages/data.html",
+        "pages/data.jinja2",
         _data_page_ctx("accounts", shared, data_content_html=content_html),
     )
 
@@ -134,7 +134,7 @@ async def create_account(request: Request):
         await session.refresh(account)
 
     return HTMLResponse(
-        templates.get_template("data/_account_row.html").render({"account": account})
+        templates.get_template("data/_account_row.jinja2").render({"account": account})
     )
 
 
@@ -190,7 +190,7 @@ async def update_account(account_id: int, request: Request):
         return HTMLResponse("")
 
     return HTMLResponse(
-        templates.get_template("data/_account_row.html").render(
+        templates.get_template("data/_account_row.jinja2").render(
             {"account": account, "show_closed": show_closed}
         )
     )
@@ -204,7 +204,7 @@ async def edit_account_name(account_id: int, request: Request):
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         request,
-        "shared/_edit_input.html",
+        "shared/_edit_input.jinja2",
         {
             "field_name": "name",
             "value": account.name,
@@ -222,7 +222,7 @@ async def edit_account_type(account_id: int, request: Request):
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         request,
-        "shared/_edit_input.html",
+        "shared/_edit_input.jinja2",
         {
             "field_name": "kind",
             "value": account.kind,
@@ -240,7 +240,7 @@ async def edit_account_balance(account_id: int, request: Request):
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         request,
-        "shared/_edit_input.html",
+        "shared/_edit_input.jinja2",
         {
             "field_name": "starting_balance",
             "value": f"{account.starting_balance_cents / 100:.2f}",
@@ -261,7 +261,7 @@ async def edit_account_balance_date(account_id: int, request: Request):
     value = str(account.balance_date) if account.balance_date else ""
     return templates.TemplateResponse(
         request,
-        "shared/_edit_input.html",
+        "shared/_edit_input.jinja2",
         {
             "field_name": "balance_date",
             "value": value,
@@ -329,12 +329,14 @@ async def data_categories_page(request: Request):
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(templates.get_template("data/_data_table.html").render(ctx))
+        return HTMLResponse(
+            templates.get_template("data/_data_table.jinja2").render(ctx)
+        )
 
-    content_html = templates.get_template("data/_data_table.html").render(ctx)
+    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
-        "pages/data.html",
+        "pages/data.jinja2",
         _data_page_ctx("categories", shared, data_content_html=content_html),
     )
 
@@ -369,7 +371,7 @@ async def update_category(category_id: int, request: Request):
         )
 
     return HTMLResponse(
-        templates.get_template("data/_category_row.html").render(
+        templates.get_template("data/_category_row.jinja2").render(
             {
                 "category": {
                     "id": category.id,
@@ -389,7 +391,7 @@ async def edit_category_name(category_id: int, request: Request):
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         request,
-        "shared/_edit_input.html",
+        "shared/_edit_input.jinja2",
         {
             "field_name": "name",
             "value": category.name,
@@ -544,13 +546,13 @@ async def data_transactions_page(request: Request):
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
         return HTMLResponse(
-            templates.get_template("data/_data_transactions.html").render(ctx)
+            templates.get_template("data/_data_transactions.jinja2").render(ctx)
         )
 
-    content_html = templates.get_template("data/_data_transactions.html").render(ctx)
+    content_html = templates.get_template("data/_data_transactions.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
-        "pages/data.html",
+        "pages/data.jinja2",
         _data_page_ctx("transactions", shared, data_content_html=content_html),
     )
 
@@ -598,12 +600,14 @@ async def data_external_accounts_page(request: Request):
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(templates.get_template("data/_data_table.html").render(ctx))
+        return HTMLResponse(
+            templates.get_template("data/_data_table.jinja2").render(ctx)
+        )
 
-    content_html = templates.get_template("data/_data_table.html").render(ctx)
+    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
-        "pages/data.html",
+        "pages/data.jinja2",
         _data_page_ctx("external-accounts", shared, data_content_html=content_html),
     )
 
@@ -651,12 +655,14 @@ async def data_importers_page(request: Request):
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(templates.get_template("data/_data_table.html").render(ctx))
+        return HTMLResponse(
+            templates.get_template("data/_data_table.jinja2").render(ctx)
+        )
 
-    content_html = templates.get_template("data/_data_table.html").render(ctx)
+    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
-        "pages/data.html",
+        "pages/data.jinja2",
         _data_page_ctx("importers", shared, data_content_html=content_html),
     )
 
@@ -704,11 +710,13 @@ async def data_imports_page(request: Request):
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
-        return HTMLResponse(templates.get_template("data/_data_table.html").render(ctx))
+        return HTMLResponse(
+            templates.get_template("data/_data_table.jinja2").render(ctx)
+        )
 
-    content_html = templates.get_template("data/_data_table.html").render(ctx)
+    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
-        "pages/data.html",
+        "pages/data.jinja2",
         _data_page_ctx("imports", shared, data_content_html=content_html),
     )

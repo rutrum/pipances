@@ -29,9 +29,9 @@
     </thead>
     <tbody id="accounts-table-body">
       {% for account in accounts %}
-        {% include "data/_account_row.html" %}
+        {% include "data/_account_row.jinja2" %}
       {% endfor %}
-      {% include "data/_account_input_row.html" %}
+      {% include "data/_account_input_row.jinja2" %}
     </tbody>
   </table>
 </div>

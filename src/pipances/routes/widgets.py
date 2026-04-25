@@ -61,7 +61,7 @@ async def combo_search(entity: str, request: Request):
 
     return templates.TemplateResponse(
         request,
-        "shared/_combo_results.html",
+        "shared/_combo_results.jinja2",
         {
             "items": items,
             "query": q,

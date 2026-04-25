@@ -97,7 +97,7 @@ async def bulk_update_transactions(request: Request):
     # Return OOB swaps for each affected row
     html = ""
     for txn in transactions:
-        row = templates.get_template("inbox/_inbox_row.html").render(
+        row = templates.get_template("inbox/_inbox_row.jinja2").render(
             {"txn": txn, "oob": True}
         )
         html += row
@@ -220,16 +220,16 @@ async def update_transaction(txn_id: int, request: Request):
             # The modal closes itself via hx-on::after-request on the Approve/Unapprove
             # button, so no OOB update is needed.
             return templates.TemplateResponse(
-                request, "inbox/_inbox_row.html", {"txn": txn}
+                request, "inbox/_inbox_row.jinja2", {"txn": txn}
             )
 
         # Field update (description, external_id, category_id): return the row
         # plus an OOB fragment that refreshes the Approve button in the modal.
         # HTMX ignores the OOB swap when the target element doesn't exist in the DOM.
-        row_html = templates.get_template("inbox/_inbox_row.html").render(
+        row_html = templates.get_template("inbox/_inbox_row.jinja2").render(
             {"txn": txn, "oob": False}
         )
-        btn_html = templates.get_template("shared/_modal_approve_btn.html").render(
+        btn_html = templates.get_template("shared/_modal_approve_btn.jinja2").render(
             {"txn": txn}
         )
         return HTMLResponse(row_html + btn_html)
@@ -267,7 +267,7 @@ async def edit_modal(txn_id: int, request: Request):
 
         return templates.TemplateResponse(
             request,
-            "shared/_transaction_edit_modal.html",
+            "shared/_transaction_edit_modal.jinja2",
             {
                 "txn": txn,
                 "external_accounts": external_accounts,
@@ -294,6 +294,6 @@ async def transaction_row(txn_id: int, request: Request):
 
         return templates.TemplateResponse(
             request,
-            "inbox/_inbox_row.html",
+            "inbox/_inbox_row.jinja2",
             {"txn": txn, "oob": False},
         )

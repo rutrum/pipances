@@ -42,7 +42,7 @@
         {% set current_value = txn.description or '' %}
         {% set entity = "descriptions" %}
         {% set field_name = "description" %}
-        {% include "shared/_combo_edit.html" %}
+        {% include "shared/_combo_edit.jinja2" %}
         <div data-error-description class="text-error text-sm mt-1"></div>
       </div>
       <!-- External account field with combo box -->
@@ -55,7 +55,7 @@
         {% set current_value = external_display %}
         {% set entity = "external-accounts" %}
         {% set field_name = "external_id" %}
-        {% include "shared/_combo_edit.html" %}
+        {% include "shared/_combo_edit.jinja2" %}
         <div data-error-external class="text-error text-sm mt-1"></div>
       </div>
       <!-- Category field with combo box -->
@@ -68,7 +68,7 @@
         {% set current_value = category_display %}
         {% set entity = "categories" %}
         {% set field_name = "category_id" %}
-        {% include "shared/_combo_edit.html" %}
+        {% include "shared/_combo_edit.jinja2" %}
         <div data-error-category class="text-error text-sm mt-1"></div>
       </div>
     </div>
