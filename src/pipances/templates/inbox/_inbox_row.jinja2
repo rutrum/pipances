@@ -55,7 +55,7 @@
       {% endif %}
     </div>
   </td>
-  <th>
+  <th class="text-right">
     {% if not txn.marked_for_approval %}
       <button class="btn btn-sm btn-ghost"
               hx-get="/transactions/{{ txn.id }}/edit-modal"
