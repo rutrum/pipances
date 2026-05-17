@@ -1,4 +1,4 @@
-{ pkgs, inputs, perSystem, ... }:
+{ pkgs, inputs, perSystem, system, ... }:
 pkgs.mkShell {
   packages = with pkgs; [
     uv
@@ -7,6 +7,7 @@ pkgs.mkShell {
     nodejs
     perSystem.self.agent-browser
     perSystem.self.skills
+    inputs.openspec.packages.${system}.default
     sqlite
   ];
   env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [

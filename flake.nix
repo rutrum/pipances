@@ -41,6 +41,10 @@
       url = "https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js";
       flake = false;
     };
+    openspec = {
+      url = "github:Fission-AI/OpenSpec";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     vega-embed-js = {
       url = "https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js";
       flake = false;
