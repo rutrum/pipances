@@ -1,5 +1,17 @@
 {
   "nodes": {
+    "alpine-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-puJBvBaHVqKaKYCngvzz+Y8rUF99evd+UCtGuXd3YMY=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"
+      }
+    },
     "blueprint": {
       "inputs": {
         "nixpkgs": "nixpkgs",
@@ -167,6 +179,7 @@
     },
     "root": {
       "inputs": {
+        "alpine-js": "alpine-js",
         "blueprint": "blueprint",
         "daisyui-css": "daisyui-css",
         "htmx-js": "htmx-js",

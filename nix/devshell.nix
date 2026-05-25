@@ -9,6 +9,7 @@ pkgs.mkShell {
     perSystem.self.skills
     inputs.openspec.packages.${system}.default
     sqlite
+    inputs.openspec.packages.${pkgs.system}.default
   ];
   env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
     pkgs.stdenv.cc.cc.lib
@@ -23,5 +24,6 @@ pkgs.mkShell {
     ln -sf ${inputs.vega-js} static/js/vega.min.js
     ln -sf ${inputs.vega-lite-js} static/js/vega-lite.min.js
     ln -sf ${inputs.vega-embed-js} static/js/vega-embed.min.js
+    ln -sf ${inputs.alpine-js} static/js/alpine.min.js
   '';
 }

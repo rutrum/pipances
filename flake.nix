@@ -49,6 +49,14 @@
       url = "https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js";
       flake = false;
     };
+    alpine-js = {
+      url = "https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js";
+      flake = false;
+    };
+    openspec = {
+      url = "github:Fission-AI/OpenSpec";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs: inputs.blueprint {
