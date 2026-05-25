@@ -1,6 +1,7 @@
 {% set txn_id = txn.id %}
 {% set total_cents = txn.amount_cents | abs %}
 {% set saved_sum = txn.splits | map(attribute='amount_cents') | sum %}
+{% set combo_items_json = categories_data|tojson %}
 <div id="splits-section-{{ txn_id }}"
      x-data="{
        splitAmounts: { {% for s in txn.splits %}{{ s.id }}: {{ '%.2f' | format(s.amount_cents / 100) }},{% endfor %} },
@@ -44,17 +45,17 @@
            hx-target="#splits-section-{{ txn_id }}"
            hx-swap="outerHTML"
            name="amount_dollars">
-    <select class="select select-bordered select-sm"
-            hx-patch="/transactions/{{ txn_id }}/splits/{{ split.id }}"
-            hx-trigger="change"
-            hx-target="#splits-section-{{ txn_id }}"
-            hx-swap="outerHTML"
-            name="category_id">
-      <option value="">No category</option>
-      {% for cat in categories %}
-      <option value="{{ cat.id }}" {% if split.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
-      {% endfor %}
-    </select>
+    {% set combo_value = split.category.name if split.category else '' %}
+    {% set combo_placeholder = "Category" %}
+    {% set combo_unique_id = "split-" ~ txn_id ~ "-" ~ split.id %}
+    {% set combo_on_select_js %}
+    htmx.ajax("PATCH", "/transactions/{{ txn_id }}/splits/{{ split.id }}", {
+      target: "#splits-section-{{ txn_id }}",
+      swap: "outerHTML",
+      values: { category_id: item ? item.name : "" }
+    });
+    {% endset %}
+    {% include "shared/_combo_alpine.jinja2" %}
     <button class="btn btn-ghost btn-xs text-error"
             hx-delete="/transactions/{{ txn_id }}/splits/{{ split.id }}"
             hx-target="#splits-section-{{ txn_id }}"
@@ -69,12 +70,11 @@
            placeholder="0.00"
            x-model="newAmountDollars"
            name="amount_dollars">
-    <select class="select select-bordered select-sm" name="category_id">
-      <option value="">No category</option>
-      {% for cat in categories %}
-      <option value="{{ cat.id }}">{{ cat.name }}</option>
-      {% endfor %}
-    </select>
+    {% set combo_value = '' %}
+    {% set combo_placeholder = "Category" %}
+    {% set combo_unique_id = "add-split-" ~ txn_id %}
+    {% set combo_on_select_js %}{% endset %}
+    {% include "shared/_combo_alpine.jinja2" %}
     <button class="btn btn-primary btn-sm"
             disabled
             :disabled="!canAdd"

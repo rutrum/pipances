@@ -268,6 +268,7 @@ async def edit_modal(txn_id: int, request: Request):
             select(Category).order_by(Category.name)
         )
         categories = categories_result.scalars().all()
+        categories_data = [{"id": c.id, "name": c.name} for c in categories]
 
         return templates.TemplateResponse(
             request,
@@ -276,6 +277,7 @@ async def edit_modal(txn_id: int, request: Request):
                 "txn": txn,
                 "external_accounts": external_accounts,
                 "categories": categories,
+                "categories_data": categories_data,
             },
         )
 
@@ -298,8 +300,9 @@ async def _render_splits_section(request: Request, txn: Transaction) -> str:
                 selectinload(Transaction.category),
             ],
         )
+    categories_data = [{"id": c.id, "name": c.name} for c in categories]
     return templates.get_template("shared/_splits_section.jinja2").render(
-        {"txn": txn, "categories": categories}
+        {"txn": txn, "categories": categories, "categories_data": categories_data}
     )
 
 
@@ -346,6 +349,11 @@ async def create_split(txn_id: int, request: Request):
                 )
                 cat = cat_result.scalar_one_or_none()
                 if cat:
+                    category_id = cat.id
+                else:
+                    cat = Category(name=category_id_val)
+                    session.add(cat)
+                    await session.flush()
                     category_id = cat.id
 
         split = TransactionSplit(
@@ -408,7 +416,13 @@ async def update_split(txn_id: int, split_id: int, request: Request):
                         )
                     )
                     cat = cat_result.scalar_one_or_none()
-                    split.category_id = cat.id if cat else None
+                    if cat:
+                        split.category_id = cat.id
+                    else:
+                        cat = Category(name=category_id_val)
+                        session.add(cat)
+                        await session.flush()
+                        split.category_id = cat.id
             else:
                 split.category_id = None
 

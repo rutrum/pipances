@@ -12,6 +12,7 @@ from pipances.models import (
     AccountKind,
     Import,
     Transaction,
+    TransactionSplit,
     TransactionStatus,
 )
 from pipances.routes._utils import shared_context, templates
@@ -170,6 +171,9 @@ async def commit_summary(request: Request):
             .options(
                 selectinload(Transaction.external),
                 selectinload(Transaction.category),
+                selectinload(Transaction.splits).selectinload(
+                    TransactionSplit.category
+                ),
             )
         )
         marked = result.scalars().all()
@@ -188,16 +192,21 @@ async def commit_summary(request: Request):
         # Find categories only referenced by pending transactions
         new_category_names = set()
         for txn in marked:
+            cats = []
             if txn.category:
-                cat_id = txn.category_id
+                cats.append(txn.category)
+            for split in txn.splits:
+                if split.category:
+                    cats.append(split.category)
+            for cat in cats:
                 approved_ref = await session.execute(
                     select(Transaction.id).where(
-                        Transaction.category_id == cat_id,
+                        Transaction.category_id == cat.id,
                         Transaction.status == TransactionStatus.APPROVED,
                     )
                 )
                 if not approved_ref.first():
-                    new_category_names.add(txn.category.name)
+                    new_category_names.add(cat.name)
 
         # Find external accounts only referenced by pending transactions
         new_external_names = set()
