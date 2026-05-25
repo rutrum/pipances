@@ -82,6 +82,27 @@ transaction_splits:  id, transaction_id, category_id, amount_cents  (NOT NULL)
 | Splits ignored in charts/stats silently misleads users | Acceptable for now; future work to add split-aware aggregation |
 | Sum of splits could theoretically equal transaction total if PATCH reduces remainder to 0 | Server validates on PATCH: new total must leave remainder > 0 |
 
+## Test Plan
+
+Splits are always manually created by the user via the edit modal — they never arrive from imports. Seed data therefore does not include any `TransactionSplit` records; tests create them as needed.
+
+### Three-layer approach
+
+**Layer 1: API-level tests** (`tests/test_splits.py`)
+Fast in-memory DB + HTTPX tests covering every endpoint's happy path and validation errors (POST 422 on zero/excess amount, PATCH 422 on remainder elimination, 404s). A `txn_with_split` fixture creates a transaction + one pre-existing split.
+
+**Layer 2: Story-based UI tests** (`tests/ui/test_transaction_splits.py`)
+Given the overhead of live-server + Playwright (seeding, browser launch, page navigation), tests cover entire end-to-end flows rather than isolated assertions. Three stories exercise the full split feature:
+
+- **Story A** — single split lifecycle: add (with Alpine gate on invalid amounts), set category, persist across modal reopen, delete, close with row refresh
+- **Story B** — multiple splits + validation: build two splits, hit Alpine gate on exceeded remainder, hit server 422 on PATCH that would eliminate remainder, observe error + revert, recover with valid edit
+- **Story C** — three-split buildup: sequential adds verifying remainder math, Alpine gate on 4th, mid-sequence delete recalculation
+
+No seed data carries split records. The `txn_for_splitting` fixture picks a known pending transaction, sets description + external (so the modal is openable and the result is approvable), yields its ID and amount, and cleans up all splits + restores the transaction on teardown.
+
+**Layer 3: Manual smoke-testing**
+The existing verification checklist (add/delete split, remainder updates, modal close refresh) covers manual browser testing during development.
+
 ## Migration Plan
 
 1. Add `TransactionSplit` model and `transaction_splits` table migration in `db.py` — safe, additive only

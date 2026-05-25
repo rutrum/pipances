@@ -23,12 +23,44 @@
   - Inline error display when remainder ≤ 0
 - [ ] 3.3 Include `_splits_section.jinja2` in `_transaction_edit_modal.jinja2` after the Category field, passing `txn` and `categories`
 
-## 4. Verification
+## 4. API-Level Tests
 
-- [ ] 4.1 `just seed` and restart server; manually smoke-test the full split flow in the browser
-- [ ] 4.2 Verify: add split → remainder updates live → split persists → modal close refreshes row
-- [ ] 4.3 Verify: edit split amount → remainder recalculates → persists on blur
-- [ ] 4.4 Verify: delete split → remainder restores
-- [ ] 4.5 Verify: Add Split button disabled when amount = 0 or would eliminate remainder
-- [ ] 4.6 `just test` — confirm no unit test regressions
-- [ ] 4.7 `just fmt` and `just lint`
+- [ ] 4.1 Create `tests/test_splits.py` with in-memory DB + HTTPX client
+- [ ] 4.2 Add fixture `txn_with_split` (transaction + one pre-existing split)
+- [ ] 4.3 `POST /transactions/{id}/splits` — valid create (with and without category), 422 on zero/excess/exact amount, 404 on missing txn
+- [ ] 4.4 `PATCH /transactions/{id}/splits/{sid}` — update amount, update category, 422 if remainder eliminated, 404 on missing split
+- [ ] 4.5 `DELETE /transactions/{id}/splits/{sid}` — delete and return partial, 404 on missing split
+
+## 5. UI Tests (Story-Based)
+
+- [ ] 5.1 Create `tests/ui/test_transaction_splits.py`
+- [ ] 5.2 Add `txn_for_splitting` fixture to `ui/conftest.py` — picks pending Target (-$125.00), ensures description + external set, yields `{txn_id, amount_cents}`, cleans up splits + restores txn on teardown
+- [ ] 5.3 **Story A: "Add and remove a split"** — complete lifecycle of a single split on a fresh transaction
+  - Open modal → splits form present, Add Split disabled (empty amount)
+  - Type amount = total → disabled (remainder = 0)
+  - Type valid amount ($50.00) → remainder shows $75.00, button enabled
+  - Add split (no category) → split row + remainder row appear
+  - Change split category to "Groceries" → PATCH persists
+  - Re-open modal → split still there
+  - Delete split → remainder row hidden, form back to clean state
+  - Close modal → inbox row refreshes
+- [ ] 5.4 **Story B: "Multiple splits and edit validation"** — build multiples, hit server 422
+  - Add first split ($80.00, Entertainment) → remainder $118.00
+  - Attempt second split ($120.00) → Alpine gate disabled (exceeds remainder)
+  - Add valid second split ($60.00, Groceries) → two splits, remainder $58.00
+  - Edit first split amount to $198.00 → blur → PATCH 422 with error + revert
+  - Edit first split to $75.00 → blur → persists, remainder $63.00
+  - Close modal → row refreshes
+- [ ] 5.5 **Story C: "Three-split transaction"** — build to 3, delete mid-sequence
+  - Add $60.00→Utilities → remainder $96.00
+  - Add $45.00→Shopping → remainder $51.00
+  - Add $30.00→Entertainment → remainder $21.00
+  - Attempt 4th split ($25.00) → disabled ($25 > $21)
+  - Delete middle split ("Shopping") → remainder jumps to $66.00
+  - Close modal
+
+## 6. Verification
+
+- [ ] 6.1 `just test` — confirm API-level split tests pass
+- [ ] 6.2 `just test-ui` — confirm story-based UI tests pass
+- [ ] 6.3 `just fmt` and `just lint`
