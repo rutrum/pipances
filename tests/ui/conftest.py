@@ -378,6 +378,80 @@ def full_txn(ui_db):
     conn.close()
 
 
+@pytest.fixture
+def txn_for_splitting(ui_db):
+    """
+    Pick the pending Target transaction (-$125.00, TGT #2847) and set
+    description + external so the modal is openable.
+    Yields {txn_id, amount_cents}.  Cleans up any splits and restores
+    the transaction on teardown.
+    """
+    conn = sqlite3.connect(str(ui_db))
+
+    # Find the Target pending transaction with known amount
+    ext = conn.execute(
+        "SELECT id FROM accounts WHERE kind='external' ORDER BY name LIMIT 1"
+    ).fetchone()
+    ext_id = ext[0] if ext else None
+
+    row = conn.execute(
+        "SELECT id FROM transactions WHERE raw_description='TGT #2847' AND amount_cents=-12500 AND status='pending' LIMIT 1"
+    ).fetchone()
+    if row is None:
+        conn.close()
+        pytest.skip("No suitable Target transaction for split testing")
+    txn_id = row[0]
+
+    # Set description + external so the modal is openable
+    conn.execute(
+        "UPDATE transactions SET description='Target Shopping', external_id=? WHERE id=?",
+        (ext_id, txn_id),
+    )
+    conn.commit()
+    conn.close()
+
+    yield {"txn_id": txn_id, "amount_cents": 12500}
+
+    # Teardown: delete any splits that were created, restore txn
+    conn = sqlite3.connect(str(ui_db))
+    conn.execute("DELETE FROM transaction_splits WHERE transaction_id=?", (txn_id,))
+    conn.execute(
+        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        (txn_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+@pytest.fixture
+def txn_with_existing_split(ui_db, txn_for_splitting):
+    """
+    Like txn_for_splitting, but also pre-inserts one split ($30.00, Groceries).
+    Yields {txn_id, amount_cents, split_id, split_amount_cents}.
+    """
+    conn = sqlite3.connect(str(ui_db))
+    cat = conn.execute(
+        "SELECT id FROM categories WHERE name='Groceries' LIMIT 1"
+    ).fetchone()
+    cat_id = cat[0] if cat else None
+    txn_id = txn_for_splitting["txn_id"]
+
+    conn.execute(
+        "INSERT INTO transaction_splits (transaction_id, category_id, amount_cents) VALUES (?, ?, ?)",
+        (txn_id, cat_id, 3000),
+    )
+    conn.commit()
+    split_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+
+    yield {**txn_for_splitting, "split_id": split_id, "split_amount_cents": 3000}
+
+    conn = sqlite3.connect(str(ui_db))
+    conn.execute("DELETE FROM transaction_splits WHERE id=?", (split_id,))
+    conn.commit()
+    conn.close()
+
+
 # === Re-export commonly used playwright assertions ===
 # Tests can import `expect` from here instead of playwright directly.
 __all__ = ["expect"]

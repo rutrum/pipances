@@ -10,6 +10,7 @@ from pipances.models import (
     AccountKind,
     Category,
     Transaction,
+    TransactionSplit,
 )
 from pipances.routes._utils import templates
 
@@ -246,6 +247,9 @@ async def edit_modal(txn_id: int, request: Request):
                 selectinload(Transaction.internal),
                 selectinload(Transaction.external),
                 selectinload(Transaction.category),
+                selectinload(Transaction.splits).selectinload(
+                    TransactionSplit.category
+                ),
             ],
         )
         if txn is None:
@@ -274,6 +278,172 @@ async def edit_modal(txn_id: int, request: Request):
                 "categories": categories,
             },
         )
+
+
+async def _render_splits_section(request: Request, txn: Transaction) -> str:
+    """Render the splits section partial for the given transaction."""
+    async with async_session() as session:
+        categories_result = await session.execute(
+            select(Category).order_by(Category.name)
+        )
+        categories = categories_result.scalars().all()
+        # Re-attach txn to load its category relationship
+        txn = await session.get(
+            Transaction,
+            txn.id,
+            options=[
+                selectinload(Transaction.splits).selectinload(
+                    TransactionSplit.category
+                ),
+                selectinload(Transaction.category),
+            ],
+        )
+    return templates.get_template("shared/_splits_section.jinja2").render(
+        {"txn": txn, "categories": categories}
+    )
+
+
+@router.post("/transactions/{txn_id}/splits", response_class=HTMLResponse)
+async def create_split(txn_id: int, request: Request):
+    form = await request.form()
+    async with async_session() as session:
+        txn = await session.get(
+            Transaction,
+            txn_id,
+            options=[
+                selectinload(Transaction.splits).selectinload(
+                    TransactionSplit.category
+                ),
+            ],
+        )
+        if txn is None:
+            return HTMLResponse("Not found", status_code=404)
+
+        try:
+            amount_dollars = float(form.get("amount_dollars", "0"))
+        except (ValueError, TypeError):
+            return HTMLResponse("Invalid amount", status_code=422)
+        amount_cents = round(amount_dollars * 100)
+
+        if amount_cents <= 0:
+            return HTMLResponse("Amount must be positive", status_code=422)
+
+        total_cents = abs(txn.amount_cents)
+        existing_sum = sum(s.amount_cents for s in txn.splits)
+        if amount_cents >= total_cents - existing_sum:
+            return HTMLResponse("Amount would eliminate remainder", status_code=422)
+
+        category_id_val = form.get("category_id", "").strip()
+        category_id = None
+        if category_id_val:
+            try:
+                category_id = int(category_id_val)
+            except (ValueError, TypeError):
+                cat_result = await session.execute(
+                    select(Category).where(
+                        func.lower(Category.name) == category_id_val.lower()
+                    )
+                )
+                cat = cat_result.scalar_one_or_none()
+                if cat:
+                    category_id = cat.id
+
+        split = TransactionSplit(
+            transaction_id=txn_id,
+            category_id=category_id,
+            amount_cents=amount_cents,
+        )
+        session.add(split)
+        await session.commit()
+        await session.refresh(txn, ["splits"])
+
+    html = await _render_splits_section(request, txn)
+    return HTMLResponse(html)
+
+
+@router.patch("/transactions/{txn_id}/splits/{split_id}", response_class=HTMLResponse)
+async def update_split(txn_id: int, split_id: int, request: Request):
+    form = await request.form()
+    async with async_session() as session:
+        split = await session.get(TransactionSplit, split_id)
+        if split is None or split.transaction_id != txn_id:
+            return HTMLResponse("Not found", status_code=404)
+
+        txn = await session.get(
+            Transaction,
+            txn_id,
+            options=[
+                selectinload(Transaction.splits).selectinload(
+                    TransactionSplit.category
+                ),
+            ],
+        )
+        if txn is None:
+            return HTMLResponse("Not found", status_code=404)
+
+        if "amount_dollars" in form:
+            try:
+                amount_dollars = float(form["amount_dollars"])
+            except (ValueError, TypeError):
+                return HTMLResponse("Invalid amount", status_code=422)
+            amount_cents = round(amount_dollars * 100)
+            if amount_cents <= 0:
+                return HTMLResponse("Amount must be positive", status_code=422)
+
+            other_sum = sum(s.amount_cents for s in txn.splits if s.id != split_id)
+            total_cents = abs(txn.amount_cents)
+            if amount_cents >= total_cents - other_sum:
+                return HTMLResponse("Amount would eliminate remainder", status_code=422)
+            split.amount_cents = amount_cents
+
+        if "category_id" in form:
+            category_id_val = form["category_id"].strip()
+            if category_id_val:
+                try:
+                    split.category_id = int(category_id_val)
+                except (ValueError, TypeError):
+                    cat_result = await session.execute(
+                        select(Category).where(
+                            func.lower(Category.name) == category_id_val.lower()
+                        )
+                    )
+                    cat = cat_result.scalar_one_or_none()
+                    split.category_id = cat.id if cat else None
+            else:
+                split.category_id = None
+
+        await session.commit()
+        await session.refresh(txn, ["splits"])
+
+    html = await _render_splits_section(request, txn)
+    return HTMLResponse(html)
+
+
+@router.delete("/transactions/{txn_id}/splits/{split_id}", response_class=HTMLResponse)
+async def delete_split(txn_id: int, split_id: int, request: Request):
+    async with async_session() as session:
+        split = await session.get(TransactionSplit, split_id)
+        if split is None or split.transaction_id != txn_id:
+            return HTMLResponse("Not found", status_code=404)
+
+        txn = await session.get(
+            Transaction,
+            txn_id,
+            options=[
+                selectinload(Transaction.splits).selectinload(
+                    TransactionSplit.category
+                ),
+            ],
+        )
+        if txn is None:
+            return HTMLResponse("Not found", status_code=404)
+
+        await session.delete(split)
+        await session.commit()
+        await session.refresh(txn, ["splits"])
+
+    html = await _render_splits_section(request, txn)
+    return HTMLResponse(html)
 
 
 @router.get("/transactions/{txn_id}/row", response_class=HTMLResponse)

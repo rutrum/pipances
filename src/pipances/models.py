@@ -68,6 +68,24 @@ class Import(Base):
         return f"Import(id={self.id}, institution={self.institution!r}, imported_at={self.imported_at})"
 
 
+class TransactionSplit(Base):
+    __tablename__ = "transaction_splits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    transaction_id: Mapped[int] = mapped_column(
+        ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False
+    )
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    category: Mapped[Category | None] = relationship()
+
+    def __repr__(self) -> str:
+        return f"TransactionSplit(id={self.id}, txn_id={self.transaction_id}, amount_cents={self.amount_cents})"
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
@@ -107,6 +125,9 @@ class Transaction(Base):
     internal: Mapped[Account] = relationship(foreign_keys=[internal_id])
     external: Mapped[Account] = relationship(foreign_keys=[external_id])
     category: Mapped[Category | None] = relationship()
+    splits: Mapped[list["TransactionSplit"]] = relationship(
+        cascade="all, delete-orphan", order_by="TransactionSplit.id"
+    )
 
     def __repr__(self) -> str:
         return f"Transaction(id={self.id}, date={self.date}, amount_cents={self.amount_cents}, status={self.status!r})"

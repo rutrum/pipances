@@ -68,3 +68,16 @@ async def create_tables():
             await conn.execute(
                 text("ALTER TABLE transactions ADD COLUMN ml_confidence_external REAL")
             )
+        # Migrate: create transaction_splits table if it doesn't exist
+        result = await conn.execute(text("PRAGMA table_info(transaction_splits)"))
+        if not result.fetchone():
+            await conn.execute(
+                text(
+                    "CREATE TABLE transaction_splits ("
+                    "id INTEGER NOT NULL PRIMARY KEY, "
+                    "transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE, "
+                    "category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL, "
+                    "amount_cents INTEGER NOT NULL"
+                    ")"
+                )
+            )
