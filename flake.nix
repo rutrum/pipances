@@ -53,10 +53,6 @@
       url = "https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js";
       flake = false;
     };
-    openspec = {
-      url = "github:Fission-AI/OpenSpec";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = inputs: inputs.blueprint {
