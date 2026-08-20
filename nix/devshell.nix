@@ -7,9 +7,7 @@ pkgs.mkShell {
     nodejs
     perSystem.self.agent-browser
     perSystem.self.skills
-    inputs.openspec.packages.${system}.default
     sqlite
-    inputs.openspec.packages.${pkgs.system}.default
   ];
   env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
     pkgs.stdenv.cc.cc.lib

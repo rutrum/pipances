@@ -111,26 +111,6 @@
         "type": "github"
       }
     },
-    "openspec": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1778774456,
-        "narHash": "sha256-4V35mdLWax+GfuUK6hv2Vgri6N/vAJApjuCB3ROOY6w=",
-        "owner": "Fission-AI",
-        "repo": "OpenSpec",
-        "rev": "8498042fe8a738e8ad6facd94a5fc7f5025bf81d",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Fission-AI",
-        "repo": "OpenSpec",
-        "type": "github"
-      }
-    },
     "pyproject-build-systems": {
       "inputs": {
         "nixpkgs": [
@@ -186,7 +166,6 @@
         "htmx-response-targets-js": "htmx-response-targets-js",
         "lucide-js": "lucide-js",
         "nixpkgs": "nixpkgs_2",
-        "openspec": "openspec",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "uv2nix": "uv2nix",
