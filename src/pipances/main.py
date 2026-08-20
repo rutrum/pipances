@@ -9,6 +9,10 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from pipances.db import create_tables
+from pipances.routes.api.explore import router as api_explore_router
+from pipances.routes.api.imports import router as api_imports_router
+from pipances.routes.api.inbox import router as api_inbox_router
+from pipances.routes.api.transactions import router as api_transactions_router
 from pipances.routes.data import router as data_router
 from pipances.routes.explore import router as explore_router
 from pipances.routes.import_page import router as import_router
@@ -33,6 +37,13 @@ app.mount(
     name="static",
 )
 
+# JSON API routes (Phase 1: read-only)
+app.include_router(api_explore_router)
+app.include_router(api_imports_router)
+app.include_router(api_inbox_router)
+app.include_router(api_transactions_router)
+
+# HTML page routes
 app.include_router(explore_router)
 app.include_router(inbox_router)
 app.include_router(data_router)
