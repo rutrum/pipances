@@ -45,7 +45,7 @@ def patch_db(engine, monkeypatch):
 
 @pytest.fixture
 async def client():
-    from httpx import ASGITransport, AsyncClient
+    from httpx2 import ASGITransport, AsyncClient
 
     from pipances.main import app
 
