@@ -3,7 +3,7 @@
     {% if oob %}hx-swap-oob="outerHTML:#inbox-thead"{% endif %}>
   <th class="w-[4%]">
     <label>
-      <input type="checkbox" id="select-all" class="checkbox">
+      <input type="checkbox" id="select-all" class="checkbox" />
     </label>
   </th>
   {{ table_macros.sort_header('date', 'Date', '/inbox', '#inbox-table', '#filter-bar, #pagination-page-size', sort, dir, 'w-[11%]') }}

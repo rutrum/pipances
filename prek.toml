@@ -1,5 +1,4 @@
-# Built-in hooks (Rust-native, fast)
-# Runs without cloning repos or setting up environments
+# Built-in hooks
 [[repos]]
 repo = "builtin"
 hooks = [
@@ -15,7 +14,6 @@ hooks = [
 ]
 
 # Local hooks via uv (project-managed tool versions)
-# Each mirrors a step in `just lint` but runs only on staged/modified files
 [[repos]]
 repo = "local"
 hooks = [
@@ -41,14 +39,14 @@ hooks = [
     name = "djlint reformat",
     language = "system",
     entry = "uv run djlint --reformat",
-    files = "\\.html$"
+    files = "\\.jinja2$"
   },
   {
     id = "djlint-lint",
     name = "djlint lint",
     language = "system",
     entry = "uv run djlint --lint",
-    files = "\\.html$"
+    files = "\\.jinja2$"
   },
 
   # --- tombi (TOML formatting) ---
@@ -57,7 +55,7 @@ hooks = [
     name = "tombi format",
     language = "system",
     entry = "uv run tombi format",
-    files = '\.toml$'
+    files = "\\.toml$"
   },
 
   # --- ast-grep (structural search) ---

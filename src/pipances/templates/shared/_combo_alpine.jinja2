@@ -20,7 +20,7 @@
          :id="$id('combo-input')"
          role="combobox"
          aria-expanded="false"
-         aria-autocomplete="list">
+         aria-autocomplete="list" />
   <div x-ref="popover"
        id="combo-popover-{{ combo_unique_id }}"
        popover="manual"
@@ -75,7 +75,7 @@
       </div>
     </button>
   </div>
-  <input type="hidden" :value="selectedValue" name="category_id">
+  <input type="hidden" :value="selectedValue" name="category_id" />
 </div>
 <script>
     if (!window._alpineComboRegistered) {

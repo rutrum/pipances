@@ -32,7 +32,7 @@
              hx-trigger="blur"
              hx-target="#splits-section-{{ txn_id }}"
              hx-swap="outerHTML"
-             name="amount_dollars">
+             name="amount_dollars" />
       {% set combo_value = split.category.name if split.category else '' %}
       {% set combo_placeholder = "Category" %}
       {% set combo_unique_id = "split-" ~ txn_id ~ "-" ~ split.id %}
@@ -58,7 +58,7 @@
            class="input input-bordered input-sm w-24 font-mono"
            placeholder="0.00"
            x-model="newAmountDollars"
-           name="amount_dollars">
+           name="amount_dollars" />
     {% set combo_value = "" %}
     {% set combo_placeholder = "Category" %}
     {% set combo_unique_id = "add-split-" ~ txn_id %}

@@ -21,11 +21,11 @@
 {% import "shared/_table_macros.jinja2" as table_macros %}
 {# Filter state container - hidden inputs that track current filters/sorts #}
 <div id="{{ filters_container_id }}">
-  <input type="hidden" name="sort" value="{{ sort }}">
-  <input type="hidden" name="dir" value="{{ dir }}">
-  {% if external_filter %}<input type="hidden" name="external" value="{{ external_filter }}">{% endif %}
-  {% if internal_filter %}<input type="hidden" name="internal" value="{{ internal_filter }}">{% endif %}
-  {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+  <input type="hidden" name="sort" value="{{ sort }}" />
+  <input type="hidden" name="dir" value="{{ dir }}" />
+  {% if external_filter %}<input type="hidden" name="external" value="{{ external_filter }}" />{% endif %}
+  {% if internal_filter %}<input type="hidden" name="internal" value="{{ internal_filter }}" />{% endif %}
+  {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}" />{% endif %}
 </div>
 {% if not transactions %}
   <div class="alert alert-info mt-4">

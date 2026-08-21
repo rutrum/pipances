@@ -8,11 +8,11 @@
     {% include "explore/_explore_date_range.jinja2" %}
     {# Hidden inputs carrying current filter/sort state for HTMX includes #}
     <div id="explore-filters">
-      <input type="hidden" name="sort" value="{{ sort }}">
-      <input type="hidden" name="dir" value="{{ dir }}">
-      {% if internal_filter %}<input type="hidden" name="internal" value="{{ internal_filter }}">{% endif %}
-      {% if external_filter %}<input type="hidden" name="external" value="{{ external_filter }}">{% endif %}
-      {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+      <input type="hidden" name="sort" value="{{ sort }}" />
+      <input type="hidden" name="dir" value="{{ dir }}" />
+      {% if internal_filter %}<input type="hidden" name="internal" value="{{ internal_filter }}" />{% endif %}
+      {% if external_filter %}<input type="hidden" name="external" value="{{ external_filter }}" />{% endif %}
+      {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}" />{% endif %}
     </div>
     {# Vega-Embed scripts #}
     <script src="/static/js/vega.min.js"></script>

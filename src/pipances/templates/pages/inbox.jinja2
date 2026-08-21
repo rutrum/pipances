@@ -21,7 +21,7 @@
       <span>{{ parts | join(" · ") }}</span>
     </div>
   {% endif %}
-{% endblock %}
+{% endblock initial_toast %}
 {% block content %}
   <div class="container mx-auto p-6">
     {% if not transactions %}
@@ -51,15 +51,15 @@
         <input type="hidden"
                id="filter-sort"
                name="sort"
-               value="{{ sort|default('date') }}">
+               value="{{ sort|default('date') }}" />
         <input type="hidden"
                id="filter-dir"
                name="dir"
-               value="{{ dir|default('asc') }}">
+               value="{{ dir|default('asc') }}" />
         <input type="hidden"
                id="filter-page"
                name="page"
-               value="{{ page|default(1) }}">
+               value="{{ page|default(1) }}" />
         <input type="date"
                id="filter-date-from"
                name="date_from"
@@ -71,7 +71,7 @@
                hx-target="#inbox-table"
                hx-swap="innerHTML"
                hx-include="#filter-bar, #inbox-pagination-page-size"
-               hx-push-url="true">
+               hx-push-url="true" />
         <input type="date"
                id="filter-date-to"
                name="date_to"
@@ -83,7 +83,7 @@
                hx-target="#inbox-table"
                hx-swap="innerHTML"
                hx-include="#filter-bar, #inbox-pagination-page-size"
-               hx-push-url="true">
+               hx-push-url="true" />
         <select id="filter-internal"
                 name="internal_id"
                 class="select select-sm"
@@ -126,19 +126,19 @@
                name="description"
                class="input input-bordered input-sm"
                placeholder="Description"
-               disabled>
+               disabled />
         <input type="text"
                id="bulk-category"
                name="category"
                class="input input-bordered input-sm"
                placeholder="Category"
-               disabled>
+               disabled />
         <input type="text"
                id="bulk-external"
                name="external"
                class="input input-bordered input-sm"
                placeholder="External"
-               disabled>
+               disabled />
         <button id="bulk-apply-btn"
                 class="btn btn-sm btn-primary"
                 disabled

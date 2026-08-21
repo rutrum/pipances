@@ -44,6 +44,7 @@ build-backend = "uv_build"
 profile = "jinja"
 indent = 2
 max_line_length = 120
+close_void_tags = true
 ignore = "J018,J004,H030,H031,T028"
 format_js = true
 format_css = true

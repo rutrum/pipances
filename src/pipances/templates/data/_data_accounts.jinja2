@@ -8,7 +8,7 @@
            hx-target="#accounts-table-body"
            hx-swap="innerHTML"
            hx-vals='js:{"show_closed": event.target.checked ? "true" : "false"}'
-           {% if show_closed %}checked{% endif %}>
+           {% if show_closed %}checked{% endif %} />
   </label>
 </div>
 {% if not accounts and not show_closed %}
