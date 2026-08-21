@@ -504,7 +504,7 @@ HTMX and Alpine.js are designed to complement each other: **HTMX handles server 
 
 ### The Division of Responsibility
 
-```
+```text
 HTMX  → server requests, HTML swaps, history, form submission
 Alpine → dropdowns, modals, tabs, inline toggles, transient UI state
 ```
@@ -571,6 +571,7 @@ HTMX fires DOM events at lifecycle points. Alpine's `x-on`/`@` can listen to the
 ```
 
 Common HTMX events useful in Alpine:
+
 - `htmx:before-request` — just before a request fires
 - `htmx:after-request` — after response received (whether success or error)
 - `htmx:after-swap` — after HTML has been swapped into the DOM

@@ -49,8 +49,14 @@ ignore = "J018,J004,H030,H031,T028"
 format_js = true
 format_css = true
 
+[tool.pymarkdown.extensions.front-matter]
+enabled = true
+
 [tool.pymarkdown.plugins.md013]
 enabled = false
+
+[tool.pymarkdown.plugins.md024]
+siblings_only = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

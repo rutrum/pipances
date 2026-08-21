@@ -130,11 +130,13 @@ On a RowComponent: `getData()`, `getElement()`, `getCell(column)`, `select()`, `
 ### Component Lookup
 
 Many `table` methods accept any of the following for column lookup:
+
 - Field name string: `"age"`
 - Column component object
 - Column header DOM element
 
 Row lookup accepts:
+
 - Row index value (integer or string matching the `index` field)
 - Row component object
 - Row DOM element
@@ -192,6 +194,7 @@ table.on("columnTitleChanged", (column) => {});
 ```
 
 **Dynamic sorterParams via function:**
+
 ```js
 sorterParams: (column, dir) => ({ format: dir === "asc" ? "yyyy-MM-dd" : "dd-MM-yyyy" })
 ```
@@ -215,6 +218,7 @@ sorterParams: (column, dir) => ({ format: dir === "asc" ? "yyyy-MM-dd" : "dd-MM-
 ### Header Sort Configuration
 
 **Per-column:**
+
 ```js
 { field: "age", headerSort: true }              // default — set false to disable
 { field: "age", headerSortStartingDir: "desc" } // first click sorts desc (default: asc)
@@ -222,6 +226,7 @@ sorterParams: (column, dir) => ({ format: dir === "asc" ? "yyyy-MM-dd" : "dd-MM-
 ```
 
 **Global:**
+
 ```js
 columnHeaderSortMulti: false,      // disable ctrl+click multi-column sort (default: true)
 sortOrderReverse: true,            // reverse sort application order
@@ -230,6 +235,7 @@ headerSortElement: "<i class='fas fa-arrow-up'></i>",  // custom sort icon HTML
 ```
 
 **headerSortElement callback:**
+
 ```js
 headerSortElement: (column, dir) => {
   // dir is "asc", "desc", or "none"
@@ -270,7 +276,8 @@ sortMode: "remote",
 ```
 
 When set, the `sorters` parameter is sent with AJAX requests:
-```
+
+```text
 sorters[0][field]=age&sorters[0][dir]=asc
 ```
 
@@ -288,6 +295,7 @@ table.on("sortChanged", (sorters, dir) => {
 ### Sort Icon CSS
 
 Tabulator adds `aria-sort` attribute to sorted columns:
+
 ```css
 .tabulator-col[aria-sort="none"] .tabulator-col-sorter i { /* unsorted */ }
 .tabulator-col[aria-sort="asc"] .tabulator-col-sorter i  { /* ascending */ }
@@ -381,6 +389,7 @@ initialFilter: [
 ### Header Filter Configuration
 
 **Per-column:**
+
 ```js
 { title: "Name",   field: "name",   headerFilter: "input" },
 { title: "Age",    field: "age",    headerFilter: "number",
@@ -397,6 +406,7 @@ initialFilter: [
 **Available header filter editors:** `"input"`, `"number"`, `"textarea"`, `"list"` (dropdown), `"tickCross"` (checkbox), `"date"`, `"time"`, `"range"`, `true` (auto-match column editor)
 
 **Custom header filter function:**
+
 ```js
 { title: "Age", field: "age", headerFilter: "input",
   headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
@@ -411,16 +421,19 @@ initialFilter: [
 ```
 
 **Placeholder:**
+
 ```js
 headerFilterPlaceholder: "Search..."
 ```
 
 **Live filter delay (global):**
+
 ```js
 headerFilterLiveFilterDelay: 600   // ms after last keystroke (default: 300)
 ```
 
 **Empty check (customize what resets the filter):**
+
 ```js
 headerFilterEmptyCheck: (value) => !value,  // return true when filter should be cleared
 ```
@@ -461,7 +474,8 @@ filterMode: "remote",
 ```
 
 Sends `filters` parameter with AJAX requests:
-```
+
+```text
 filters[0][field]=age&filters[0][type]=>&filters[0][value]=52
 ```
 
@@ -506,6 +520,7 @@ table.on("headerFilterCreated", (field, element) => {
 ### Overview
 
 Two modes:
+
 - **Local:** Tabulator loads all data, then paginates client-side
 - **Remote:** Tabulator requests individual pages via AJAX
 
@@ -525,6 +540,7 @@ paginationInitialPage: 2,   // start on page 2 (default: 1)
 **Auto page size from height:** If `height` is set but `paginationSize` is not, Tabulator calculates page size to fill the table height.
 
 **Page size selector with "All":**
+
 ```js
 paginationSizeSelector: [10, 25, 50, 100, true]   // true = show all rows
 ```
@@ -540,6 +556,7 @@ paginationInitialPage: 2,
 ```
 
 **Custom parameter names:**
+
 ```js
 dataSendParams: {
   page: "page",           // default: "page"
@@ -555,6 +572,7 @@ dataReceiveParams: {
 ```
 
 **Remote response format:**
+
 ```json
 {
   "last_page": 20,
@@ -566,6 +584,7 @@ dataReceiveParams: {
 `last_page` is required and must be > 0. `last_row` is needed for accurate row counting in counters.
 
 **Custom URL generation:**
+
 ```js
 ajaxURLGenerator: (url, config, params) => {
   // url — from ajaxURL or setData
@@ -606,6 +625,7 @@ table.getPageSize();                    // Current page size
 ```
 
 All page-changing methods return a Promise:
+
 ```js
 table.setPage(1)
   .then(() => { /* data loaded */ })
@@ -633,6 +653,7 @@ paginationCounter: (pageSize, currentRow, currentPage, totalRows, totalPages) =>
 - `"pages"` → "Showing X of X pages"
 
 Counter label localization:
+
 ```js
 langs: {
   "default": {
@@ -711,6 +732,7 @@ When any mode is `"remote"`, Tabulator sends the following as query/form paramet
 | (any `ajaxParams`) | — | Custom static/dynamic params |
 
 Custom param names via `dataSendParams`:
+
 ```js
 dataSendParams: {
   page: "pageNo",
@@ -723,11 +745,13 @@ dataSendParams: {
 ### AJAX Response Handling
 
 **Expected response (no pagination):**
+
 ```json
 [ { "id": 1, "name": "Bob" }, { "id": 2, "name": "Alice" } ]
 ```
 
 **Expected response (remote pagination):**
+
 ```json
 {
   "last_page": 10,
@@ -737,6 +761,7 @@ dataSendParams: {
 ```
 
 Custom field mapping via `dataReceiveParams`:
+
 ```js
 dataReceiveParams: {
   last_page: "totalPages",
@@ -746,6 +771,7 @@ dataReceiveParams: {
 ```
 
 **Response transformation:**
+
 ```js
 ajaxResponse: (url, params, response) => {
   // Return an array of row data (for non-paginated)
@@ -800,6 +826,7 @@ table.on("dataLoadError", (error) => {
 ```
 
 **Abort a request before it starts:**
+
 ```js
 ajaxRequesting: (url, params) => {
   return url.startsWith("/api/");  // return false to abort
@@ -830,7 +857,7 @@ paginationSize: 50,         // size of each chunk
 
 When a user changes a header filter on a table with remote pagination + sorting, the request looks like:
 
-```
+```text
 GET /api/data?page=1&size=25&sorters[0][field]=age&sorters[0][dir]=asc&filters[0][field]=name&filters[0][type]=like&filters[0][value]=bob
 ```
 
@@ -839,6 +866,7 @@ GET /api/data?page=1&size=25&sorters[0][field]=age&sorters[0][dir]=asc&filters[0
 ## Themes
 
 Include the appropriate CSS:
+
 ```html
 <link href="dist/css/tabulator.min.css" rel="stylesheet">              <!-- default -->
 <link href="dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">   <!-- Bootstrap 5 -->

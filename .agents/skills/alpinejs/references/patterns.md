@@ -287,7 +287,7 @@ HTMX and Alpine complement each other naturally: **HTMX handles server communica
 
 ### Division of Responsibility
 
-```
+```text
 HTMX  → server requests, HTML swaps, history, form submission, pagination
 Alpine → dropdowns, modals, tabs, toggles, transient UI state, animations
 ```

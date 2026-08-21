@@ -252,4 +252,4 @@ These plugins are available but less commonly needed in typical HTMX+Alpine proj
 | **Morph** | Intelligently patches a DOM tree to match new HTML, preserving focus and input state. Useful when Alpine state must survive a server-pushed update. | `@alpinejs/morph` |
 | **Sort** | Drag-and-drop list sorting via `x-sort` directive. Provides `$item` and `$position` callbacks. | `@alpinejs/sort` |
 
-For full documentation on these, visit https://alpinejs.dev/plugins/anchor, /morph, /sort.
+For full documentation on these, visit <https://alpinejs.dev/plugins/anchor>, /morph, /sort.

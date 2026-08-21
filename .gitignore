@@ -16,6 +16,4 @@ static/css/style.css
 *.db
 *.csv
 
-.agents/skills
-
 static/lib/tabulator

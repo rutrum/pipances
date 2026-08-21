@@ -17,7 +17,7 @@ css-watch:
 sync:
     uv sync
 
-# Run the dev server (kills any existing instance first)
+# Run the dev server
 serve: css
     uv run python -m pipances.main
 

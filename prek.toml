@@ -82,8 +82,7 @@ hooks = [
     name = "pymarkdownlnt",
     language = "system",
     entry = "uv run pymarkdownlnt fix",
-    files = '\.md$',
-    exclude = '\.pi/'
+    files = '\.md$'
   },
 
   # --- typos (spell checker, from nix devshell) ---

@@ -8,8 +8,8 @@ description: Reference for building interactive data tables with Tabulator v6.x.
 Interactive table generation JavaScript library.
 
 **Version:** 6.5.0  
-**Site:** https://www.tabulator.info  
-**GitHub:** https://github.com/tabulator-tables/tabulator
+**Site:** <https://www.tabulator.info>  
+**GitHub:** <https://github.com/tabulator-tables/tabulator>
 
 ---
 
@@ -37,12 +37,14 @@ new Tabulator("#my-table", {
 ```
 
 **Import (ESM / npm):**
+
 ```js
 import {TabulatorFull as Tabulator} from 'tabulator-tables';
 ```
 
 **npm:**
-```
+
+```bash
 npm install tabulator-tables --save
 ```
 
@@ -83,6 +85,7 @@ columns: [
 ```
 
 **Column grouping:**
+
 ```js
 columns: [
   { title: "Name", field: "name" },
@@ -97,11 +100,13 @@ columns: [
 ```
 
 **columnDefaults** — apply options globally:
+
 ```js
 columnDefaults: { tooltip: true, hozAlign: "center" }
 ```
 
 **autoColumns** — auto-generate from data:
+
 ```js
 autoColumns: true,
 // Customize generated columns:
@@ -120,12 +125,14 @@ autoColumnsDefinitions: { name: { editor: "input" } }
 **Built-in sorters:** `"string"`, `"number"`, `"alphanum"`, `"boolean"`, `"exists"`, `"date"`, `"time"`, `"datetime"`, `"array"`
 
 **Per-column:**
+
 ```js
 { title: "Birthday", field: "dob", sorter: "date",
   sorterParams: { format: "yyyy-MM-dd" } }
 ```
 
 **Custom sorter:**
+
 ```js
 {
   title: "Name", field: "name",
@@ -136,6 +143,7 @@ autoColumnsDefinitions: { name: { editor: "input" } }
 ```
 
 **Header sort behavior (per column):**
+
 ```js
 { field: "age",
   headerSort: true,                // default - set false to disable
@@ -145,6 +153,7 @@ autoColumnsDefinitions: { name: { editor: "input" } }
 ```
 
 **Global sort options:**
+
 ```js
 columnHeaderSortMulti: false,       // disable multi-column sort via ctrl/shift
 sortOrderReverse: true,             // reverse sort application order
@@ -153,6 +162,7 @@ headerSortElement: "<i class='fas fa-arrow-up'></i>",  // custom sort icon HTML
 ```
 
 **Initial sort:**
+
 ```js
 initialSort: [
   { column: "age", dir: "asc" },
@@ -161,6 +171,7 @@ initialSort: [
 ```
 
 **Programmatic API:**
+
 ```js
 table.setSort("age", "asc");
 table.setSort([
@@ -172,6 +183,7 @@ table.clearSort();
 ```
 
 **Server-side sorting:**
+
 ```js
 sortMode: "remote",
 // Sends "sorters" param: [{field:"age", dir:"asc"}]
@@ -184,6 +196,7 @@ sortMode: "remote",
 **Built-in filter types:** `"="`, `"!="`, `"<"`, `"<="`, `">"`, `">="`, `"like"`, `"keywords"`, `"starts"`, `"ends"`, `"in"`, `"regex"`, `"smart"`, `"smarter"`
 
 **Programmatic:**
+
 ```js
 table.setFilter("age", ">", 10);
 table.setFilter("name", "like", "steve");
@@ -193,6 +206,7 @@ table.setFilter("name", "regex", /^[A-Z]/);
 ```
 
 **Multiple filters (AND):**
+
 ```js
 table.setFilter([
   { field: "age", type: ">", value: 52 },
@@ -201,6 +215,7 @@ table.setFilter([
 ```
 
 **Complex (AND with OR inside):**
+
 ```js
 table.setFilter([
   { field: "age", type: ">", value: 52 },
@@ -212,6 +227,7 @@ table.setFilter([
 ```
 
 **Custom filter function:**
+
 ```js
 table.setFilter((data, filterParams) => {
   return data.car && data.rating < 3;
@@ -219,6 +235,7 @@ table.setFilter((data, filterParams) => {
 ```
 
 **Managing filters:**
+
 ```js
 table.addFilter("age", ">", 22);           // add to existing filters
 table.removeFilter("age", ">", 22);        // remove one filter
@@ -232,6 +249,7 @@ table.clearHeaderFilter();                 // clear header filters only
 ```
 
 **Initial filters:**
+
 ```js
 initialFilter: [
   { field: "color", type: "=", value: "red" },
@@ -239,12 +257,14 @@ initialFilter: [
 ```
 
 **Search (non-destructive):**
+
 ```js
 table.searchRows("age", ">", 12);   // returns RowComponent[]
 table.searchData("age", ">", 12);   // returns row data[]
 ```
 
 **Server-side filtering:**
+
 ```js
 filterMode: "remote",
 // Sends "filters" param: [{field:"age", type:">", value:52}]
@@ -255,6 +275,7 @@ filterMode: "remote",
 ## Header Filters
 
 **Per-column header filter:**
+
 ```js
 { title: "Name",  field: "name", headerFilter: "input" },
 { title: "Age",   field: "age",  headerFilter: "number",
@@ -268,11 +289,13 @@ filterMode: "remote",
 **Available header filter editors:** Same as cell editors — `"input"`, `"number"`, `"list"`, `"tickCross"`, `"textarea"`, `"date"`, `"time"`, `"range"`. Set to `true` to auto-match the column's `editor` type.
 
 **Placeholder:**
+
 ```js
 headerFilterPlaceholder: "Search..."
 ```
 
 **Custom filter function for header:**
+
 ```js
 { title: "Age", field: "age", headerFilter: "input",
   headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
@@ -283,17 +306,20 @@ headerFilterPlaceholder: "Search..."
 ```
 
 **Live filter behavior:**
+
 ```js
 headerFilterLiveFilter: false,     // disable live keystroke filtering (default: true)
 headerFilterLiveFilterDelay: 600,  // debounce delay in ms (default: 300)
 ```
 
 **Empty check (what counts as "empty" for the filter):**
+
 ```js
 headerFilterEmptyCheck: (value) => !value,
 ```
 
 **Programmatic header filter control:**
+
 ```js
 table.setHeaderFilterValue("name", "Steve");
 table.getHeaderFilterValue("name");
@@ -301,6 +327,7 @@ table.setHeaderFilterFocus("name");
 ```
 
 **Initial header filter values:**
+
 ```js
 initialHeaderFilter: [
   { field: "color", value: "red" },
@@ -326,16 +353,19 @@ paginationInitialPage: 2,      // start on page 2
 **Auto page size from height:** If `height` is set and `paginationSize` is not, page size auto-fills to table height.
 
 **Page size selector with "All":**
+
 ```js
 paginationSizeSelector: [10, 25, 50, 100, true]   // true = "All" option
 ```
 
 **Add row behavior:**
+
 ```js
 paginationAddRow: "table",     // "page" (default, relative to current page) | "table"
 ```
 
 **Custom counter:**
+
 ```js
 paginationCounter: (pageSize, currentRow, currentPage, totalRows, totalPages) => {
   return `Showing ${pageSize} rows of ${totalRows} total`;
@@ -352,6 +382,7 @@ paginationSize: 25,
 ```
 
 **Custom parameter names:**
+
 ```js
 dataSendParams: {
   page: "page",
@@ -367,6 +398,7 @@ dataReceiveParams: {
 ```
 
 **Remote response format:**
+
 ```json
 {
   "last_page": 15,
@@ -376,6 +408,7 @@ dataReceiveParams: {
 ```
 
 **Custom URL generation:**
+
 ```js
 ajaxURLGenerator: (url, config, params) => {
   return url + "?params=" + encodeURI(JSON.stringify(params));
@@ -396,6 +429,7 @@ table.getPageSize();              // rows per page
 ```
 
 All page-changing methods return Promises:
+
 ```js
 table.setPage(1)
   .then(() => { /* after page loaded */ })
@@ -403,16 +437,19 @@ table.setPage(1)
 ```
 
 **Page out of range:**
+
 ```js
 paginationOutOfRange: "last",     // "first"|"prev"|"next"|"last"|integer|callback
 ```
 
 **Custom pagination element:**
+
 ```js
 paginationElement: document.getElementById("my-pagination")
 ```
 
 **Custom counter element:**
+
 ```js
 paginationCounterElement: "#page-count"
 ```
@@ -514,6 +551,7 @@ table.clearData();
 ```
 
 `setData()` returns a Promise:
+
 ```js
 table.setData(data)
   .then(() => { /* loaded */ })
@@ -623,6 +661,7 @@ table.on("ajaxError", (url, params, error) => {});
 ## Themes
 
 Tabulator ships with multiple CSS themes:
+
 - `tabulator.min.css` — default theme
 - `tabulator_bootstrap5.css` — Bootstrap 5
 - `tabulator_midnight.css` — dark theme
@@ -631,6 +670,7 @@ Tabulator ships with multiple CSS themes:
 - `tabulator_site.css` — dark site theme
 
 Usage:
+
 ```html
 <link href="dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
 ```
