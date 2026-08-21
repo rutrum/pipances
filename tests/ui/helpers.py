@@ -20,7 +20,7 @@ def approve_btn(page: Page):
 
 
 def approved_btn(page: Page):
-    """First green 'Approved' button — confirms an Approve click was processed."""
+    """First green 'Approved' button -- confirms an Approve click was processed."""
     return page.locator("#inbox-table button:text-is('Approved')").first
 
 

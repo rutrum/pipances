@@ -123,7 +123,7 @@ class Transaction(Base):
 
     import_record: Mapped[Import] = relationship(back_populates="transactions")
     internal: Mapped[Account] = relationship(foreign_keys=[internal_id])
-    external: Mapped[Account] = relationship(foreign_keys=[external_id])
+    external: Mapped[Account | None] = relationship(foreign_keys=[external_id])
     category: Mapped[Category | None] = relationship()
     splits: Mapped[list["TransactionSplit"]] = relationship(
         cascade="all, delete-orphan", order_by="TransactionSplit.id"

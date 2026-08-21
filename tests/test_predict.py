@@ -37,7 +37,7 @@ class TestAdjustmentFactorConstants:
         """Verify the mathematical guarantee: strong text match beats weak match.
 
         Good match (0.72) penalized, weak match (0.42) boosted:
-        0.72 * 0.9 = 0.648 > 0.42 * 1.1 = 0.462 ✓
+        0.72 * 0.9 = 0.648 > 0.42 * 1.1 = 0.462 ok
         """
         good_sim = 0.72
         weak_sim = 0.42
@@ -158,7 +158,7 @@ class TestComputeAdjustmentFactors:
         )
 
         assert len(factors) == 3
-        # All factors should be bounded [0.9, 1.1]^4 ≈ [0.656, 1.476]
+        # All factors should be bounded [0.9, 1.1]^4 ~ [0.656, 1.476]
         for f in factors:
             assert 0.6 <= f <= 1.5
 
@@ -390,7 +390,7 @@ class TestExtremeAmounts:
 
 
 class TestRecurrenceThreshold:
-    """Test minimum recurrence threshold enforcement (≥2 occurrences required)."""
+    """Test minimum recurrence threshold enforcement (>=2 occurrences required)."""
 
     def test_single_occurrence_filtered_out(self):
         """Single-occurrence values are filtered out (returns None)."""
@@ -451,7 +451,7 @@ class TestRecurrenceThreshold:
             institutions=["Bank1"],
         )
 
-        # Should pass threshold (≥2 occurrences)
+        # Should pass threshold (>=2 occurrences)
         assert predictions[0].description is not None
         assert predictions[0].description.value == "Shopping"
         assert predictions[0].category_id is not None

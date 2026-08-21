@@ -1,10 +1,15 @@
+from datetime import date
+from typing import cast
+
 import altair as alt
 import polars as pl
 
 
 def compute_stats(df: pl.DataFrame) -> dict:
-    total_income = df.filter(pl.col("amount_cents") > 0)["amount_cents"].sum() or 0
-    total_expenses = df.filter(pl.col("amount_cents") < 0)["amount_cents"].sum() or 0
+    total_income = int(df.filter(pl.col("amount_cents") > 0)["amount_cents"].sum() or 0)
+    total_expenses = int(
+        df.filter(pl.col("amount_cents") < 0)["amount_cents"].sum() or 0
+    )
     net = total_income + total_expenses
     return {
         "total_income": total_income,
@@ -42,11 +47,15 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
     )
 
     # Get min and max months
-    min_month = monthly["month"].min()
-    max_month = monthly["month"].max()
+    min_month = cast(date | None, monthly["month"].min())
+    max_month = cast(date | None, monthly["month"].max())
 
     # Generate all months in range
-    all_months = pl.date_range(min_month, max_month, interval="1mo", eager=True)
+    if min_month is None or max_month is None:
+        return alt.Chart(pl.DataFrame()).to_json()
+    all_months = pl.date_range(
+        min_month, max_month, interval="1mo", closed="both", eager=True
+    )
 
     # Create full month range with 0 values for missing months
     full_range = pl.DataFrame({"month": all_months})

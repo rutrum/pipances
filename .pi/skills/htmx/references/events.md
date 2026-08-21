@@ -157,7 +157,7 @@ document.body.addEventListener('htmx:beforeSwap', function(evt) {
     // evt.detail.target — target element
     // evt.detail.shouldSwap — set to true/false to override
     // evt.detail.isError — set to false to suppress error logging
-    
+
     if (evt.detail.xhr.status === 422) {
         evt.detail.shouldSwap = true;
         evt.detail.isError = false;

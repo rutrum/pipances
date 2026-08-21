@@ -1,16 +1,14 @@
 from datetime import date
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from pipances.utils import compute_date_range
 
 
 def _freeze(frozen: date):
     """Return a patch context that freezes date.today() to the given date."""
-    return patch(
-        "pipances.utils.date",
-        wraps=date,
-        **{"today.return_value": frozen},
-    )
+    mock_date = Mock(wraps=date)
+    mock_date.today.return_value = frozen
+    return patch("pipances.utils.date", mock_date)
 
 
 def test_preset_all():

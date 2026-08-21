@@ -7,6 +7,8 @@ def safe_int(
     min_val: int | None = None,
     max_val: int | None = None,
 ) -> int:
+    if value is None:
+        return default
     try:
         result = int(value)
     except (TypeError, ValueError):

@@ -4,9 +4,9 @@ UI tests for the combobox Popover API rewrite.
 Covers the modified scenarios from the combo-box spec delta:
   - Dropdown not clipped by modal (top layer rendering)
   - Dropdown flips above when near bottom of viewport
-  - Enter with no highlight and selectable items → no action, dropdown stays open
-  - Enter with no highlight and only Create option → creates the entity
-  - Blur without selection → dropdown closes, value reverts
+  - Enter with no highlight and selectable items -> no action, dropdown stays open
+  - Enter with no highlight and only Create option -> creates the entity
+  - Blur without selection -> dropdown closes, value reverts
   - Click on dropdown item does not trigger blur (item is applied)
 
 These tests are written BEFORE implementation and SHOULD FAIL until the
@@ -54,7 +54,7 @@ def wait_for_combo_settled(page, results, expected_min: int = 1):
 
 
 #
-# The popover must render in the top layer — we verify this by checking
+# The popover must render in the top layer -- we verify this by checking
 # that the results container is visible and has content when the combo is open.
 # ===========================================================
 
@@ -73,7 +73,7 @@ def test_dropdown_visible_inside_modal(page: Page, goto, full_txn):
     inp.click()
     inp.fill("shop")
 
-    # Results must be visible — if clipped by modal they won't be interactable
+    # Results must be visible -- if clipped by modal they won't be interactable
     results = get_combo_results(dialog, txn_id, "category_id")
     wait_for_combo_settled(page, results)
 
@@ -116,7 +116,7 @@ def test_dropdown_flips_above_near_viewport_bottom(page: Page, goto, full_txn):
     results_box = results.bounding_box()
     assert results_box is not None, "Dropdown bounding box not found"
     assert inp_box is not None, "Input bounding box not found"
-    # When flipped above, the results bottom ≤ input top
+    # When flipped above, the results bottom <= input top
     assert results_box["y"] + results_box["height"] <= inp_box["y"] + 5, (
         f"Dropdown did not flip above: results bottom={results_box['y'] + results_box['height']}, "
         f"input top={inp_box['y']}"
@@ -124,7 +124,7 @@ def test_dropdown_flips_above_near_viewport_bottom(page: Page, goto, full_txn):
 
 
 # ===========================================================
-# Scenario: Enter with no highlight and selectable items present → no action
+# Scenario: Enter with no highlight and selectable items present -> no action
 # ===========================================================
 
 
@@ -153,14 +153,14 @@ def test_enter_no_highlight_with_options_does_nothing(page: Page, goto, full_txn
     # Press Enter without arrowing down
     inp.press("Enter")
 
-    # Dropdown must still be visible — no action taken
+    # Dropdown must still be visible -- no action taken
     expect(results).to_be_visible()
     # Modal must still be open
     expect(dialog).to_be_visible()
 
 
 # ===========================================================
-# Scenario: Enter with no highlight and only Create option → creates entity
+# Scenario: Enter with no highlight and only Create option -> creates entity
 # ===========================================================
 
 
@@ -191,7 +191,7 @@ def test_enter_no_highlight_only_create_option_creates_entity(
     create_item = results.locator("[data-combo-create]")
     expect(create_item).to_be_visible(timeout=3000)
 
-    # Press Enter — should fire the Create action
+    # Press Enter -- should fire the Create action
     inp.press("Enter")
 
     # Dropdown must close
@@ -202,7 +202,7 @@ def test_enter_no_highlight_only_create_option_creates_entity(
 
 
 # ===========================================================
-# Scenario: Blur without selection → dropdown closes and value reverts
+# Scenario: Blur without selection -> dropdown closes and value reverts
 # ===========================================================
 
 
@@ -230,7 +230,7 @@ def test_blur_without_selection_reverts_value(page: Page, goto, full_txn):
     # Dropdown must close
     expect(results).not_to_be_visible(timeout=3000)
 
-    # After revert the row refreshes — just check dropdown is gone
+    # After revert the row refreshes -- just check dropdown is gone
     # (revert fires a PATCH with empty values which re-renders the row partial)
 
 
@@ -262,7 +262,7 @@ def test_click_dropdown_item_applies_value(page: Page, goto, full_txn):
     expect(first_item).to_be_visible(timeout=3000)
     item_text = first_item.inner_text().strip()
 
-    # Click the item — must NOT be swallowed by a blur-revert
+    # Click the item -- must NOT be swallowed by a blur-revert
     first_item.click()
 
     # Dropdown must close
@@ -302,17 +302,17 @@ def test_arrow_key_navigation_highlights_items(page: Page, goto, full_txn):
     items = results.locator("[data-combo-item]")
     expect(items.nth(0)).to_be_visible(timeout=3000)
 
-    # Press ArrowDown — first item should be highlighted
+    # Press ArrowDown -- first item should be highlighted
     inp.press("ArrowDown")
     expect(items.nth(0)).to_have_class(re.compile(r"\bmenu-active\b"), timeout=2000)
     expect(items.nth(1)).not_to_have_class(re.compile(r"\bmenu-active\b"))
 
-    # Press ArrowDown again — second item highlighted, first not
+    # Press ArrowDown again -- second item highlighted, first not
     inp.press("ArrowDown")
     expect(items.nth(1)).to_have_class(re.compile(r"\bmenu-active\b"), timeout=2000)
     expect(items.nth(0)).not_to_have_class(re.compile(r"\bmenu-active\b"))
 
-    # Press ArrowUp — back to first item
+    # Press ArrowUp -- back to first item
     inp.press("ArrowUp")
     expect(items.nth(0)).to_have_class(re.compile(r"\bmenu-active\b"), timeout=2000)
     expect(items.nth(1)).not_to_have_class(re.compile(r"\bmenu-active\b"))

@@ -1,4 +1,5 @@
 from math import ceil
+from typing import cast
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -303,11 +304,11 @@ async def commit_inbox(request: Request):
 
     # Re-render remaining pending transactions (with filters if present)
     form = await request.form()
-    filter_date_from = form.get("date_from", "").strip()
-    filter_date_to = form.get("date_to", "").strip()
-    filter_internal_id = form.get("internal_id", "").strip()
-    filter_import_id = form.get("import_id", "").strip()
-    page_size = safe_int(form.get("page_size"), 25, min_val=1, max_val=100)
+    filter_date_from = str(form.get("date_from", "")).strip()
+    filter_date_to = str(form.get("date_to", "")).strip()
+    filter_internal_id = str(form.get("internal_id", "")).strip()
+    filter_import_id = str(form.get("import_id", "")).strip()
+    page_size = safe_int(str(form.get("page_size")), 25, min_val=1, max_val=100)
 
     async with async_session() as session:
         query = (
@@ -447,7 +448,7 @@ async def retrain_inbox(request: Request):
             train_institution,
             train_desc,
             train_cat,
-            train_ext,
+            [e for e in train_ext if e is not None],
         )
 
         pred_raw = [t.raw_description for t in pending]
@@ -468,25 +469,37 @@ async def retrain_inbox(request: Request):
 
         updated_count = 0
         for txn, pred in zip(pending, predictions, strict=True):
-            if pred.description and (
-                txn.ml_confidence_description is None
-                or pred.description.confidence > txn.ml_confidence_description
+            if (
+                pred.description
+                and pred.description.value is not None
+                and (
+                    txn.ml_confidence_description is None
+                    or pred.description.confidence > txn.ml_confidence_description
+                )
             ):
-                txn.description = pred.description.value
+                txn.description = str(pred.description.value)
                 txn.ml_confidence_description = pred.description.confidence
                 updated_count += 1
-            if pred.category_id and (
-                txn.ml_confidence_category is None
-                or pred.category_id.confidence > txn.ml_confidence_category
+            if (
+                pred.category_id
+                and pred.category_id.value is not None
+                and (
+                    txn.ml_confidence_category is None
+                    or pred.category_id.confidence > txn.ml_confidence_category
+                )
             ):
-                txn.category_id = pred.category_id.value
+                txn.category_id = cast(int, pred.category_id.value)
                 txn.ml_confidence_category = pred.category_id.confidence
                 updated_count += 1
-            if pred.external_id and (
-                txn.ml_confidence_external is None
-                or pred.external_id.confidence > txn.ml_confidence_external
+            if (
+                pred.external_id
+                and pred.external_id.value is not None
+                and (
+                    txn.ml_confidence_external is None
+                    or pred.external_id.confidence > txn.ml_confidence_external
+                )
             ):
-                txn.external_id = pred.external_id.value
+                txn.external_id = cast(int, pred.external_id.value)
                 txn.ml_confidence_external = pred.external_id.confidence
                 updated_count += 1
 

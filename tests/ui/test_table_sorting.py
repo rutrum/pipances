@@ -40,40 +40,40 @@ def test_explore_sort_arrows_appear_on_sortable_columns(page: Page, goto):
 def test_explore_default_sort_shows_descending_arrow_on_date(page: Page, goto):
     """
     WHEN  user opens the Explore page (default sort = date DESC)
-    THEN  Date column shows the down arrow (▼)
+    THEN  Date column shows the down arrow (v)
     """
     goto("/explore")
 
-    date_header = page.locator("thead th").filter(has_text="Date ▼").first
+    date_header = page.locator("thead th").filter(has_text="Date v").first
     expect(date_header).to_be_visible()
 
 
 def test_explore_click_sort_header_toggles_direction(page: Page, goto):
     """
     WHEN  user clicks the Date header (initially DESC)
-    THEN  arrow changes to up (▲) and sort order becomes ASC
-    THEN  clicking again reverts to down (▼) and DESC
+    THEN  arrow changes to up (^) and sort order becomes ASC
+    THEN  clicking again reverts to down (v) and DESC
     """
     goto("/explore")
 
     date_header = page.locator("thead th:has-text('Date')").first
 
     # Initial state: down arrow (desc)
-    expect(page.locator("thead th:has-text('Date ▼')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).to_be_visible()
 
     # Click to toggle to ascending
     date_header.click()
     page.wait_for_load_state("networkidle")
 
     # Should show up arrow now
-    expect(page.locator("thead th:has-text('Date ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date ^')")).to_be_visible()
 
     # Click again to toggle back to descending
     date_header.click()
     page.wait_for_load_state("networkidle")
 
     # Should show down arrow again
-    expect(page.locator("thead th:has-text('Date ▼')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).to_be_visible()
 
 
 def test_explore_sort_by_amount(page: Page, goto):
@@ -91,11 +91,11 @@ def test_explore_sort_by_amount(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Arrow should appear on Amount
-    expect(page.locator("thead th:has-text('Amount ($) ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
 
     # Date column should no longer show an arrow
-    expect(page.locator("thead th:has-text('Date ▲')")).not_to_be_visible()
-    expect(page.locator("thead th:has-text('Date ▼')")).not_to_be_visible()
+    expect(page.locator("thead th:has-text('Date ^')")).not_to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).not_to_be_visible()
 
 
 def test_explore_sort_persists_across_pagination(page: Page, goto):
@@ -111,7 +111,7 @@ def test_explore_sort_persists_across_pagination(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Verify sort is active
-    expect(page.locator("thead th:has-text('Amount ($) ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
 
     # Try to navigate to next page if it exists
     next_btn = page.locator("button:has-text('Next')").first
@@ -120,7 +120,7 @@ def test_explore_sort_persists_across_pagination(page: Page, goto):
         page.wait_for_load_state("networkidle")
 
         # Sort should still be active
-        expect(page.locator("thead th:has-text('Amount ($) ▲')")).to_be_visible()
+        expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
 
 
 # ============================================================
@@ -131,36 +131,36 @@ def test_explore_sort_persists_across_pagination(page: Page, goto):
 def test_data_transactions_default_sort_shows_arrow(page: Page, goto):
     """
     WHEN  user opens Data > Transactions (default sort = date DESC)
-    THEN  Date column shows the down arrow (▼)
+    THEN  Date column shows the down arrow (v)
     """
     goto("/data/transactions")
 
-    date_header = page.locator("thead th").filter(has_text="Date ▼").first
+    date_header = page.locator("thead th").filter(has_text="Date v").first
     expect(date_header).to_be_visible()
 
 
 def test_data_transactions_sort_toggle(page: Page, goto):
     """
     WHEN  user clicks Date header on Data/Transactions page
-    THEN  arrow toggles from ▼ to ▲
-    THEN  clicking again toggles back to ▼
+    THEN  arrow toggles from v to ^
+    THEN  clicking again toggles back to v
     """
     goto("/data/transactions")
 
     date_header = page.locator("thead th:has-text('Date')").first
 
     # Initial: down arrow
-    expect(page.locator("thead th:has-text('Date ▼')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).to_be_visible()
 
     # Click to toggle up
     date_header.click()
     page.wait_for_load_state("networkidle")
-    expect(page.locator("thead th:has-text('Date ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date ^')")).to_be_visible()
 
     # Click to toggle down
     date_header.click()
     page.wait_for_load_state("networkidle")
-    expect(page.locator("thead th:has-text('Date ▼')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).to_be_visible()
 
 
 def test_data_transactions_sort_by_description(page: Page, goto):
@@ -178,11 +178,11 @@ def test_data_transactions_sort_by_description(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Arrow should be on Description
-    expect(page.locator("thead th:has-text('Description ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Description ^')")).to_be_visible()
 
     # Date column should not have arrow
-    expect(page.locator("thead th:has-text('Date ▲')")).not_to_be_visible()
-    expect(page.locator("thead th:has-text('Date ▼')")).not_to_be_visible()
+    expect(page.locator("thead th:has-text('Date ^')")).not_to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).not_to_be_visible()
 
 
 def test_data_transactions_sort_persists_with_date_filter(page: Page, goto):
@@ -199,7 +199,7 @@ def test_data_transactions_sort_persists_with_date_filter(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Verify sort is active
-    expect(page.locator("thead th:has-text('Amount ($) ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
 
     # Change date preset
     last_30_btn = page.locator("button:text-is('Last 30 Days')").first
@@ -207,7 +207,7 @@ def test_data_transactions_sort_persists_with_date_filter(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Amount sort should still be active
-    expect(page.locator("thead th:has-text('Amount ($) ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
 
 
 # ============================================================
@@ -233,40 +233,40 @@ def test_inbox_sort_arrows_visible(page: Page, goto):
 def test_inbox_default_sort_shows_ascending_arrow_on_date(page: Page, goto):
     """
     WHEN  user opens Inbox (default sort = date ASC for inbox)
-    THEN  Date column shows the up arrow (▲)
+    THEN  Date column shows the up arrow (^)
     """
     goto("/inbox")
 
-    date_header = page.locator("thead th").filter(has_text="Date ▲").first
+    date_header = page.locator("thead th").filter(has_text="Date ^").first
     expect(date_header).to_be_visible()
 
 
 def test_inbox_click_sort_header_toggles_direction(page: Page, goto):
     """
     WHEN  user clicks Date header on Inbox (initially ASC)
-    THEN  arrow changes to down (▼) and sort order becomes DESC
-    THEN  clicking again reverts to up (▲) and ASC
+    THEN  arrow changes to down (v) and sort order becomes DESC
+    THEN  clicking again reverts to up (^) and ASC
     """
     goto("/inbox")
 
     date_header = page.locator("thead th:has-text('Date')").first
 
     # Initial state: up arrow (asc)
-    expect(page.locator("thead th:has-text('Date ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date ^')")).to_be_visible()
 
     # Click to toggle to descending
     date_header.click()
     page.wait_for_load_state("networkidle")
 
     # Should show down arrow now
-    expect(page.locator("thead th:has-text('Date ▼')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).to_be_visible()
 
     # Click again to toggle back to ascending
     date_header.click()
     page.wait_for_load_state("networkidle")
 
     # Should show up arrow again
-    expect(page.locator("thead th:has-text('Date ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Date ^')")).to_be_visible()
 
 
 def test_inbox_sort_by_amount(page: Page, goto):
@@ -284,11 +284,11 @@ def test_inbox_sort_by_amount(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Arrow should appear on Amount
-    expect(page.locator("thead th:has-text('Amount ($) ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
 
     # Date column should no longer show arrow
-    expect(page.locator("thead th:has-text('Date ▲')")).not_to_be_visible()
-    expect(page.locator("thead th:has-text('Date ▼')")).not_to_be_visible()
+    expect(page.locator("thead th:has-text('Date ^')")).not_to_be_visible()
+    expect(page.locator("thead th:has-text('Date v')")).not_to_be_visible()
 
 
 def test_inbox_sort_persists_across_pagination(page: Page, goto, bulk_pending_txns):
@@ -308,7 +308,7 @@ def test_inbox_sort_persists_across_pagination(page: Page, goto, bulk_pending_tx
     page.wait_for_load_state("networkidle")
 
     # Verify sort is active on page 1
-    expect(page.locator("thead th:has-text('Description ▲')")).to_be_visible()
+    expect(page.locator("thead th:has-text('Description ^')")).to_be_visible()
 
 
 # ============================================================
@@ -326,9 +326,9 @@ def test_all_three_pages_have_working_sort(page: Page, goto):
     refactoring, ensuring the unified _transaction_table.html works across all uses.
     """
     pages_to_test = [
-        ("/explore", "Date ▼"),
-        ("/data/transactions", "Date ▼"),
-        ("/inbox", "Date ▲"),
+        ("/explore", "Date v"),
+        ("/data/transactions", "Date v"),
+        ("/inbox", "Date ^"),
     ]
 
     for path, expected_initial_sort in pages_to_test:
@@ -348,16 +348,16 @@ def test_all_three_pages_have_working_sort(page: Page, goto):
         page.wait_for_load_state("networkidle")
 
         # Arrow should have changed
-        if "▼" in expected_initial_sort:
+        if "v" in expected_initial_sort:
             (
-                expect(page.locator("thead th:has-text('Date ▲')")).to_be_visible(
+                expect(page.locator("thead th:has-text('Date ^')")).to_be_visible(
                     timeout=5000
                 ),
                 f"{path} should toggle sort indicator to up arrow",
             )
         else:
             (
-                expect(page.locator("thead th:has-text('Date ▼')")).to_be_visible(
+                expect(page.locator("thead th:has-text('Date v')")).to_be_visible(
                     timeout=5000
                 ),
                 f"{path} should toggle sort indicator to down arrow",

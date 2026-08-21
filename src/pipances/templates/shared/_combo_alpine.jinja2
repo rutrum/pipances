@@ -1,11 +1,9 @@
 {% set anchor_name = "ca-" ~ combo_unique_id %}
-<div x-data='comboBox({
-  items: {{ combo_items_json }},
-  value: {{ combo_value|tojson }},
-  onSelect(item) {
-    {{ combo_on_select_js|safe }}
-  }
-})' x-id="['combo-input']" @click.outside="closePopover()" class="combo-box relative" id="combo-box-{{ combo_unique_id }}">
+<div x-data='comboBox({ items: {{ combo_items_json }}, value: {{ combo_value|tojson }}, onSelect(item) { {{ combo_on_select_js|safe }} } })'
+     x-id="['combo-input']"
+     @click.outside="closePopover()"
+     class="combo-box relative"
+     id="combo-box-{{ combo_unique_id }}">
   <input type="text"
          x-ref="input"
          x-model="query"
@@ -16,36 +14,31 @@
          @keydown.enter.prevent="selectHighlighted()"
          @keydown.escape="revert(); $refs.input.blur()"
          class="input input-bordered input-sm w-full"
-         style="anchor-name: --{{ anchor_name }};"
+         style="anchor-name: --{{ anchor_name }}"
          autocomplete="off"
          placeholder="{{ combo_placeholder }}"
          :id="$id('combo-input')"
          role="combobox"
          aria-expanded="false"
          aria-autocomplete="list">
-
   <div x-ref="popover"
        id="combo-popover-{{ combo_unique_id }}"
        popover="manual"
        role="listbox"
        class="bg-base-100 border border-base-300 rounded-box shadow-xl p-0 m-0 overflow-y-auto"
-       style="
-         position-anchor: --{{ anchor_name }};
-         inset: auto;
-         left: anchor(left);
-         top: anchor(bottom);
-         width: anchor-size(width);
-         margin-top: 4px;
-         position-try-fallbacks: flip-block;
-         max-height: 12rem;
-       ">
-
+       style="position-anchor: --{{ anchor_name }};
+              inset: auto;
+              left: anchor(left);
+              top: anchor(bottom);
+              width: anchor-size(width);
+              margin-top: 4px;
+              position-try-fallbacks: flip-block;
+              max-height: 12rem">
     <button x-show="showNoCategory"
             @click="clear()"
             class="w-full text-left px-3 py-1.5 text-sm text-base-content/50 italic hover:bg-base-200 block">
       No category
     </button>
-
     <template x-for="(item, index) in filteredItems" :key="item.id">
       <button @click="select(item)"
               :class="{ 'menu-active bg-base-200': highlightIndex === index }"
@@ -53,138 +46,148 @@
               role="option"
               :aria-selected="highlightIndex === index">
         <div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="size-4 shrink-0 text-base-content/40"
+               fill="none"
+               viewBox="0 0 24 24"
+               stroke="currentColor"
+               stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
           <span x-text="item.name"></span>
         </div>
       </button>
     </template>
-
     <button x-show="showCreate"
             @click="createAndSelect()"
             class="w-full text-left px-3 py-1.5 text-sm text-success font-medium border-t border-base-300 hover:bg-base-200 block"
             role="option">
       <div class="flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        <svg xmlns="http://www.w3.org/2000/svg"
+             class="size-4 shrink-0"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+             stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
         Create "<span x-text="query"></span>"
       </div>
     </button>
   </div>
-
   <input type="hidden" :value="selectedValue" name="category_id">
 </div>
-
 <script>
-if (!window._alpineComboRegistered) {
-  window._alpineComboRegistered = true;
-  Alpine.data('comboBox', (config) => ({
-    items: config.items || [],
-    initialValue: config.value || '',
-    query: config.value || '',
-    open: false,
-    highlightIndex: -1,
-    selectedValue: config.value || '',
+    if (!window._alpineComboRegistered) {
+        window._alpineComboRegistered = true;
+        Alpine.data('comboBox', (config) => ({
+            items: config.items || [],
+            initialValue: config.value || '',
+            query: config.value || '',
+            open: false,
+            highlightIndex: -1,
+            selectedValue: config.value || '',
 
-    get filteredItems() {
-      if (!this.query) return this.items;
-      var q = this.query.toLowerCase();
-      return this.items.filter(function(item) {
-        return item.name.toLowerCase().indexOf(q) !== -1;
-      });
-    },
+            get filteredItems() {
+                if (!this.query) return this.items;
+                var q = this.query.toLowerCase();
+                return this.items.filter(function(item) {
+                    return item.name.toLowerCase().indexOf(q) !== -1;
+                });
+            },
 
-    get showNoCategory() {
-      return !this.query;
-    },
+            get showNoCategory() {
+                return !this.query;
+            },
 
-    get showCreate() {
-      if (!this.query) return false;
-      var q = this.query.toLowerCase();
-      return !this.items.some(function(item) {
-        return item.name.toLowerCase() === q;
-      });
-    },
+            get showCreate() {
+                if (!this.query) return false;
+                var q = this.query.toLowerCase();
+                return !this.items.some(function(item) {
+                    return item.name.toLowerCase() === q;
+                });
+            },
 
-    openPopover() {
-      if (this.open) return;
-      this.open = true;
-      this.$nextTick(function() {
-        var popover = this.$refs.popover;
-        if (popover && popover.showPopover) popover.showPopover();
-      }.bind(this));
-    },
+            openPopover() {
+                if (this.open) return;
+                this.open = true;
+                this.$nextTick(function() {
+                    var popover = this.$refs.popover;
+                    if (popover && popover.showPopover) popover.showPopover();
+                }.bind(this));
+            },
 
-    closePopover() {
-      if (!this.open) return;
-      this.open = false;
-      var popover = this.$refs.popover;
-      if (popover && popover.hidePopover) popover.hidePopover();
-    },
+            closePopover() {
+                if (!this.open) return;
+                this.open = false;
+                var popover = this.$refs.popover;
+                if (popover && popover.hidePopover) popover.hidePopover();
+            },
 
-    init() {
-      this.$watch('open', function(val) {
-        if (!val) this.highlightIndex = -1;
-      }.bind(this));
-    },
+            init() {
+                this.$watch('open', function(val) {
+                    if (!val) this.highlightIndex = -1;
+                }.bind(this));
+            },
 
-    highlightNext() {
-      var total = this.filteredItems.length + (this.showCreate ? 1 : 0);
-      if (total === 0) return;
-      this.highlightIndex = (this.highlightIndex + 1) % total;
-    },
+            highlightNext() {
+                var total = this.filteredItems.length + (this.showCreate ? 1 : 0);
+                if (total === 0) return;
+                this.highlightIndex = (this.highlightIndex + 1) % total;
+            },
 
-    highlightPrev() {
-      var total = this.filteredItems.length + (this.showCreate ? 1 : 0);
-      if (total === 0) return;
-      this.highlightIndex = (this.highlightIndex - 1 + total) % total;
-    },
+            highlightPrev() {
+                var total = this.filteredItems.length + (this.showCreate ? 1 : 0);
+                if (total === 0) return;
+                this.highlightIndex = (this.highlightIndex - 1 + total) % total;
+            },
 
-    selectHighlighted() {
-      if (this.highlightIndex < 0) {
-        if (this.filteredItems.length > 0) {
-          this.select(this.filteredItems[0]);
-        } else if (this.showCreate) {
-          this.createAndSelect();
-        }
-        return;
-      }
-      if (this.highlightIndex < this.filteredItems.length) {
-        this.select(this.filteredItems[this.highlightIndex]);
-      } else {
-        this.createAndSelect();
-      }
-    },
+            selectHighlighted() {
+                if (this.highlightIndex < 0) {
+                    if (this.filteredItems.length > 0) {
+                        this.select(this.filteredItems[0]);
+                    } else if (this.showCreate) {
+                        this.createAndSelect();
+                    }
+                    return;
+                }
+                if (this.highlightIndex < this.filteredItems.length) {
+                    this.select(this.filteredItems[this.highlightIndex]);
+                } else {
+                    this.createAndSelect();
+                }
+            },
 
-    select(item) {
-      this.query = item.name;
-      this.selectedValue = item.name;
-      this.closePopover();
-      this.highlightIndex = -1;
-      if (this.onSelect) this.onSelect(item);
-    },
+            select(item) {
+                this.query = item.name;
+                this.selectedValue = item.name;
+                this.closePopover();
+                this.highlightIndex = -1;
+                if (this.onSelect) this.onSelect(item);
+            },
 
-    createAndSelect() {
-      var item = { id: null, name: this.query };
-      this.select(item);
-    },
+            createAndSelect() {
+                var item = {
+                    id: null,
+                    name: this.query
+                };
+                this.select(item);
+            },
 
-    clear() {
-      this.query = '';
-      this.selectedValue = '';
-      this.closePopover();
-      this.highlightIndex = -1;
-      if (this.onSelect) this.onSelect(null);
-    },
+            clear() {
+                this.query = '';
+                this.selectedValue = '';
+                this.closePopover();
+                this.highlightIndex = -1;
+                if (this.onSelect) this.onSelect(null);
+            },
 
-    revert() {
-      this.query = this.initialValue;
-      this.selectedValue = this.initialValue;
-      this.closePopover();
-      this.highlightIndex = -1;
+            revert() {
+                this.query = this.initialValue;
+                this.selectedValue = this.initialValue;
+                this.closePopover();
+                this.highlightIndex = -1;
+            }
+        }));
     }
-  }));
-}
 </script>

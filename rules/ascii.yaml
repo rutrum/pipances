@@ -1,0 +1,279 @@
+id: no-em-dash
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '—'
+    - all:
+        - kind: string
+        - regex: '—'
+fix: '--'
+message: Use ASCII dashes instead of em dash (—)
+severity: error
+---
+id: no-en-dash
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '–'
+    - all:
+        - kind: string
+        - regex: '–'
+fix: '--'
+message: Use ASCII dashes instead of en dash (–)
+severity: error
+---
+id: no-right-arrow
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '→'
+    - all:
+        - kind: string
+        - regex: '→'
+fix: '->'
+message: Use ASCII arrow instead of Unicode right arrow (→)
+severity: error
+---
+id: no-left-arrow
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '←'
+    - all:
+        - kind: string
+        - regex: '←'
+fix: '<-'
+message: Use ASCII arrow instead of Unicode left arrow (←)
+severity: error
+---
+id: no-multiplication-sign
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '×'
+    - all:
+        - kind: string
+        - regex: '×'
+fix: 'x'
+message: Use ASCII x instead of Unicode multiplication sign (×)
+severity: error
+---
+id: no-multiplication-cross
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '✕'
+    - all:
+        - kind: string
+        - regex: '✕'
+fix: 'x'
+message: Use ASCII x instead of Unicode multiplication cross (✕)
+severity: error
+---
+id: no-right-double-quote
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '»'
+    - all:
+        - kind: string
+        - regex: '»'
+fix: '>>'
+message: Use ASCII >> instead of Unicode right double quote (»)
+severity: error
+---
+id: no-left-double-quote
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '«'
+    - all:
+        - kind: string
+        - regex: '«'
+fix: '<<'
+message: Use ASCII << instead of Unicode left double quote («)
+severity: error
+---
+id: no-middle-dot
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '·'
+    - all:
+        - kind: string
+        - regex: '·'
+fix: '*'
+message: Use ASCII * instead of Unicode middle dot (·)
+severity: error
+---
+id: no-down-triangle
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '▼'
+    - all:
+        - kind: string
+        - regex: '▼'
+fix: 'v'
+message: Use ASCII v instead of Unicode down triangle (▼)
+severity: error
+---
+id: no-up-triangle
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '▲'
+    - all:
+        - kind: string
+        - regex: '▲'
+fix: '^'
+message: Use ASCII ^ instead of Unicode up triangle (▲)
+severity: error
+---
+id: no-subscript-2
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '₂'
+    - all:
+        - kind: string
+        - regex: '₂'
+fix: '2'
+message: Use ASCII 2 instead of Unicode subscript 2 (₂)
+severity: error
+---
+id: no-subscript-1
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '₁'
+    - all:
+        - kind: string
+        - regex: '₁'
+fix: '1'
+message: Use ASCII 1 instead of Unicode subscript 1 (₁)
+severity: error
+---
+id: no-check-mark
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '✓'
+    - all:
+        - kind: string
+        - regex: '✓'
+fix: 'ok'
+message: Use ASCII ok instead of Unicode check mark (✓)
+severity: error
+---
+id: no-greater-or-equal
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '≥'
+    - all:
+        - kind: string
+        - regex: '≥'
+fix: '>='
+message: Use ASCII >= instead of Unicode greater-or-equal (≥)
+severity: error
+---
+id: no-less-or-equal
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '≤'
+    - all:
+        - kind: string
+        - regex: '≤'
+fix: '<='
+message: Use ASCII <= instead of Unicode less-or-equal (≤)
+severity: error
+---
+id: no-element-of
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '∈'
+    - all:
+        - kind: string
+        - regex: '∈'
+fix: 'in'
+message: Use ASCII 'in' instead of Unicode element-of (∈)
+severity: error
+---
+id: no-approx-equal
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '≈'
+    - all:
+        - kind: string
+        - regex: '≈'
+fix: '~'
+message: Use ASCII ~ instead of Unicode approximately equal (≈)
+severity: error
+---
+id: no-box-dash
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '─'
+    - all:
+        - kind: string
+        - regex: '─'
+fix: '--'
+message: Use ASCII dashes instead of Unicode box drawing dash (─)
+severity: error
+---
+id: no-degree
+language: Python
+rule:
+  any:
+    - all:
+        - kind: comment
+        - regex: '°'
+    - all:
+        - kind: string
+        - regex: '°'
+fix: 'deg'
+message: Use ASCII 'deg' instead of Unicode degree sign (°)
+severity: error

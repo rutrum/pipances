@@ -1,8 +1,8 @@
 """
-UI tests for the inbox transaction edit modal — written from scratch.
+UI tests for the inbox transaction edit modal -- written from scratch.
 
 Edit flow per spec:
-  1. Click Edit on a row → modal opens
+  1. Click Edit on a row -> modal opens
   2. Change a field (combo box: type value, click dropdown item to save)
   3. Close modal (Escape or backdrop click)
   4. The TABLE ROW reflects the change (row is re-fetched from server on close)
@@ -14,11 +14,11 @@ repeated open/edit/close cycles don't wipe prior field values.
 Known bugs that will cause failures:
   BUG-A: txn_id is empty in _combo_edit.html hx-get URL
          (/api/combo/descriptions?txn_id=&field=description)
-         → combo dropdown items fire PATCH to /transactions/ (404/422)
-         → field edits are never saved → tests 4a–4e, 4i, 4j will FAIL
-  BUG-B: Modal Approve button has no disabled state — it is always enabled
+         -> combo dropdown items fire PATCH to /transactions/ (404/422)
+         -> field edits are never saved -> tests 4a--4e, 4i, 4j will FAIL
+  BUG-B: Modal Approve button has no disabled state -- it is always enabled
          regardless of description/external presence
-         → tests 4g, 4h will FAIL
+         -> tests 4g, 4h will FAIL
 """
 
 from playwright.sync_api import Page, expect
@@ -32,7 +32,7 @@ def fill_combo(dialog, nth: int, value: str):
     """
     Type `value` into the nth .combo-box input inside `dialog`,
     wait for the matching dropdown item to appear, and click it.
-    nth=0 → Description, nth=1 → External Account, nth=2 → Category
+    nth=0 -> Description, nth=1 -> External Account, nth=2 -> Category
     """
     combo = dialog.locator(".combo-box").nth(nth)
     inp = combo.locator("input")
@@ -66,7 +66,7 @@ def close_via_backdrop(page: Page):
 
 
 # ============================================================
-# 4a: Edit description → close → row reflects change
+# 4a: Edit description -> close -> row reflects change
 # ============================================================
 
 
@@ -74,7 +74,7 @@ def test_edit_description_persists_after_close(page: Page, goto, full_txn):
     """
     WHEN  user opens modal, changes description, closes
     THEN  the table row shows the new description
-    BUG-A: Will FAIL — txn_id empty in combo, PATCH goes to /transactions/
+    BUG-A: Will FAIL -- txn_id empty in combo, PATCH goes to /transactions/
     """
     txn_id = full_txn["id"]
     new_desc = full_txn["alt_description"]
@@ -89,7 +89,7 @@ def test_edit_description_persists_after_close(page: Page, goto, full_txn):
 
 
 # ============================================================
-# 4b: Edit category → close → row reflects change
+# 4b: Edit category -> close -> row reflects change
 # ============================================================
 
 
@@ -97,7 +97,7 @@ def test_edit_category_persists_after_close(page: Page, goto, full_txn):
     """
     WHEN  user opens modal, changes category, closes
     THEN  the table row shows the new category
-    BUG-A: Will FAIL — same txn_id bug
+    BUG-A: Will FAIL -- same txn_id bug
     """
     txn_id = full_txn["id"]
     new_cat = full_txn["alt_cat_name"]
@@ -112,7 +112,7 @@ def test_edit_category_persists_after_close(page: Page, goto, full_txn):
 
 
 # ============================================================
-# 4c: Edit external account → close → row reflects change
+# 4c: Edit external account -> close -> row reflects change
 # ============================================================
 
 
@@ -120,7 +120,7 @@ def test_edit_external_persists_after_close(page: Page, goto, full_txn):
     """
     WHEN  user opens modal, changes external account, closes
     THEN  the table row shows the new external account
-    BUG-A: Will FAIL — same txn_id bug
+    BUG-A: Will FAIL -- same txn_id bug
     """
     txn_id = full_txn["id"]
     new_ext = full_txn["alt_ext_name"]
@@ -135,7 +135,7 @@ def test_edit_external_persists_after_close(page: Page, goto, full_txn):
 
 
 # ============================================================
-# 4d: Edit all three fields → close → row reflects all changes
+# 4d: Edit all three fields -> close -> row reflects all changes
 # ============================================================
 
 
@@ -143,7 +143,7 @@ def test_edit_all_fields_persist_after_close(page: Page, goto, full_txn):
     """
     WHEN  user opens modal, changes description + external + category, closes
     THEN  the table row shows all three updated values
-    BUG-A: Will FAIL — same txn_id bug
+    BUG-A: Will FAIL -- same txn_id bug
     """
     txn_id = full_txn["id"]
     new_desc = full_txn["alt_description"]
@@ -164,25 +164,23 @@ def test_edit_all_fields_persist_after_close(page: Page, goto, full_txn):
 
 
 # ============================================================
-# 4e: Sequential edits accumulate — the full realistic user journey
+# 4e: Sequential edits accumulate -- the full realistic user journey
 #
 # This is intentionally one multi-step test: it verifies that each
 # open/close cycle does not wipe values set in a prior cycle.
-# BUG-A: Will FAIL at step 1 — changes don't save due to txn_id bug.
+# BUG-A: Will FAIL at step 1 -- changes don't save due to txn_id bug.
 # ============================================================
 
 
 def test_sequential_edits_accumulate(page: Page, goto, full_txn):
     """
-    Step 1: change description → close → row shows new description
-    Step 2: re-open, change category → close → row shows new description AND new category
-    Step 3: re-open, change external → close → row shows all three fields updated
-    Step 4: re-open, change all three to final values → close → row shows final values
+    Step 1: change description -> close -> row shows new description
+    Step 2: re-open, change category -> close -> row shows new description AND new category
+    Step 3: re-open, change external -> close -> row shows all three fields updated
+    Step 4: re-open, change all three to final values -> close -> row shows final values
     """
     txn_id = full_txn["id"]
     desc1 = "Step One Description"
-    ext1 = full_txn["ext_name"]  # starting external (no change this step)
-    cat1 = full_txn["cat_name"]  # starting category (no change this step)
     cat2 = full_txn["alt_cat_name"]
     ext2 = full_txn["alt_ext_name"]
     final_desc = "Final Description"
@@ -225,7 +223,7 @@ def test_sequential_edits_accumulate(page: Page, goto, full_txn):
 
 
 # ============================================================
-# 4f: Approve from modal → modal auto-closes → row shows Approved
+# 4f: Approve from modal -> modal auto-closes -> row shows Approved
 # ============================================================
 
 
@@ -264,7 +262,7 @@ def test_modal_approve_btn_disabled_no_description(page: Page, goto):
     GIVEN a transaction with no description (and no external)
     WHEN  user opens the edit modal
     THEN  the Approve button inside the modal is disabled
-    BUG-B: Will FAIL — modal always renders an enabled Approve button
+    BUG-B: Will FAIL -- modal always renders an enabled Approve button
     """
     goto("/inbox")
     # Use the seeded row that has no description
@@ -290,7 +288,7 @@ def test_modal_approve_btn_disabled_no_external(page: Page, goto, description_on
     GIVEN a transaction with description set but external NULL
     WHEN  user opens the edit modal
     THEN  the Approve button inside the modal is disabled
-    BUG-B: Will FAIL — modal always renders an enabled Approve button
+    BUG-B: Will FAIL -- modal always renders an enabled Approve button
     """
     txn_id = description_only_txn
     goto("/inbox")
@@ -383,7 +381,7 @@ def test_close_via_escape_refreshes_row(page: Page, goto, full_txn):
     """
     WHEN  user edits description in modal then closes via Escape
     THEN  the table row reflects the saved description
-    BUG-A: Will FAIL — edit doesn't save (txn_id empty in combo)
+    BUG-A: Will FAIL -- edit doesn't save (txn_id empty in combo)
     """
     txn_id = full_txn["id"]
     new_desc = full_txn["alt_description"]
@@ -398,7 +396,7 @@ def test_close_via_escape_refreshes_row(page: Page, goto, full_txn):
 
 
 # ============================================================
-# 4j: Close via backdrop click — row is refreshed with saved data
+# 4j: Close via backdrop click -- row is refreshed with saved data
 # ============================================================
 
 
@@ -406,7 +404,7 @@ def test_close_via_backdrop_refreshes_row(page: Page, goto, full_txn):
     """
     WHEN  user edits description in modal then closes via backdrop click
     THEN  the table row reflects the saved description
-    BUG-A: Will FAIL — edit doesn't save (txn_id empty in combo)
+    BUG-A: Will FAIL -- edit doesn't save (txn_id empty in combo)
     """
     txn_id = full_txn["id"]
     new_desc = full_txn["alt_description"]
@@ -446,7 +444,7 @@ def test_approve_btn_enables_after_filling_both_fields(
 
     approve_btn = dialog.locator(".btn-lg")
 
-    # Approve is disabled — description set but external missing
+    # Approve is disabled -- description set but external missing
     expect(approve_btn).to_be_disabled()
 
     # Fill in external account via combo
@@ -475,10 +473,10 @@ def test_approve_btn_disables_after_clearing_external(
 
     approve_btn = dialog.locator(".btn-lg")
 
-    # Both fields set → Approve is enabled
+    # Both fields set -> Approve is enabled
     expect(approve_btn).to_be_enabled()
 
-    # Clear the external account — type nothing and wait for Clear option
+    # Clear the external account -- type nothing and wait for Clear option
     ext_input = dialog.locator(".combo-box").nth(1).locator("input")
     ext_input.click()
     ext_input.clear()

@@ -26,7 +26,9 @@ async def combo_search(entity: str, request: Request):
             result = await session.execute(query.limit(50))
             items = [{"id": c.id, "name": c.name} for c in result.scalars().all()]
             exact_match = (
-                any(item["name"].lower() == q.lower() for item in items) if q else True
+                any(str(item["name"]).lower() == q.lower() for item in items)
+                if q
+                else True
             )
         elif entity == "external-accounts":
             query = select(Account).order_by(Account.name)
@@ -37,7 +39,9 @@ async def combo_search(entity: str, request: Request):
             result = await session.execute(query.limit(50))
             items = [{"id": a.id, "name": a.name} for a in result.scalars().all()]
             exact_match = (
-                any(item["name"].lower() == q.lower() for item in items) if q else True
+                any(str(item["name"]).lower() == q.lower() for item in items)
+                if q
+                else True
             )
         elif entity == "descriptions":
             query = (
@@ -54,7 +58,9 @@ async def combo_search(entity: str, request: Request):
             result = await session.execute(query.limit(50))
             items = [{"id": 0, "name": d[0]} for d in result.fetchall() if d[0]]
             exact_match = (
-                any(item["name"].lower() == q.lower() for item in items) if q else True
+                any(str(item["name"]).lower() == q.lower() for item in items)
+                if q
+                else True
             )
         else:
             return HTMLResponse("Unknown entity", status_code=404)

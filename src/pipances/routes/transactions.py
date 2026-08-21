@@ -26,7 +26,7 @@ SORT_COLUMNS = {
 @router.patch("/transactions/bulk", response_class=HTMLResponse)
 async def bulk_update_transactions(request: Request):
     form = await request.form()
-    ids = [int(i) for i in form.getlist("ids") if str(i).strip()]
+    ids = [int(str(i)) for i in form.getlist("ids") if str(i).strip()]
     if not ids:
         return HTMLResponse("No IDs provided", status_code=400)
 
@@ -43,7 +43,7 @@ async def bulk_update_transactions(request: Request):
         transactions = result.scalars().all()
 
         # Resolve category once if provided
-        category_name = form.get("category", "").strip()
+        category_name = str(form.get("category", "")).strip()
         category_obj = None
         if category_name:
             cat_result = await session.execute(
@@ -58,13 +58,13 @@ async def bulk_update_transactions(request: Request):
                 await session.flush()
 
         # Resolve external account once if provided
-        external_name = form.get("external", "").strip()
+        external_name = str(form.get("external", "")).strip()
         external_obj = None
         if external_name:
             external_obj = await _resolve_account(session, external_name)
 
-        description = form.get("description", "").strip()
-        approve = form.get("marked_for_approval", "").strip()
+        description = str(form.get("description", "")).strip()
+        approve = str(form.get("marked_for_approval", "")).strip()
 
         for txn in transactions:
             if description:
@@ -122,11 +122,11 @@ async def update_transaction(txn_id: int, request: Request):
             return HTMLResponse("Not found", status_code=404)
 
         if "description" in form:
-            txn.description = form["description"] or None
+            txn.description = str(form["description"]) or None
             txn.ml_confidence_description = None
 
         if "external_id" in form:
-            external_id_val = form["external_id"].strip()
+            external_id_val = str(form["external_id"]).strip()
             if external_id_val:
                 # Combo sends the display name; try integer ID first, then name lookup
                 try:
@@ -160,7 +160,7 @@ async def update_transaction(txn_id: int, request: Request):
             txn.ml_confidence_external = None
 
         if "category_id" in form:
-            category_id_val = form["category_id"].strip()
+            category_id_val = str(form["category_id"]).strip()
             if category_id_val:
                 # Combo sends the display name; try integer ID first, then name lookup
                 try:
@@ -194,7 +194,7 @@ async def update_transaction(txn_id: int, request: Request):
         if "marked_for_approval" in form:
             if form["marked_for_approval"] == "toggle":
                 if not txn.marked_for_approval:
-                    # Toggling from unapproved → approved: validate required fields
+                    # Toggling from unapproved -> approved: validate required fields
                     if not txn.description or not txn.description.strip():
                         return HTMLResponse(
                             "Description is required for approval", status_code=422
@@ -290,7 +290,7 @@ async def _render_splits_section(request: Request, txn: Transaction) -> str:
         )
         categories = categories_result.scalars().all()
         # Re-attach txn to load its category relationship
-        txn = await session.get(
+        fetched = await session.get(
             Transaction,
             txn.id,
             options=[
@@ -300,6 +300,9 @@ async def _render_splits_section(request: Request, txn: Transaction) -> str:
                 selectinload(Transaction.category),
             ],
         )
+        if fetched is None:
+            raise RuntimeError(f"Transaction {txn.id} not found")
+        txn = fetched
     categories_data = [{"id": c.id, "name": c.name} for c in categories]
     return templates.get_template("shared/_splits_section.jinja2").render(
         {"txn": txn, "categories": categories, "categories_data": categories_data}
@@ -323,7 +326,7 @@ async def create_split(txn_id: int, request: Request):
             return HTMLResponse("Not found", status_code=404)
 
         try:
-            amount_dollars = float(form.get("amount_dollars", "0"))
+            amount_dollars = float(str(form.get("amount_dollars", "0")))
         except (ValueError, TypeError):
             return HTMLResponse("Invalid amount", status_code=422)
         amount_cents = round(amount_dollars * 100)
@@ -336,7 +339,7 @@ async def create_split(txn_id: int, request: Request):
         if amount_cents >= total_cents - existing_sum:
             return HTMLResponse("Amount would eliminate remainder", status_code=422)
 
-        category_id_val = form.get("category_id", "").strip()
+        category_id_val = str(form.get("category_id", "")).strip()
         category_id = None
         if category_id_val:
             try:
@@ -391,7 +394,7 @@ async def update_split(txn_id: int, split_id: int, request: Request):
 
         if "amount_dollars" in form:
             try:
-                amount_dollars = float(form["amount_dollars"])
+                amount_dollars = float(str(form["amount_dollars"]))
             except (ValueError, TypeError):
                 return HTMLResponse("Invalid amount", status_code=422)
             amount_cents = round(amount_dollars * 100)
@@ -405,7 +408,7 @@ async def update_split(txn_id: int, split_id: int, request: Request):
             split.amount_cents = amount_cents
 
         if "category_id" in form:
-            category_id_val = form["category_id"].strip()
+            category_id_val = str(form["category_id"]).strip()
             if category_id_val:
                 try:
                     split.category_id = int(category_id_val)

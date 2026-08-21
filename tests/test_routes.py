@@ -423,7 +423,7 @@ async def test_explore_link_url_encoding(client, seed_accounts):
 async def test_combo_search_with_percent(client, seed_accounts, seed_categories):
     resp = await client.get("/api/combo/categories?q=%25")
     assert resp.status_code == 200
-    # % should not match everything — only items with literal %
+    # % should not match everything -- only items with literal %
     # With 3 seeded categories, matching all 3 means the wildcard leaked
     for cat_name in ["Groceries", "Dining", "Transport"]:
         assert cat_name not in resp.text
@@ -432,7 +432,7 @@ async def test_combo_search_with_percent(client, seed_accounts, seed_categories)
 async def test_combo_search_with_underscore(client, seed_accounts, seed_categories):
     resp = await client.get("/api/combo/categories?q=_")
     assert resp.status_code == 200
-    # _ should not match single chars — only items with literal _
+    # _ should not match single chars -- only items with literal _
     for cat_name in ["Groceries", "Dining", "Transport"]:
         assert cat_name not in resp.text
 

@@ -94,7 +94,10 @@ in
         NoNewPrivileges = true;
         ProtectSystem = "strict";
         PrivateTmp = true;
-        ReadWritePaths = [ cfg.dataDir cfg.importersDir ];
+        ReadWritePaths = [
+          cfg.dataDir
+          cfg.importersDir
+        ];
       };
     };
 

@@ -4,19 +4,20 @@ Self-hosted finance tracker with ML-assisted human review.
 
 ## Philosophy
 
-Most approaches to personal finance tracking fall into two extremes: fully automatic categorization that gets things wrong silently, or tedious manual entry for every transaction. Pipances combines both — automation handles the grunt work, but every transaction passes through a human review gate before becoming part of your financial record.
+I previously used Firefly III, but had some gripes with it.  It took too long to add transactions.  Automated importing and rules-based automations are possible, but there _was no human review step_ which never gave me the confidence to use these features.  If something was automatically categorized, it would be very difficult for me to find what the result was, and correct errors manually.  So I was manually adding transactions, which was time consuming.  Adding transactions in Firefly presented a lot of fields I didn't care about, and it had no capabilities of bulk adding and limited capabilities for bulk editing.
 
-The core workflow:
+So pipances is fundamentally centered around human approval.  Required human approval means I can leverage powerful automations but always be confident that the final result is accurate.  Inspired by "the data science pipeline" pipances imagines your financial transactions as flowing through the application.
 
-```
-CSV Import → Parse → Deduplicate → ML Predict → Human Review → Approved
-```
+1. Import: import csv dumps straight from your financial institution.  These are parsed with hand made parsers to match the bank's custom format into a normalized one.
+2. Predict: a machine learning model built on all previously inserted transactions tries to fill in values for the transaction description, foreign account, and category.
+3. Inbox: imported transactions end up in the inbox.  This is where the user can see all transactions and predicted fields, and then make edits or fill in blanks.  The user can stage individual transactions and "commit" then in bulk, as a human sign off of accurate labeling.
+4. Explore: browse committed transactions to see trends and make predictions.
 
-You upload bank exports, the system parses them with institution-specific importers, deduplicates against existing records, and uses machine learning to predict categories and descriptions. Then you review the inbox, correct anything the model got wrong, and approve. Over time, the model learns from your corrections and gets better.
+This vision is here in spirit, but the application is rough around the edges and needs a lot of work.
 
 ## Features
 
-- **CSV import** with pluggable importers for different bank formats
+- **CSV import** with user-written python importers for different bank formats
 - **ML-assisted categorization** — predictions for category, description, and external account based on your approved history
 - **Inbox review workflow** — bulk edit, filter, and approve pending transactions
 - **Explore page** — interactive charts, summary statistics, and filtered transaction browsing
@@ -42,14 +43,14 @@ Or add to a NixOS configuration:
   # In your NixOS config:
   services.pipances = {
     enable = true;
-    # dataDir = "/var/lib/pipances";  # default
+    # dataDir = "/var/lib/pipances";   # default
     # port = 8098;                     # default
     # importersDir = ./my-importers;   # optional
   };
 }
 ```
 
-### Docker
+### Container (docker/podman)
 
 The OCI image is built via Nix:
 
@@ -59,7 +60,7 @@ podman load < result
 podman run -p 8098:8098 -v pipances-data:/data pipances:latest
 ```
 
-### Python
+### Build from Source
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 

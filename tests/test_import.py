@@ -1,13 +1,21 @@
 """Tests for the Import page: auto-detection, preview, commit, manual entry, tabs."""
 
+from __future__ import annotations
+
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import polars as pl
 from sqlalchemy import func, select
 
 from pipances.ingest import preview_dedup, try_all_importers
 from pipances.models import Import, Transaction
+from pipances.schemas import ImportedTransaction
+
+if TYPE_CHECKING:
+    import patito as pt
+
 
 # === Helper ===
 
@@ -18,8 +26,8 @@ VALID_CSV = (
 GARBAGE_CSV = b"this is not a csv at all\x00\x01\x02"
 
 
-def _make_df(rows: list[dict]) -> pl.DataFrame:
-    return pl.DataFrame(
+def _make_df(rows: list[dict]) -> pt.DataFrame[ImportedTransaction]:  # type: ignore[name-defined]
+    df = pl.DataFrame(
         {
             "date": [r["date"] for r in rows],
             "amount": [Decimal(str(r["amount"])) for r in rows],
@@ -31,6 +39,7 @@ def _make_df(rows: list[dict]) -> pl.DataFrame:
             "description": pl.Utf8,
         },
     )
+    return ImportedTransaction.validate(df)
 
 
 # === 8. Unit Tests: Auto-Detection and Preview ===
@@ -168,6 +177,7 @@ async def test_commit_nonexistent_account(client, seed_accounts):
     import re
 
     token_match = re.search(r'name="token"\s+value="([^"]+)"', resp.text)
+    assert token_match
     token = token_match.group(1)
 
     resp = await client.post(
@@ -196,6 +206,7 @@ async def test_dedup_endpoint_shows_strikethrough(client, session, seed_accounts
     import re
 
     token_match = re.search(r'name="token"\s+value="([^"]+)"', resp.text)
+    assert token_match
     token = token_match.group(1)
 
     # Call dedup endpoint with account

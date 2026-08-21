@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Request, UploadFile
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 
@@ -125,9 +125,14 @@ async def import_manual_row(request: Request):
 @router.post("/import/preview", response_class=HTMLResponse)
 async def import_preview(request: Request):
     form = await request.form()
-    file: UploadFile = form.get("file")
+    file = form.get("file")
+    if file is None or isinstance(file, str):
+        return HTMLResponse(
+            '<div class="alert alert-error">No file selected.</div>',
+            status_code=422,
+        )
 
-    if file is None or file.filename == "":
+    if file.filename == "":
         return HTMLResponse(
             '<div class="alert alert-error">No file selected.</div>',
             status_code=422,
@@ -194,9 +199,9 @@ async def import_preview(request: Request):
 @router.post("/import/preview/dedup", response_class=HTMLResponse)
 async def import_preview_dedup(request: Request):
     form = await request.form()
-    token = form.get("token", "")
-    importer_key = form.get("importer", "")
-    account_name = form.get("account", "")
+    token = str(form.get("token", ""))
+    importer_key = str(form.get("importer", ""))
+    account_name = str(form.get("account", ""))
 
     blob = _read_temp_file(token)
     if blob is None:
@@ -259,9 +264,9 @@ async def import_preview_dedup(request: Request):
 @router.post("/import/commit")
 async def import_commit(request: Request):
     form = await request.form()
-    token = form.get("token", "")
-    importer_key = form.get("importer", "")
-    account_name = form.get("account", "")
+    token = str(form.get("token", ""))
+    importer_key = str(form.get("importer", ""))
+    account_name = str(form.get("account", ""))
 
     if not token or not importer_key or not account_name:
         return HTMLResponse(
@@ -319,7 +324,7 @@ async def import_commit(request: Request):
 @router.post("/import/manual")
 async def import_manual_submit(request: Request):
     form = await request.form()
-    account_name = form.get("account", "")
+    account_name = str(form.get("account", ""))
 
     if not account_name:
         return HTMLResponse(
@@ -334,9 +339,9 @@ async def import_manual_submit(request: Request):
 
     valid_rows = []
     for d, a, desc in zip(dates, amounts, descriptions, strict=False):
-        d = d.strip()
-        a = a.strip()
-        desc = desc.strip()
+        d = str(d).strip()
+        a = str(a).strip()
+        desc = str(desc).strip()
         if not d and not a and not desc:
             continue
         if not d or not a or not desc:

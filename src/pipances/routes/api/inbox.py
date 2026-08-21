@@ -1,4 +1,4 @@
-"""JSON API for inbox — pending transactions with filtering."""
+"""JSON API for inbox -- pending transactions with filtering."""
 
 from fastapi import APIRouter, Request
 
@@ -36,12 +36,8 @@ async def list_inbox_transactions(request: Request):
             if params.get("date_to", "").strip()
             else None
         ),
-        internal_id=(
-            safe_int(internal_id_str) if internal_id_str else None
-        ),
-        import_id=(
-            safe_int(import_id_str) if import_id_str else None
-        ),
+        internal_id=(safe_int(internal_id_str, 0) if internal_id_str else None),
+        import_id=(safe_int(import_id_str, 0) if import_id_str else None),
         sort_col=params.get("sort", "date"),
         sort_dir=params.get("dir", "asc"),
         page=safe_int(params.get("page"), 1, min_val=1),

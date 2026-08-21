@@ -51,8 +51,10 @@
     };
   };
 
-  outputs = inputs: inputs.blueprint {
-    inherit inputs;
-    prefix = "nix/";
-  };
+  outputs =
+    inputs:
+    inputs.blueprint {
+      inherit inputs;
+      prefix = "nix/";
+    };
 }

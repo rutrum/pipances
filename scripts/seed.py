@@ -9,6 +9,7 @@ Generates 12 months of transactions (Oct 2025 - Sep 2026) across:
 import asyncio
 import random
 from datetime import date, timedelta
+from typing import TypedDict
 
 from pipances.db import async_session, create_tables
 from pipances.models import (
@@ -92,7 +93,14 @@ CATEGORY_NAMES = [
 # Each merchant has multiple realistic raw_description variants (as seen in real bank exports)
 # and multiple approved transactions at different amounts to train the model on text, not amount
 
-MERCHANT_VARIANTS = {
+
+class MerchantVariant(TypedDict):
+    category: str
+    variants: list[str]
+    approved_amounts: list[int]
+
+
+MERCHANT_VARIANTS: dict[str, MerchantVariant] = {
     "Kroger": {
         "category": "Groceries",
         "variants": [
@@ -102,7 +110,13 @@ MERCHANT_VARIANTS = {
             "KRG #1234",
             "KROGER GROCERY #1234",
         ],
-        "approved_amounts": [2500, 8700, 14500, 5200, 11300],  # Multiple amounts in cents
+        "approved_amounts": [
+            2500,
+            8700,
+            14500,
+            5200,
+            11300,
+        ],  # Multiple amounts in cents
     },
     "Whole Foods": {
         "category": "Groceries",
@@ -371,8 +385,12 @@ async def seed():
             external_map[acct.name] = acct
 
         # === Create import records (one per institution) ===
-        import_fn = Import(institution="First National", filename="seed.py", row_count=0)
-        import_metro = Import(institution="Metro Credit Union", filename="seed.py", row_count=0)
+        import_fn = Import(
+            institution="First National", filename="seed.py", row_count=0
+        )
+        import_metro = Import(
+            institution="Metro Credit Union", filename="seed.py", row_count=0
+        )
         import_chase = Import(institution="Chase", filename="seed.py", row_count=0)
         import_amex = Import(institution="Amex", filename="seed.py", row_count=0)
         for imp in [import_fn, import_metro, import_chase, import_amex]:
@@ -557,7 +575,9 @@ async def seed():
                 for amount in selected_amounts:
                     # Pick a random variant of the raw description
                     raw_desc = random.choice(merchant_data["variants"])
-                    internal = random.choice([checking] + (cards if random.random() < 0.3 else []))
+                    internal = random.choice(
+                        [checking] + (cards if random.random() < 0.3 else [])
+                    )
 
                     add_txn(
                         random_date_in_month(year, month),
@@ -570,7 +590,9 @@ async def seed():
 
         # Make ~10% uncategorized
         uncategorized_count = 0  # All approved transactions should be categorized
-        uncategorized_indices = random.sample(range(len(transactions)), uncategorized_count)
+        uncategorized_indices = random.sample(
+            range(len(transactions)), uncategorized_count
+        )
         for idx in uncategorized_indices:
             transactions[idx]["category_name"] = None
 
@@ -741,11 +763,11 @@ async def seed():
             },
         ]
 
-        for i, pending_data in enumerate(pending_transactions):
-            imp = import_for_account(pending_data["internal"])
+        for _, pending_data in enumerate(pending_transactions):
+            imp = import_for_account(str(pending_data["internal"]))
             txn = Transaction(
                 import_id=imp.id,
-                internal_id=internal_map[pending_data["internal"]].id,
+                internal_id=internal_map[str(pending_data["internal"])].id,
                 external_id=None,  # Don't set external for pending transactions
                 raw_description=pending_data["raw_desc"],
                 description=None,
@@ -770,7 +792,7 @@ async def seed():
     print(f"  {len(INTERNAL_ACCOUNTS)} internal accounts")
     print(f"  {len(external_map)} external accounts")
     print(f"  {len(CATEGORY_NAMES)} categories")
-    print(f"  4 import records (FN, Metro CU, Chase, Amex)")
+    print("  4 import records (FN, Metro CU, Chase, Amex)")
     print(f"  {uncategorized_count} transactions left uncategorized")
     for inst, count in sorted(import_counts.items()):
         print(f"  {inst}: {count} transactions")

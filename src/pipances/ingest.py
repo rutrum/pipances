@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 import patito as pt
 from sqlalchemy import func, select
@@ -342,14 +343,14 @@ async def _predict_for_transactions(txn_ids: list[int]) -> None:
 
         # Apply predictions
         for txn, pred in zip(pending, predictions, strict=True):
-            if pred.description:
-                txn.description = pred.description.value
+            if pred.description is not None and pred.description.value is not None:
+                txn.description = str(pred.description.value)
                 txn.ml_confidence_description = pred.description.confidence
-            if pred.category_id:
-                txn.category_id = pred.category_id.value
+            if pred.category_id is not None and pred.category_id.value is not None:
+                txn.category_id = cast(int, pred.category_id.value)
                 txn.ml_confidence_category = pred.category_id.confidence
-            if pred.external_id:
-                txn.external_id = pred.external_id.value
+            if pred.external_id is not None and pred.external_id.value is not None:
+                txn.external_id = cast(int, pred.external_id.value)
                 txn.ml_confidence_external = pred.external_id.confidence
 
         await session.commit()

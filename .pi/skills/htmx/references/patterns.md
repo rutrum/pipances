@@ -477,13 +477,13 @@ Serve full pages on direct navigation, partials on htmx requests:
 @app.get("/dashboard")
 async def dashboard(request: Request):
     data = await get_dashboard_data()
-    
+
     # htmx request: return only the page content
     if request.headers.get("HX-Request"):
         return templates.TemplateResponse("_dashboard_content.html", {
             "request": request, **data
         })
-    
+
     # Full page request: include layout
     return templates.TemplateResponse("dashboard.html", {
         "request": request, **data

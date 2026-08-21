@@ -1,4 +1,4 @@
-"""JSON API for transactions — list, single lookup, categories, accounts."""
+"""JSON API for transactions -- list, single lookup, categories, accounts."""
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse

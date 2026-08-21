@@ -49,12 +49,27 @@
     </div>
   </div>
   <script>
-    (function() {
-      const embedOpts = {actions: false, renderer: "svg"};
-      vegaEmbed('#monthly-chart', {{ monthly_chart | safe }}, embedOpts);
-      vegaEmbed('#top-expenses-chart', {{ top_chart | safe }}, embedOpts);
-      vegaEmbed('#weekly-chart', {{ weekly_chart | safe }}, embedOpts);
-    })();
+      (function() {
+          const embedOpts = {
+              actions: false,
+              renderer: "svg"
+          };
+          vegaEmbed('#monthly-chart', {
+              {
+                  monthly_chart | safe
+              }
+          }, embedOpts);
+          vegaEmbed('#top-expenses-chart', {
+              {
+                  top_chart | safe
+              }
+          }, embedOpts);
+          vegaEmbed('#weekly-chart', {
+              {
+                  weekly_chart | safe
+              }
+          }, embedOpts);
+      })();
   </script>
   {# Transaction Table #}
   <div id="explore-table-wrapper">

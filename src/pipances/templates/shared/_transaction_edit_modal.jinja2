@@ -95,9 +95,7 @@
           Approve
         </button>
       {% else %}
-        <button class="btn btn-primary btn-lg btn-disabled" disabled>
-          Approve
-        </button>
+        <button class="btn btn-primary btn-lg btn-disabled" disabled>Approve</button>
       {% endif %}
     </div>
   </div>
@@ -105,20 +103,22 @@
        Close via Escape key or the Approve / Unapprove button. -->
 </dialog>
 <script>
-  // Auto-show dialog on load
-  (function() {
-    const modal = document.getElementById('transaction-edit-modal-{{ txn.id }}');
-    if (modal) {
-      modal.showModal();
+    // Auto-show dialog on load
+    (function() {
+        const modal = document.getElementById('transaction-edit-modal-{{ txn.id }}');
+        if (modal) {
+            modal.showModal();
 
-      // When modal closes, refresh the row and clear the container
-      modal.addEventListener('close', function() {
-        htmx.ajax('GET', '/transactions/{{ txn.id }}/row', {
-          target: '#txn-{{ txn.id }}',
-          swap: 'outerHTML'
-        });
-        document.getElementById('edit-modal-container').innerHTML = '';
-      }, {once: true});
-    }
-  })();
+            // When modal closes, refresh the row and clear the container
+            modal.addEventListener('close', function() {
+                htmx.ajax('GET', '/transactions/{{ txn.id }}/row', {
+                    target: '#txn-{{ txn.id }}',
+                    swap: 'outerHTML'
+                });
+                document.getElementById('edit-modal-container').innerHTML = '';
+            }, {
+                once: true
+            });
+        }
+    })();
 </script>

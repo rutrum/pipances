@@ -46,7 +46,7 @@ def test_data_transactions_pagination_persists_after_next(page: Page, goto):
     silently vanished from the DOM.
     """
     goto("/data/transactions")
-    page.click("button:text('Next »')")
+    page.click("button:text('Next >>')")
     expect(data_page_label(page, 2)).to_be_visible()
     expect(data_pagination(page)).to_be_visible()
 
@@ -54,9 +54,9 @@ def test_data_transactions_pagination_persists_after_next(page: Page, goto):
 def test_data_transactions_pagination_persists_after_multiple_pages(page: Page, goto):
     """Pagination survives multiple sequential page navigations."""
     goto("/data/transactions")
-    page.click("button:text('Next »')")
+    page.click("button:text('Next >>')")
     expect(data_page_label(page, 2)).to_be_visible()
-    page.click("button:text('Next »')")
+    page.click("button:text('Next >>')")
     expect(data_page_label(page, 3)).to_be_visible()
     expect(data_pagination(page)).to_be_visible()
 
@@ -64,7 +64,7 @@ def test_data_transactions_pagination_persists_after_multiple_pages(page: Page, 
 def test_data_transactions_prev_button_updates_pagination(page: Page, goto):
     """Prev button also keeps pagination intact."""
     goto("/data/transactions?page=3")
-    page.click("button:text('« Prev')")
+    page.click("button:text('<< Prev')")
     expect(data_page_label(page, 2)).to_be_visible()
     expect(data_pagination(page)).to_be_visible()
 
@@ -100,7 +100,7 @@ def test_commit_modal_dismisses_after_confirm(page: Page, goto, approvable_txn):
 
     Before fix: missing pagination_id in inbox.py caused hx-swap-oob="outerHTML:#"
     (invalid selector). HTMX threw a JS error processing the pagination OOB element,
-    halting all subsequent OOB processing — including the dialog_clear fragment —
+    halting all subsequent OOB processing -- including the dialog_clear fragment --
     so the modal remained open.
     """
     goto("/inbox")
@@ -153,21 +153,21 @@ def test_inbox_thead_oob_swap_updates_sort_arrow(page: Page, goto):
     un-swapped. The sort arrow would not update even though the rows did.
 
     After fix: _inbox_thead.html emits hx-swap-oob unconditionally via
-    {%% if oob %%} — no string manipulation required.
+    {%% if oob %%} -- no string manipulation required.
     """
     goto("/inbox")
 
-    # Default sort is date ASC — up arrow should be visible
-    expect(page.locator("#inbox-thead th:has-text('Date ▲')")).to_be_visible()
+    # Default sort is date ASC -- up arrow should be visible
+    expect(page.locator("#inbox-thead th:has-text('Date ^')")).to_be_visible()
 
     # Click the Date header to sort DESC
     page.locator("#inbox-thead th:has-text('Date')").first.click()
     page.wait_for_load_state("networkidle")
 
     # If OOB swap fired, the thead now shows a down arrow
-    expect(page.locator("#inbox-thead th:has-text('Date ▼')")).to_be_visible()
-    # Up arrow must be gone — proves the thead was replaced, not just augmented
-    expect(page.locator("#inbox-thead th:has-text('Date ▲')")).not_to_be_visible()
+    expect(page.locator("#inbox-thead th:has-text('Date v')")).to_be_visible()
+    # Up arrow must be gone -- proves the thead was replaced, not just augmented
+    expect(page.locator("#inbox-thead th:has-text('Date ^')")).not_to_be_visible()
 
 
 def test_commit_no_approved_shows_warning_not_modal(page: Page, goto):

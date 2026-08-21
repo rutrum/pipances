@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 from scipy.sparse import hstack, issparse
@@ -17,23 +18,23 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-# ── Confidence constants ──────────────────────────────────────────────
+# ---- Confidence constants --------------------------------------------------------------------------------------------
 SIMILARITY_FLOOR = 0.4  # Minimum cosine similarity to consider a neighbor
 AGREEMENT_THRESHOLD = 0.6  # Minimum weighted agreement to suggest a value
 K_NEIGHBORS = 10  # Number of neighbors to retrieve
 
-# ── Two-stage ranking adjustment factors ───────────────────────────────
+# ---- Two-stage ranking adjustment factors --------------------------------------------------------------
 # These factors are applied multiplicatively to adjust text-based similarities
 # after Stage 1 (text-only neighbor retrieval) based on agreement of structured
 # features (amount, date, account, institution) in Stage 2.
 #
 # Mathematical guarantee: Multiplication by factors in [0.9, 1.1] preserves
 # the ordering of text similarities. If A > B, then A*k1 > B*k2 for any
-# k1, k2 ∈ [0.9, 1.1]. This ensures strong text matches cannot be beaten by
+# k1, k2 in [0.9, 1.1]. This ensures strong text matches cannot be beaten by
 # weak text matches, even with opposite adjustment directions.
 #
 # Example: Good match (sim=0.72) vs weak match (sim=0.42)
-#   Good penalized, weak boosted: 0.72 * 0.9 = 0.648 > 0.42 * 1.1 = 0.462 ✓
+#   Good penalized, weak boosted: 0.72 * 0.9 = 0.648 > 0.42 * 1.1 = 0.462 ok
 AMOUNT_FACTOR_MATCH = 1.1  # Amount within 2x tolerance (boost agreement)
 AMOUNT_FACTOR_NOMATCH = 0.9  # Amount outside 2x tolerance (penalize disagreement)
 SECONDARY_FACTOR_MATCH = 1.05  # Day-of-week/month, account, institution match
@@ -117,7 +118,7 @@ class TransactionPredictor:
         institutions: list[str],
         descriptions: list[str | None],
         category_ids: list[int | None],
-        external_ids: list[int],
+        external_ids: list[int | None],
     ) -> None:
         """Fit the model on approved transaction data.
 
@@ -165,7 +166,7 @@ class TransactionPredictor:
         tfidf = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5))
         text_features = tfidf.fit_transform(raw_descriptions)
 
-        # ── Text-only kNN (Stage 1, primary signal) ──────────────────────
+        # ---- Text-only kNN (Stage 1, primary signal) --------------------------------------------
         # Train kNN on text features alone. Use ~5x K for Stage 1 to have
         # enough candidates to reweight in Stage 2.
         text_k = min(50, len(raw_descriptions))
@@ -179,7 +180,7 @@ class TransactionPredictor:
         self._text_tfidf = tfidf
         self._text_knn = text_knn
 
-        # ── Combined-feature kNN (fallback for compatibility) ────────────
+        # ---- Combined-feature kNN (fallback for compatibility) ------------------------
         ct = ColumnTransformer(
             transformers=[
                 ("num", StandardScaler(), numeric_indices),
@@ -241,15 +242,15 @@ class TransactionPredictor:
 
         **Stage 2 (Secondary Signal):** Structured feature reweighting
         - For each of the ~50 text neighbors, computes adjustment factors based on:
-          * Amount agreement: 1.1× if within 2x range, 0.9× otherwise
-          * Day-of-week/month, account, institution: 1.05× if match, 1.0× otherwise
+          * Amount agreement: 1.1x if within 2x range, 0.9x otherwise
+          * Day-of-week/month, account, institution: 1.05x if match, 1.0x otherwise
         - Multiplies text similarity by adjustment factors to reweight candidates
         - Adjustment factors bounded to [0.9, 1.1] to preserve text-based ranking
 
         **Mathematical Guarantee:**
         Multiplication by factors in [0.9, 1.1] preserves ordering of text similarities.
-        If A > B, then A×k₁ > B×k₂ for any k₁, k₂ ∈ [0.9, 1.1].
-        Example: 0.72 × 0.9 = 0.648 > 0.42 × 1.1 = 0.462 ✓
+        If A > B, then Axk1 > Bxk2 for any k1, k2 in [0.9, 1.1].
+        Example: 0.72 x 0.9 = 0.648 > 0.42 x 1.1 = 0.462 ok
 
         Args:
             raw_descriptions: Raw descriptions of new transactions to predict for
@@ -266,8 +267,10 @@ class TransactionPredictor:
         if self._text_knn is None or not raw_descriptions:
             return [TransactionPrediction() for _ in raw_descriptions]
 
-        # ── Stage 1: Text-only neighbor retrieval ──────────────────────
-        text_features = self._text_tfidf.transform(raw_descriptions)
+        # ---- Stage 1: Text-only neighbor retrieval --------------------------------------------
+        text_features = cast(TfidfVectorizer, self._text_tfidf).transform(
+            raw_descriptions
+        )
         distances, indices = self._text_knn.kneighbors(text_features)
         similarities = 1 - distances  # Convert cosine distances to similarities
 
@@ -277,7 +280,7 @@ class TransactionPredictor:
             neighbor_indices = indices[i]
             neighbor_sims = similarities[i].copy()  # Copy so we don't modify original
 
-            # ── Stage 2: Compute adjustment factors and apply them ─────────
+            # ---- Stage 2: Compute adjustment factors and apply them ------------------
             # Extract structured features for the pending transaction
             pending_amount = amounts[i]
             pending_dow = days_of_week[i]
@@ -286,11 +289,15 @@ class TransactionPredictor:
             pending_institution = institutions[i]
 
             # Extract corresponding features for neighbors
-            neighbor_amounts = self._train_amounts[neighbor_indices]
-            neighbor_dows = self._train_dows[neighbor_indices]
-            neighbor_doms = self._train_doms[neighbor_indices]
-            neighbor_internal_ids = self._train_internal_ids[neighbor_indices]
-            neighbor_institutions = self._train_institutions[neighbor_indices]
+            neighbor_amounts = cast(np.ndarray, self._train_amounts)[neighbor_indices]
+            neighbor_dows = cast(np.ndarray, self._train_dows)[neighbor_indices]
+            neighbor_doms = cast(np.ndarray, self._train_doms)[neighbor_indices]
+            neighbor_internal_ids = cast(np.ndarray, self._train_internal_ids)[
+                neighbor_indices
+            ]
+            neighbor_institutions = cast(np.ndarray, self._train_institutions)[
+                neighbor_indices
+            ]
 
             # Compute adjustment factors
             adjustment_factors = self._compute_adjustment_factors(
@@ -433,7 +440,7 @@ class TransactionPredictor:
         return factors
 
     def _meets_recurrence_threshold(self, field: str, value: object) -> bool:
-        """Check if a value meets the minimum recurrence threshold (≥2 occurrences).
+        """Check if a value meets the minimum recurrence threshold (>=2 occurrences).
 
         Each field (description, category_id, external_id) tracks frequency of values
         seen during training. Values appearing fewer than 2 times are filtered out
@@ -444,7 +451,7 @@ class TransactionPredictor:
             value: The value to check (e.g., "Groceries", 5, 42)
 
         Returns:
-            True if value appears ≥2 times in training data, False otherwise
+            True if value appears >=2 times in training data, False otherwise
         """
         if field == "description":
             freq = self._description_freq
@@ -483,7 +490,7 @@ class TransactionPredictor:
             return None
 
         # Stage 2: Check agreement threshold
-        winner = max(votes, key=votes.get)
+        winner = max(votes, key=lambda k: votes[k])
         confidence = votes[winner] / total_weight
 
         if confidence < AGREEMENT_THRESHOLD:

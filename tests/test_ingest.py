@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
@@ -7,11 +10,15 @@ from sqlalchemy import func, select
 
 from pipances.ingest import ingest
 from pipances.models import Import, Transaction
+from pipances.schemas import ImportedTransaction
+
+if TYPE_CHECKING:
+    import patito as pt
 
 
-def _make_df(rows: list[dict]) -> pl.DataFrame:
+def _make_df(rows: list[dict]) -> pt.DataFrame[ImportedTransaction]:  # type: ignore[name-defined]
     """Build a DataFrame matching ImportedTransaction schema."""
-    return pl.DataFrame(
+    df = pl.DataFrame(
         {
             "date": [r["date"] for r in rows],
             "amount": [Decimal(str(r["amount"])) for r in rows],
@@ -23,6 +30,7 @@ def _make_df(rows: list[dict]) -> pl.DataFrame:
             "description": pl.Utf8,
         },
     )
+    return ImportedTransaction.validate(df)
 
 
 async def test_amount_conversion_rounds_correctly(session, seed_accounts):

@@ -1,4 +1,4 @@
-"""JSON API for the explore page — transactions, stats, and charts."""
+"""JSON API for the explore page -- transactions, stats, and charts."""
 
 import polars as pl
 from fastapi import APIRouter, Request
@@ -20,13 +20,12 @@ def _transactions_to_df(transactions: list[dict]) -> pl.DataFrame:
     """Convert transaction dicts to a Polars DataFrame for charting."""
     return pl.DataFrame(
         {
-            "date": pl.Series(
-                [t["date"] for t in transactions]
-            ).str.to_date("%Y-%m-%d"),
+            "date": pl.Series([t["date"] for t in transactions]).str.to_date(
+                "%Y-%m-%d"
+            ),
             "amount_cents": [t["amount_cents"] for t in transactions],
             "description": [
-                t.get("description") or t["raw_description"]
-                for t in transactions
+                t.get("description") or t["raw_description"] for t in transactions
             ],
             "external_name": [
                 t.get("external_account", {}).get("name", "")

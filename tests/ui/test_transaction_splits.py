@@ -60,12 +60,12 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
     add_btn = add_split_btn(split_section)
     expect(add_btn).to_be_disabled()
 
-    # Type an amount equal to the total → still disabled (no remainder)
+    # Type an amount equal to the total -> still disabled (no remainder)
     inp = new_amount_input(split_section, txn_id)
     inp.fill("125.00")
     expect(add_btn).to_be_disabled()
 
-    # Type a valid amount ($50.00) → button enabled
+    # Type a valid amount ($50.00) -> button enabled
     inp.fill("50.00")
     expect(add_btn).to_be_enabled()
 
@@ -93,14 +93,14 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
     page.wait_for_load_state("networkidle")
 
     # --- Delete the split ---
-    delete_btn = split_section.locator("button", has_text="✕")
+    delete_btn = split_section.locator("button", has_text="x")
     delete_btn.click()
     page.wait_for_load_state("networkidle")
 
     # Remainder row should be gone, form back to clean state
     expect(remainder_row(split_section)).not_to_be_visible()
 
-    # --- Close modal → row refreshes ---
+    # --- Close modal -> row refreshes ---
     close_modal(page, txn_id)
     row = page.locator(f"#txn-{txn_id}")
     expect(row).to_be_visible()
@@ -132,7 +132,7 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
     split_category.select_option(label="Entertainment")
     page.wait_for_load_state("networkidle")
 
-    # --- Attempt second split exceeding remainder → Alpine gate disabled ---
+    # --- Attempt second split exceeding remainder -> Alpine gate disabled ---
     add_btn = add_split_btn(split_section)
     inp.fill("120.00")
     expect(add_btn).to_be_disabled()
@@ -146,7 +146,7 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
     # Should now see two splits
     expect(split_section.locator("[data-split-row]")).to_have_count(2)
 
-    # --- Edit first split to consume total → PATCH 422 ---
+    # --- Edit first split to consume total -> PATCH 422 ---
     first_amount = split_section.locator("input[name='amount_dollars']").first
     first_amount.fill("125.00")
     first_amount.blur()
@@ -160,7 +160,7 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
     first_amount.blur()
     page.wait_for_load_state("networkidle")
 
-    # --- Close modal → row refreshes ---
+    # --- Close modal -> row refreshes ---
     close_modal(page, txn_id)
     row = page.locator(f"#txn-{txn_id}")
     expect(row).to_be_visible()
@@ -182,17 +182,17 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     inp = new_amount_input(split_section, txn_id)
     add_btn = add_split_btn(split_section)
 
-    # --- Add $50.00 → Utilities ---
+    # --- Add $50.00 -> Utilities ---
     inp.fill("50.00")
     add_btn.click()
     page.wait_for_load_state("networkidle")
 
-    # --- Add $40.00 → Shopping ---
+    # --- Add $40.00 -> Shopping ---
     inp.fill("40.00")
     add_btn.click()
     page.wait_for_load_state("networkidle")
 
-    # --- Add $20.00 → Entertainment ---
+    # --- Add $20.00 -> Entertainment ---
     inp.fill("20.00")
     add_btn.click()
     page.wait_for_load_state("networkidle")
@@ -200,12 +200,12 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     # Should have 3 split rows
     expect(split_section.locator("[data-split-row]")).to_have_count(3)
 
-    # --- Attempt 4th split ($20.00) → Alpine gate disabled (remainder $15) ---
+    # --- Attempt 4th split ($20.00) -> Alpine gate disabled (remainder $15) ---
     inp.fill("20.00")
     expect(add_btn).to_be_disabled()
 
     # --- Delete the middle split (index 1) ---
-    delete_btns = split_section.locator("button", has_text="✕")
+    delete_btns = split_section.locator("button", has_text="x")
     expect(delete_btns).to_have_count(3)
     delete_btns.nth(1).click()
     page.wait_for_load_state("networkidle")
@@ -213,7 +213,7 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     # Should now have 2 splits
     expect(split_section.locator("[data-split-row]")).to_have_count(2)
 
-    # --- Close modal → row refreshes ---
+    # --- Close modal -> row refreshes ---
     close_modal(page, txn_id)
     row = page.locator(f"#txn-{txn_id}")
     expect(row).to_be_visible()

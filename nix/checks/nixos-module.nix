@@ -1,4 +1,10 @@
-{ pkgs, inputs, flake, system, ... }:
+{
+  pkgs,
+  inputs,
+  flake,
+  system,
+  ...
+}:
 let
   # Evaluate the module with a minimal NixOS config
   eval = inputs.nixpkgs.lib.nixosSystem {

@@ -55,23 +55,17 @@ def build_filters(
     if date_to is not None:
         query = query.where(Transaction.date <= date_to)
     if internal_filter:
-        query = query.join(Transaction.internal).where(
-            Account.name == internal_filter
-        )
+        query = query.join(Transaction.internal).where(Account.name == internal_filter)
     if internal_id is not None:
         query = query.where(Transaction.internal_id == internal_id)
     if external_filter:
-        query = query.join(Transaction.external).where(
-            Account.name == external_filter
-        )
+        query = query.join(Transaction.external).where(Account.name == external_filter)
     if import_id is not None:
         query = query.where(Transaction.import_id == import_id)
     if category_filter == "__uncategorized__":
         query = query.where(Transaction.category_id.is_(None))
     elif category_filter:
-        query = query.join(Transaction.category).where(
-            Category.name == category_filter
-        )
+        query = query.join(Transaction.category).where(Category.name == category_filter)
     if description_filter:
         query = query.where(Transaction.description.ilike(f"%{description_filter}%"))
     if category_name_filter:
@@ -112,19 +106,13 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
         "marked_for_approval": txn.marked_for_approval,
         "ml_confidence": ml if ml else None,
         "category": (
-            {"id": txn.category.id, "name": txn.category.name}
-            if txn.category
-            else None
+            {"id": txn.category.id, "name": txn.category.name} if txn.category else None
         ),
         "external_account": (
-            {"id": txn.external.id, "name": txn.external.name}
-            if txn.external
-            else None
+            {"id": txn.external.id, "name": txn.external.name} if txn.external else None
         ),
         "internal_account": (
-            {"id": txn.internal.id, "name": txn.internal.name}
-            if txn.internal
-            else None
+            {"id": txn.internal.id, "name": txn.internal.name} if txn.internal else None
         ),
         "import_id": txn.import_id,
     }
@@ -179,14 +167,10 @@ async def query_transactions(
         ]
         if load_splits:
             options.append(
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                )
+                selectinload(Transaction.splits).selectinload(TransactionSplit.category)
             )
 
-        count_query = (
-            select(func.count()).select_from(Transaction).where(base_where)
-        )
+        count_query = select(func.count()).select_from(Transaction).where(base_where)
         count_query = build_filters(
             count_query,
             date_from=date_from,
@@ -208,9 +192,7 @@ async def query_transactions(
         page = min(page, total_pages)
         offset = (page - 1) * page_size
 
-        table_query = (
-            select(Transaction).where(base_where).options(*options)
-        )
+        table_query = select(Transaction).where(base_where).options(*options)
         table_query = build_filters(
             table_query,
             date_from=date_from,
@@ -227,10 +209,11 @@ async def query_transactions(
             internal_name_filter=internal_name_filter,
         )
 
-        # Resolve sort column — use correlated subqueries for related entity names
+        # Resolve sort column -- use correlated subqueries for related entity names
         # to avoid join conflicts with build_filters
         if sort_col == "category.name":
             from sqlalchemy import select as sa_select
+
             col = (
                 sa_select(Category.name)
                 .where(Category.id == Transaction.category_id)
@@ -239,6 +222,7 @@ async def query_transactions(
             )
         elif sort_col == "external_account.name":
             from sqlalchemy import select as sa_select
+
             col = (
                 sa_select(Account.name)
                 .where(Account.id == Transaction.external_id)
@@ -247,6 +231,7 @@ async def query_transactions(
             )
         elif sort_col == "internal_account.name":
             from sqlalchemy import select as sa_select
+
             col = (
                 sa_select(Account.name)
                 .where(Account.id == Transaction.internal_id)
@@ -264,9 +249,7 @@ async def query_transactions(
         else:
             table_query = table_query.order_by(col.desc())
 
-        result = await session.execute(
-            table_query.offset(offset).limit(page_size)
-        )
+        result = await session.execute(table_query.offset(offset).limit(page_size))
         transactions = result.scalars().all()
 
     return {
@@ -282,9 +265,7 @@ async def query_transactions(
 
 async def get_categories() -> list[dict]:
     async with async_session() as session:
-        result = await session.execute(
-            select(Category).order_by(Category.name)
-        )
+        result = await session.execute(select(Category).order_by(Category.name))
         return [{"id": c.id, "name": c.name} for c in result.scalars().all()]
 
 

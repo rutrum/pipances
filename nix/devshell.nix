@@ -1,18 +1,32 @@
-{ pkgs, inputs, perSystem, system, ... }:
+{
+  pkgs,
+  inputs,
+  perSystem,
+  system,
+  ...
+}:
 pkgs.mkShell {
   packages = with pkgs; [
     uv
     tailwindcss_4
     just
     nodejs
+    ast-grep
+    prek
+    typos
+    nixfmt
     perSystem.self.agent-browser
     perSystem.self.skills
     sqlite
   ];
-  env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-    pkgs.stdenv.cc.cc.lib
-  ];
-  env.AGENT_BROWSER_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
+
+  env = {
+    LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+      pkgs.stdenv.cc.cc.lib
+    ];
+    AGENT_BROWSER_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
+  };
+
   shellHook = ''
     ln -sf ${inputs.daisyui-css} daisyui.css
     mkdir -p static/js

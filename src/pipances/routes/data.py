@@ -82,6 +82,7 @@ async def data_accounts_page(request: Request):
     content_html = templates.get_template("data/_data_accounts.jinja2").render(
         {"accounts": accounts, "show_closed": show_closed}
     )
+
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",
@@ -92,10 +93,10 @@ async def data_accounts_page(request: Request):
 @router.post("/data/accounts", response_class=HTMLResponse)
 async def create_account(request: Request):
     form = await request.form()
-    name = form.get("name", "").strip()
-    kind = form.get("kind", "").strip()
-    balance_str = form.get("starting_balance", "").strip()
-    balance_date_str = form.get("balance_date", "").strip()
+    name = str(form.get("name", "")).strip()
+    kind = str(form.get("kind", "")).strip()
+    balance_str = str(form.get("starting_balance", "")).strip()
+    balance_date_str = str(form.get("balance_date", "")).strip()
 
     if not name or not kind:
         return HTMLResponse(
@@ -147,12 +148,12 @@ async def update_account(account_id: int, request: Request):
             return HTMLResponse("Not found", status_code=404)
 
         if "name" in form:
-            new_name = form["name"].strip()
+            new_name = str(form["name"]).strip()
             if new_name:
                 account.name = new_name
 
         if "kind" in form:
-            new_kind = form["kind"].strip()
+            new_kind = str(form["kind"]).strip()
             if new_kind.lower() == AccountKind.EXTERNAL:
                 return HTMLResponse(
                     '<div class="alert alert-error alert-sm">Account type cannot be "external".</div>',
@@ -162,14 +163,14 @@ async def update_account(account_id: int, request: Request):
                 account.kind = new_kind
 
         if "starting_balance" in form:
-            bal = form["starting_balance"].strip()
+            bal = str(form["starting_balance"]).strip()
             if bal:
                 account.starting_balance_cents = int(round(float(bal) * 100))
             else:
                 account.starting_balance_cents = 0
 
         if "balance_date" in form:
-            bd = form["balance_date"].strip()
+            bd = str(form["balance_date"]).strip()
             account.balance_date = safe_date(bd)
 
         if "active" in form:
@@ -350,7 +351,7 @@ async def update_category(category_id: int, request: Request):
             return HTMLResponse("Not found", status_code=404)
 
         if "name" in form:
-            new_name = form["name"].strip()
+            new_name = str(form["name"]).strip()
             if new_name:
                 category.name = new_name
 
@@ -625,9 +626,12 @@ def _discover_importers() -> list[dict]:
         name = path.stem
         try:
             spec = importlib.util.spec_from_file_location(f"importers.{name}", path)
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            display_name = getattr(mod, "IMPORTER_NAME", path.name)
+            if spec is None or spec.loader is None:
+                display_name = path.name
+            else:
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                display_name = getattr(mod, "IMPORTER_NAME", path.name)
         except Exception:
             display_name = path.name
         importers.append({"name": display_name, "filename": path.name})
@@ -685,7 +689,7 @@ async def data_imports_page(request: Request):
             "key": "filename",
             "label": "Filename",
             "type": "null_safe",
-            "null_value": "—",
+            "null_value": "--",
         },
         {
             "key": "imported_at",
@@ -697,7 +701,7 @@ async def data_imports_page(request: Request):
             "key": "row_count",
             "label": "Rows",
             "type": "null_safe",
-            "null_value": "—",
+            "null_value": "--",
         },
     ]
 

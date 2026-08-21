@@ -8,11 +8,17 @@
     {% set duplicates = (import_summary.duplicates or '0')|int %}
     {% set parts = [] %}
     {% set _ = parts.append('Imported ' ~ imported ~ ' transaction' ~ ('s' if imported != 1 else '')) %}
-    {% if duplicates > 0 %}{% set _ = parts.append(duplicates|string ~ ' duplicate' ~ ('s' if duplicates != 1 else '') ~ ' skipped') %}{% endif %}
-    {% if import_summary.date_min and import_summary.date_max %}{% set _ = parts.append(import_summary.date_min ~ ' to ' ~ import_summary.date_max) %}{% endif %}
-    {% if import_summary.account %}{% set _ = parts.append(import_summary.account) %}{% endif %}
+    {% if duplicates > 0 %}
+      {% set _ = parts.append(duplicates|string ~ ' duplicate' ~ ('s' if duplicates != 1 else '') ~ ' skipped') %}
+    {% endif %}
+    {% if import_summary.date_min and import_summary.date_max %}
+      {% set _ = parts.append(import_summary.date_min ~ ' to ' ~ import_summary.date_max) %}
+    {% endif %}
+    {% if import_summary.account %}
+      {% set _ = parts.append(import_summary.account) %}
+    {% endif %}
     <div class="alert alert-success">
-      <span>{{ parts | join(' · ') }}</span>
+      <span>{{ parts | join(" · ") }}</span>
     </div>
   {% endif %}
 {% endblock %}
@@ -165,75 +171,77 @@
         {% include "shared/_pagination.jinja2" %}
       </div>
       <script>
-      (function() {
-        var toolbar = document.getElementById('bulk-toolbar');
-        var countEl = document.getElementById('bulk-count');
-        var tbody = document.getElementById('inbox-table');
+          (function() {
+              var toolbar = document.getElementById('bulk-toolbar');
+              var countEl = document.getElementById('bulk-count');
+              var tbody = document.getElementById('inbox-table');
 
-        function getSelectAll() {
-          return document.getElementById('select-all');
-        }
+              function getSelectAll() {
+                  return document.getElementById('select-all');
+              }
 
-        function getCheckboxes() {
-          return tbody.querySelectorAll('.select-txn');
-        }
+              function getCheckboxes() {
+                  return tbody.querySelectorAll('.select-txn');
+              }
 
-        function getSelectedIds() {
-          var ids = [];
-          getCheckboxes().forEach(function(cb) {
-            if (cb.checked) ids.push(cb.dataset.txnId);
-          });
-          return ids;
-        }
+              function getSelectedIds() {
+                  var ids = [];
+                  getCheckboxes().forEach(function(cb) {
+                      if (cb.checked) ids.push(cb.dataset.txnId);
+                  });
+                  return ids;
+              }
 
-        var bulkInputs = toolbar.querySelectorAll('input, button');
+              var bulkInputs = toolbar.querySelectorAll('input, button');
 
-        function updateToolbar() {
-          var ids = getSelectedIds();
-          var hasSelection = ids.length > 0;
-          countEl.textContent = ids.length + ' selected';
-          bulkInputs.forEach(function(el) { el.disabled = !hasSelection; });
-          // Sync select-all state
-          var selectAll = getSelectAll();
-          var boxes = getCheckboxes();
-          selectAll.checked = boxes.length > 0 && ids.length === boxes.length;
-          selectAll.indeterminate = ids.length > 0 && ids.length < boxes.length;
-        }
+              function updateToolbar() {
+                  var ids = getSelectedIds();
+                  var hasSelection = ids.length > 0;
+                  countEl.textContent = ids.length + ' selected';
+                  bulkInputs.forEach(function(el) {
+                      el.disabled = !hasSelection;
+                  });
+                  // Sync select-all state
+                  var selectAll = getSelectAll();
+                  var boxes = getCheckboxes();
+                  selectAll.checked = boxes.length > 0 && ids.length === boxes.length;
+                  selectAll.indeterminate = ids.length > 0 && ids.length < boxes.length;
+              }
 
-        // Use event delegation on document so it survives OOB swaps of thead
-        document.addEventListener('change', function(e) {
-          if (e.target.id === 'select-all') {
-            var checked = e.target.checked;
-            getCheckboxes().forEach(function(cb) {
-              cb.checked = checked;
-            });
-            updateToolbar();
-          } else if (e.target.classList.contains('select-txn')) {
-            updateToolbar();
-          }
-        });
+              // Use event delegation on document so it survives OOB swaps of thead
+              document.addEventListener('change', function(e) {
+                  if (e.target.id === 'select-all') {
+                      var checked = e.target.checked;
+                      getCheckboxes().forEach(function(cb) {
+                          cb.checked = checked;
+                      });
+                      updateToolbar();
+                  } else if (e.target.classList.contains('select-txn')) {
+                      updateToolbar();
+                  }
+              });
 
-        // Re-sync toolbar after HTMX primary swaps (filter/pagination)
-        document.addEventListener('htmx:afterSwap', function(e) {
-          if (e.detail.target === tbody || tbody.contains(e.detail.target)) {
-            updateToolbar();
-          }
-        });
+              // Re-sync toolbar after HTMX primary swaps (filter/pagination)
+              document.addEventListener('htmx:afterSwap', function(e) {
+                  if (e.detail.target === tbody || tbody.contains(e.detail.target)) {
+                      updateToolbar();
+                  }
+              });
 
-        // Re-sync toolbar and clear inputs after bulk HTMX requests
-        document.addEventListener('htmx:afterRequest', function(e) {
-          var elt = e.detail.elt;
-          if (!elt) return;
-          if (elt.id === 'bulk-apply-btn' || elt.id === 'bulk-approve-btn') {
-            updateToolbar();
-            if (elt.id === 'bulk-apply-btn' && e.detail.successful) {
-              document.getElementById('bulk-description').value = '';
-              document.getElementById('bulk-category').value = '';
-              document.getElementById('bulk-external').value = '';
-            }
-          }
-        });
-      })();
+              // Re-sync toolbar and clear inputs after bulk HTMX requests
+              document.addEventListener('htmx:afterRequest', function(e) {
+                  var elt = e.detail.elt;
+                  if (!elt) return;
+                  if (elt.id === 'bulk-apply-btn' || elt.id === 'bulk-approve-btn') {
+                      updateToolbar();
+                      if (elt.id === 'bulk-apply-btn' && e.detail.successful) {
+                          document.getElementById('bulk-description').value = '';
+                          document.getElementById('bulk-category').value = '';
+                          document.getElementById('bulk-external').value = '';
+                      }
+                  }
+              });
+          })();
       </script>
       <!-- Modal container for transaction edit modal -->
       <div id="edit-modal-container"></div>

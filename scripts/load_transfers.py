@@ -3,25 +3,25 @@
 
 import argparse
 import asyncio
+
+# Add src to path
+import sys
 from pathlib import Path
 
 import polars as pl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-# Add src to path
-import sys
-
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from pipances.models import (
     Account,
     AccountKind,
+    Base,
     Category,
     Import,
     Transaction,
     TransactionStatus,
-    Base,
 )
 
 
@@ -117,7 +117,6 @@ def main():
     engine = create_async_engine(db_url)
 
     # Create tables if they don't exist
-    import sqlalchemy
     from sqlalchemy import event
 
     @event.listens_for(engine.sync_engine, "connect")
@@ -125,9 +124,6 @@ def main():
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys = ON")
         cursor.close()
-
-    import asyncio
-    from sqlalchemy.ext.asyncio import AsyncEngine
 
     async def _create_tables():
         async with engine.begin() as conn:

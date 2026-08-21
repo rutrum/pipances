@@ -4,14 +4,14 @@ UI tests for the individual row Approve button in the inbox.
 Business rules under test:
   - Both description AND external are required to enable Approve
   - Category is the only nullable field
-  - Clicking Approve marks the row — it does NOT change the inbox badge
+  - Clicking Approve marks the row -- it does NOT change the inbox badge
     (badge only changes on commit)
   - Approved/Approve is a toggle: clicking Approved reverts back
   - approved state is persisted to DB (survives page refresh)
 
 Fixtures:
-  description_only_txn    — description set, external NULL  → Approve should be DISABLED
-  description_and_external_txn — description + external set, category NULL → Approve ENABLED
+  description_only_txn    -- description set, external NULL  -> Approve should be DISABLED
+  description_and_external_txn -- description + external set, category NULL -> Approve ENABLED
 """
 
 import re
@@ -19,7 +19,7 @@ import re
 from playwright.sync_api import Page, expect
 
 # ============================================================
-# 3a: Disabled — no description, no external
+# 3a: Disabled -- no description, no external
 # ============================================================
 
 
@@ -39,7 +39,7 @@ def test_approve_btn_disabled_no_description(page: Page, goto):
 
 
 # ============================================================
-# 3b: Disabled — description set but external is NULL
+# 3b: Disabled -- description set but external is NULL
 # ============================================================
 
 
@@ -49,7 +49,7 @@ def test_approve_btn_disabled_description_only_no_external(
     """
     GIVEN a pending transaction with description set but external_id NULL
     THEN  its Approve button is disabled
-    BUG:  Row template currently only checks txn.description — external is NOT
+    BUG:  Row template currently only checks txn.description -- external is NOT
           checked.  This test is expected to FAIL until the template is fixed.
     """
     txn_id = description_only_txn
@@ -61,7 +61,7 @@ def test_approve_btn_disabled_description_only_no_external(
 
 
 # ============================================================
-# 3c: Enabled — description + external set, category NULL
+# 3c: Enabled -- description + external set, category NULL
 # ============================================================
 
 
@@ -82,7 +82,7 @@ def test_approve_btn_enabled_description_and_external(
 
 
 # ============================================================
-# 3d: Click Approve — row updates in place
+# 3d: Click Approve -- row updates in place
 # ============================================================
 
 
@@ -100,14 +100,14 @@ def test_approve_click_flips_row_to_approved(
     row = page.locator(f"#txn-{txn_id}")
     row.locator("button[hx-patch]", has_text="Approve").click()
 
-    # Row re-renders in place — wait for the Approved button to appear
+    # Row re-renders in place -- wait for the Approved button to appear
     expect(row.locator("button", has_text="Approved")).to_be_visible()
     # Row should have the approved background style
     expect(row).to_have_class(re.compile(r"bg-success"))
 
 
 # ============================================================
-# 3f: Category NULL is allowed — approve still works
+# 3f: Category NULL is allowed -- approve still works
 # ============================================================
 
 
@@ -126,7 +126,7 @@ def test_approve_succeeds_with_null_category(
 
 
 # ============================================================
-# 3g: Unapprove — clicking Approved reverts the row
+# 3g: Unapprove -- clicking Approved reverts the row
 # ============================================================
 
 
@@ -160,7 +160,7 @@ def test_approved_btn_click_reverts_to_approve(
 
 def test_reapprove_after_unapprove(page: Page, goto, description_and_external_txn):
     """
-    GIVEN the full approve → unapprove → approve cycle
+    GIVEN the full approve -> unapprove -> approve cycle
     THEN  the row ends in the Approved state with no errors
     """
     txn_id, _ext_name = description_and_external_txn

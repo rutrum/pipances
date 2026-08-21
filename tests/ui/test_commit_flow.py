@@ -7,7 +7,7 @@ previously returned all remaining rows instead of one page).
 
 Test isolation: each test uses `approvable_txn` which marks one pending
 transaction with a description, then fully restores it (including status)
-after the test — so the session DB always has a consistent 20 pending
+after the test -- so the session DB always has a consistent 20 pending
 transactions at the start of each test.
 """
 
@@ -207,7 +207,7 @@ def test_confirm_table_respects_page_size(page: Page, goto, bulk_pending_txns):
 
     rows = page.locator("#inbox-table tr").count()
     assert rows <= 25, (
-        f"Expected ≤25 rows (page_size=25), got {rows} — "
+        f"Expected <=25 rows (page_size=25), got {rows} -- "
         "commit is dumping all remaining rows instead of one page"
     )
 
@@ -232,7 +232,7 @@ def test_confirm_pagination_total_reflects_remaining(
     THEN  pagination total reflects the new remaining count
 
     Setup: 30 pending (seed 20 + fixture 10), page_size=25 (default).
-    After committing 1: 29 remaining → ceil(29/25) = 2 pages → "Page 1 of 2".
+    After committing 1: 29 remaining -> ceil(29/25) = 2 pages -> "Page 1 of 2".
     Reads badge before committing so the assertion doesn't hardcode seed numbers.
     """
     goto("/inbox")
