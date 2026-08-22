@@ -1,7 +1,5 @@
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
@@ -19,9 +17,7 @@ from pipances.routes.import_page import router as import_router
 from pipances.routes.inbox import router as inbox_router
 from pipances.routes.transactions import router as transactions_router
 from pipances.routes.widgets import router as widgets_router
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-STATIC_DIR = Path(os.environ.get("PIPANCES_STATIC_DIR", str(PROJECT_ROOT / "static")))
+from pipances.settings import settings
 
 
 @asynccontextmanager
@@ -33,7 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(lifespan=lifespan)
 app.mount(
     "/static",
-    StaticFiles(directory=STATIC_DIR, follow_symlink=True),
+    StaticFiles(directory=settings.static_dir, follow_symlink=True),
     name="static",
 )
 

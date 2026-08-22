@@ -1,12 +1,10 @@
-from pathlib import Path
-
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
 from pipances.models import Transaction, TransactionStatus
+from pipances.settings import settings
 
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
+templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 async def shared_context(active_page: str, session) -> dict:

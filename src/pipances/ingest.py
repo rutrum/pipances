@@ -1,11 +1,9 @@
 import importlib.util
 import logging
-import os
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
 from typing import cast
 
 import patito as pt
@@ -23,13 +21,9 @@ from pipances.models import (
 )
 from pipances.predict import TransactionPredictor
 from pipances.schemas import ImportedTransaction
+from pipances.settings import settings
 
 logger = logging.getLogger(__name__)
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-IMPORTERS_DIR = Path(
-    os.environ.get("PIPANCES_IMPORTERS_DIR", str(PROJECT_ROOT / "importers"))
-)
 
 
 @dataclass
@@ -51,10 +45,10 @@ class ImporterInfo:
 def discover_importers() -> dict[str, ImporterInfo]:
     importers: dict[str, ImporterInfo] = {}
 
-    if not IMPORTERS_DIR.is_dir():
+    if not settings.importers_dir.is_dir():
         return importers
 
-    for path in sorted(IMPORTERS_DIR.glob("*.py")):
+    for path in sorted(settings.importers_dir.glob("*.py")):
         if path.name.startswith("_"):
             continue
 

@@ -15,6 +15,7 @@ dependencies = [
   "patito>=0.8.6",
   "polars>=1.39.2",
   "pyarrow>=23.0.1",
+  "pydantic-settings>=2.15.0",
   "python-multipart>=0.0.22",
   "scikit-learn>=1.8.0",
   "sqlalchemy[asyncio]>=2.0.48",

@@ -18,10 +18,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-# ---- Confidence constants --------------------------------------------------------------------------------------------
-SIMILARITY_FLOOR = 0.4  # Minimum cosine similarity to consider a neighbor
-AGREEMENT_THRESHOLD = 0.6  # Minimum weighted agreement to suggest a value
-K_NEIGHBORS = 10  # Number of neighbors to retrieve
+from pipances.settings import settings
 
 # ---- Two-stage ranking adjustment factors --------------------------------------------------------------
 # These factors are applied multiplicatively to adjust text-based similarities
@@ -199,7 +196,7 @@ class TransactionPredictor:
         else:
             combined = np.hstack([text_features, structured_features])
 
-        k = min(K_NEIGHBORS, len(raw_descriptions))
+        k = min(settings.ml_k_neighbors, len(raw_descriptions))
         knn = NearestNeighbors(n_neighbors=k, metric="cosine", algorithm="brute")
         knn.fit(combined)
 
@@ -262,7 +259,8 @@ class TransactionPredictor:
 
         Returns:
             List of TransactionPrediction, one per input transaction.
-            Fields are only populated if confidence exceeds thresholds (SIMILARITY_FLOOR, AGREEMENT_THRESHOLD).
+            Fields are only populated if confidence exceeds thresholds
+            (settings.ml_similarity_floor, settings.ml_agreement_threshold).
         """
         if self._text_knn is None or not raw_descriptions:
             return [TransactionPrediction() for _ in raw_descriptions]
@@ -478,7 +476,7 @@ class TransactionPredictor:
         votes: dict[object, float] = {}
         total_weight = 0.0
         for sim, idx in zip(similarities, neighbor_indices, strict=True):
-            if sim < SIMILARITY_FLOOR:
+            if sim < settings.ml_similarity_floor:
                 continue
             label = labels[idx]
             if label is None:
@@ -493,7 +491,7 @@ class TransactionPredictor:
         winner = max(votes, key=lambda k: votes[k])
         confidence = votes[winner] / total_weight
 
-        if confidence < AGREEMENT_THRESHOLD:
+        if confidence < settings.ml_agreement_threshold:
             return None
 
         return FieldPrediction(value=winner, confidence=round(confidence, 4))

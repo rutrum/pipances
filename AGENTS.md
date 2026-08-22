@@ -24,6 +24,7 @@ A self hosted personal finances app, with a focus on machine learning automation
 - refer to the daisy UI skill when considering styling
 - prefer out of the box DaisyUI styling before adding additional classes
 - add specificity on user request
+- constants, configuration variables, and settings are all defined in Settings() in settings.py
 
 ## Build and Run and Lint
 

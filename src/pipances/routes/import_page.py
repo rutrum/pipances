@@ -1,11 +1,8 @@
 import html as html_mod
 import logging
-import os
-import tempfile
 import time
 import uuid
 from datetime import date
-from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
@@ -22,40 +19,36 @@ from pipances.ingest import (
 from pipances.models import Account, AccountKind, Import, Transaction, TransactionStatus
 from pipances.routes._utils import shared_context, templates
 from pipances.schemas import ImportedTransaction
+from pipances.settings import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-TEMP_DIR = (
-    Path(os.environ.get("PIPANCES_TEMP_DIR", tempfile.gettempdir()))
-    / "pipances_imports"
-)
-
 
 def _cleanup_stale_temp_files(max_age_seconds: int = 3600) -> None:
     """Delete temp files older than max_age_seconds."""
-    if not TEMP_DIR.exists():
+    if not settings.temp_dir.exists():
         return
     now = time.time()
-    for f in TEMP_DIR.glob("import_*.csv"):
+    for f in settings.temp_dir.glob("import_*.csv"):
         if now - f.stat().st_mtime > max_age_seconds:
             f.unlink(missing_ok=True)
 
 
 def _save_temp_file(blob: bytes) -> str:
     """Save blob to a temp file, return the token (uuid)."""
-    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    settings.temp_dir.mkdir(parents=True, exist_ok=True)
     _cleanup_stale_temp_files()
     token = uuid.uuid4().hex
-    path = TEMP_DIR / f"import_{token}.csv"
+    path = settings.temp_dir / f"import_{token}.csv"
     path.write_bytes(blob)
     return token
 
 
 def _read_temp_file(token: str) -> bytes | None:
     """Read a temp file by token. Returns None if not found."""
-    path = TEMP_DIR / f"import_{token}.csv"
+    path = settings.temp_dir / f"import_{token}.csv"
     if not path.exists():
         return None
     return path.read_bytes()
@@ -63,7 +56,7 @@ def _read_temp_file(token: str) -> bytes | None:
 
 def _delete_temp_file(token: str) -> None:
     """Delete a temp file by token."""
-    path = TEMP_DIR / f"import_{token}.csv"
+    path = settings.temp_dir / f"import_{token}.csv"
     path.unlink(missing_ok=True)
 
 

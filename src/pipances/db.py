@@ -1,16 +1,10 @@
-import os
-from pathlib import Path
-
 from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from pipances.models import Base
+from pipances.settings import settings
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DB_PATH = Path(os.environ.get("PIPANCES_DB_PATH", str(PROJECT_ROOT / "pipances.db")))
-DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
-
-engine = create_async_engine(DATABASE_URL)
+engine = create_async_engine(settings.database_url)
 
 
 @event.listens_for(engine.sync_engine, "connect")

@@ -115,12 +115,12 @@ async def test_preview_valid_csv_creates_temp_file(client, seed_accounts):
     # Extract token and verify the temp file exists
     import re
 
-    from pipances.routes.import_page import TEMP_DIR
+    from pipances.settings import settings
 
     token_match = re.search(r'name="token"\s+value="([^"]+)"', resp.text)
     assert token_match
     token = token_match.group(1)
-    assert (TEMP_DIR / f"import_{token}.csv").exists()
+    assert (settings.temp_dir / f"import_{token}.csv").exists()
 
 
 async def test_preview_unparseable_csv_returns_error(client, seed_accounts):
