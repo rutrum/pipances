@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from pipances.db import async_session
+from pipances.db import Database, DatabaseDep
 from pipances.ingest import _resolve_account
 from pipances.models import (
     Account,
@@ -24,13 +24,16 @@ SORT_COLUMNS = {
 
 
 @router.patch("/transactions/bulk", response_class=HTMLResponse)
-async def bulk_update_transactions(request: Request):
+async def bulk_update_transactions(
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
     form = await request.form()
     ids = [int(str(i)) for i in form.getlist("ids") if str(i).strip()]
     if not ids:
         return HTMLResponse("No IDs provided", status_code=400)
 
-    async with async_session() as session:
+    async with database.session() as session:
         result = await session.execute(
             select(Transaction)
             .where(Transaction.id.in_(ids))
@@ -106,9 +109,13 @@ async def bulk_update_transactions(request: Request):
 
 
 @router.patch("/transactions/{txn_id}", response_class=HTMLResponse)
-async def update_transaction(txn_id: int, request: Request):
+async def update_transaction(
+    txn_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     form = await request.form()
-    async with async_session() as session:
+    async with database.session() as session:
         txn = await session.get(
             Transaction,
             txn_id,
@@ -237,9 +244,13 @@ async def update_transaction(txn_id: int, request: Request):
 
 
 @router.get("/transactions/{txn_id}/edit-modal", response_class=HTMLResponse)
-async def edit_modal(txn_id: int, request: Request):
+async def edit_modal(
+    txn_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     """Load transaction edit modal with pre-filled form."""
-    async with async_session() as session:
+    async with database.session() as session:
         txn = await session.get(
             Transaction,
             txn_id,
@@ -282,9 +293,11 @@ async def edit_modal(txn_id: int, request: Request):
         )
 
 
-async def _render_splits_section(request: Request, txn: Transaction) -> str:
+async def _render_splits_section(
+    request: Request, txn: Transaction, database: Database
+) -> str:
     """Render the splits section partial for the given transaction."""
-    async with async_session() as session:
+    async with database.session() as session:
         categories_result = await session.execute(
             select(Category).order_by(Category.name)
         )
@@ -310,9 +323,13 @@ async def _render_splits_section(request: Request, txn: Transaction) -> str:
 
 
 @router.post("/transactions/{txn_id}/splits", response_class=HTMLResponse)
-async def create_split(txn_id: int, request: Request):
+async def create_split(
+    txn_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
     form = await request.form()
-    async with async_session() as session:
+    async with database.session() as session:
         txn = await session.get(
             Transaction,
             txn_id,
@@ -368,14 +385,19 @@ async def create_split(txn_id: int, request: Request):
         await session.commit()
         await session.refresh(txn, ["splits"])
 
-    html = await _render_splits_section(request, txn)
+    html = await _render_splits_section(request, txn, database)
     return HTMLResponse(html)
 
 
 @router.patch("/transactions/{txn_id}/splits/{split_id}", response_class=HTMLResponse)
-async def update_split(txn_id: int, split_id: int, request: Request):
+async def update_split(
+    txn_id: int,
+    split_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
     form = await request.form()
-    async with async_session() as session:
+    async with database.session() as session:
         split = await session.get(TransactionSplit, split_id)
         if split is None or split.transaction_id != txn_id:
             return HTMLResponse("Not found", status_code=404)
@@ -432,13 +454,18 @@ async def update_split(txn_id: int, split_id: int, request: Request):
         await session.commit()
         await session.refresh(txn, ["splits"])
 
-    html = await _render_splits_section(request, txn)
+    html = await _render_splits_section(request, txn, database)
     return HTMLResponse(html)
 
 
 @router.delete("/transactions/{txn_id}/splits/{split_id}", response_class=HTMLResponse)
-async def delete_split(txn_id: int, split_id: int, request: Request):
-    async with async_session() as session:
+async def delete_split(
+    txn_id: int,
+    split_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
+    async with database.session() as session:
         split = await session.get(TransactionSplit, split_id)
         if split is None or split.transaction_id != txn_id:
             return HTMLResponse("Not found", status_code=404)
@@ -459,14 +486,18 @@ async def delete_split(txn_id: int, split_id: int, request: Request):
         await session.commit()
         await session.refresh(txn, ["splits"])
 
-    html = await _render_splits_section(request, txn)
+    html = await _render_splits_section(request, txn, database)
     return HTMLResponse(html)
 
 
 @router.get("/transactions/{txn_id}/row", response_class=HTMLResponse)
-async def transaction_row(txn_id: int, request: Request):
+async def transaction_row(
+    txn_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     """Get a single transaction row for refreshing after modal close."""
-    async with async_session() as session:
+    async with database.session() as session:
         txn = await session.get(
             Transaction,
             txn_id,

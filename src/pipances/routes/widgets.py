@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
-from pipances.db import async_session
+from pipances.db import DatabaseDep
 from pipances.models import Account, Category, Transaction
 from pipances.routes._utils import templates
 from pipances.utils import escape_like
@@ -11,12 +11,16 @@ router = APIRouter()
 
 
 @router.get("/api/combo/{entity}", response_class=HTMLResponse)
-async def combo_search(entity: str, request: Request):
+async def combo_search(
+    entity: str,
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
     q = request.query_params.get("q", "").strip()
     txn_id = request.query_params.get("txn_id", "")
     field_name = request.query_params.get("field", "")
 
-    async with async_session() as session:
+    async with database.session() as session:
         if entity == "categories":
             query = select(Category).order_by(Category.name)
             if q:

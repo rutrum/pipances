@@ -2,6 +2,7 @@ import html as html_mod
 import logging
 import time
 import uuid
+from collections.abc import Sequence
 from datetime import date
 from urllib.parse import urlencode
 
@@ -9,7 +10,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 
-from pipances.db import async_session
+from pipances.db import Database, DatabaseDep
 from pipances.ingest import (
     discover_importers,
     ingest,
@@ -60,8 +61,8 @@ def _delete_temp_file(token: str) -> None:
     path.unlink(missing_ok=True)
 
 
-async def _get_active_accounts():
-    async with async_session() as session:
+async def _get_active_accounts(database: Database) -> Sequence[Account]:
+    async with database.session() as session:
         result = await session.execute(
             select(Account).where(
                 Account.active == True, Account.kind != AccountKind.EXTERNAL
@@ -71,8 +72,11 @@ async def _get_active_accounts():
 
 
 @router.get("/import", response_class=HTMLResponse)
-async def import_page(request: Request):
-    async with async_session() as session:
+async def import_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         shared = await shared_context("import", session)
         result = await session.execute(select(Account).where(Account.active == True))
         accounts = result.scalars().all()
@@ -91,8 +95,11 @@ async def import_page(request: Request):
 
 
 @router.get("/import/csv", response_class=HTMLResponse)
-async def import_csv_partial(request: Request):
-    accounts = await _get_active_accounts()
+async def import_csv_partial(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    accounts = await _get_active_accounts(database)
     return templates.TemplateResponse(
         request,
         "import/_import_csv.jinja2",
@@ -101,8 +108,11 @@ async def import_csv_partial(request: Request):
 
 
 @router.get("/import/manual", response_class=HTMLResponse)
-async def import_manual_partial(request: Request):
-    accounts = await _get_active_accounts()
+async def import_manual_partial(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    accounts = await _get_active_accounts(database)
     return templates.TemplateResponse(
         request,
         "import/_import_manual.jinja2",
@@ -116,7 +126,10 @@ async def import_manual_row(request: Request):
 
 
 @router.post("/import/preview", response_class=HTMLResponse)
-async def import_preview(request: Request):
+async def import_preview(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     form = await request.form()
     file = form.get("file")
     if file is None or isinstance(file, str):
@@ -153,7 +166,7 @@ async def import_preview(request: Request):
             )
 
         token = _save_temp_file(blob)
-        accounts = await _get_active_accounts()
+        accounts = await _get_active_accounts(database)
 
         # If only one importer matched, auto-select it
         if len(successes) == 1:
@@ -190,7 +203,10 @@ async def import_preview(request: Request):
 
 
 @router.post("/import/preview/dedup", response_class=HTMLResponse)
-async def import_preview_dedup(request: Request):
+async def import_preview_dedup(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     form = await request.form()
     token = str(form.get("token", ""))
     importer_key = str(form.get("importer", ""))
@@ -220,7 +236,7 @@ async def import_preview_dedup(request: Request):
             row["amount_cents"] = int(round(row["amount"] * 100))
 
         if account_name:
-            duplicate_flags = await preview_dedup(df, account_name)
+            duplicate_flags = await preview_dedup(database, df, account_name)
             dupe_count = sum(duplicate_flags)
             new_count = len(rows) - dupe_count
         else:
@@ -228,7 +244,7 @@ async def import_preview_dedup(request: Request):
             dupe_count = 0
             new_count = len(rows)
 
-        accounts = await _get_active_accounts()
+        accounts = await _get_active_accounts(database)
 
         return templates.TemplateResponse(
             request,
@@ -255,7 +271,10 @@ async def import_preview_dedup(request: Request):
 
 
 @router.post("/import/commit")
-async def import_commit(request: Request):
+async def import_commit(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     form = await request.form()
     token = str(form.get("token", ""))
     importer_key = str(form.get("importer", ""))
@@ -287,6 +306,7 @@ async def import_commit(request: Request):
         df = ImportedTransaction.validate(df)
 
         result = await ingest(
+            database,
             df,
             internal_account=account_name,
             importer_name=importer_info.name,
@@ -315,7 +335,10 @@ async def import_commit(request: Request):
 
 
 @router.post("/import/manual")
-async def import_manual_submit(request: Request):
+async def import_manual_submit(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     form = await request.form()
     account_name = str(form.get("account", ""))
 
@@ -367,7 +390,7 @@ async def import_manual_submit(request: Request):
         )
 
     try:
-        async with async_session() as session:
+        async with database.session() as session:
             internal = await session.scalar(
                 select(Account).where(Account.name == account_name)
             )
@@ -418,7 +441,7 @@ async def import_manual_submit(request: Request):
         if new_txn_ids:
             from pipances.ingest import _predict_for_transactions
 
-            await _predict_for_transactions(new_txn_ids)
+            await _predict_for_transactions(database, new_txn_ids)
 
         date_min = min(all_dates) if all_dates else None
         date_max = max(all_dates) if all_dates else None

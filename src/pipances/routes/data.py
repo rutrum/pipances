@@ -1,13 +1,13 @@
 import importlib.util
 from math import ceil
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from pipances.db import async_session
+from pipances.db import DatabaseDep
 from pipances.models import (
     Account,
     AccountKind,
@@ -32,7 +32,7 @@ def _data_page_ctx(section: str, shared: dict, **extra) -> dict:
 
 
 @router.get("/data")
-async def data_redirect():
+async def data_redirect() -> RedirectResponse:
     return RedirectResponse(url="/data/accounts")
 
 
@@ -40,9 +40,12 @@ async def data_redirect():
 
 
 @router.get("/data/accounts", response_class=HTMLResponse)
-async def data_accounts_page(request: Request):
+async def data_accounts_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     show_closed = request.query_params.get("show_closed", "false") == "true"
-    async with async_session() as session:
+    async with database.session() as session:
         shared = await shared_context("data", session)
         query = (
             select(Account)
@@ -84,7 +87,10 @@ async def data_accounts_page(request: Request):
 
 
 @router.post("/data/accounts", response_class=HTMLResponse)
-async def create_account(request: Request):
+async def create_account(
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
     form = await request.form()
     name = str(form.get("name", "")).strip()
     kind = str(form.get("kind", "")).strip()
@@ -109,7 +115,7 @@ async def create_account(request: Request):
 
     balance_date = safe_date(balance_date_str)
 
-    async with async_session() as session:
+    async with database.session() as session:
         account = Account(
             name=name,
             kind=kind,
@@ -133,9 +139,13 @@ async def create_account(request: Request):
 
 
 @router.patch("/accounts/{account_id}", response_class=HTMLResponse)
-async def update_account(account_id: int, request: Request):
+async def update_account(
+    account_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
     form = await request.form()
-    async with async_session() as session:
+    async with database.session() as session:
         account = await session.get(Account, account_id)
         if account is None:
             return HTMLResponse("Not found", status_code=404)
@@ -191,8 +201,12 @@ async def update_account(account_id: int, request: Request):
 
 
 @router.get("/accounts/{account_id}/edit-name", response_class=HTMLResponse)
-async def edit_account_name(account_id: int, request: Request):
-    async with async_session() as session:
+async def edit_account_name(
+    account_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         account = await session.get(Account, account_id)
     if account is None:
         return HTMLResponse("Not found", status_code=404)
@@ -209,8 +223,12 @@ async def edit_account_name(account_id: int, request: Request):
 
 
 @router.get("/accounts/{account_id}/edit-type", response_class=HTMLResponse)
-async def edit_account_type(account_id: int, request: Request):
-    async with async_session() as session:
+async def edit_account_type(
+    account_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         account = await session.get(Account, account_id)
     if account is None:
         return HTMLResponse("Not found", status_code=404)
@@ -227,8 +245,12 @@ async def edit_account_type(account_id: int, request: Request):
 
 
 @router.get("/accounts/{account_id}/edit-balance", response_class=HTMLResponse)
-async def edit_account_balance(account_id: int, request: Request):
-    async with async_session() as session:
+async def edit_account_balance(
+    account_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         account = await session.get(Account, account_id)
     if account is None:
         return HTMLResponse("Not found", status_code=404)
@@ -247,8 +269,12 @@ async def edit_account_balance(account_id: int, request: Request):
 
 
 @router.get("/accounts/{account_id}/edit-balance-date", response_class=HTMLResponse)
-async def edit_account_balance_date(account_id: int, request: Request):
-    async with async_session() as session:
+async def edit_account_balance_date(
+    account_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         account = await session.get(Account, account_id)
     if account is None:
         return HTMLResponse("Not found", status_code=404)
@@ -271,8 +297,11 @@ async def edit_account_balance_date(account_id: int, request: Request):
 
 
 @router.get("/data/categories", response_class=HTMLResponse)
-async def data_categories_page(request: Request):
-    async with async_session() as session:
+async def data_categories_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         shared = await shared_context("data", session)
         query = (
             select(
@@ -336,9 +365,13 @@ async def data_categories_page(request: Request):
 
 
 @router.patch("/categories/{category_id}", response_class=HTMLResponse)
-async def update_category(category_id: int, request: Request):
+async def update_category(
+    category_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> HTMLResponse:
     form = await request.form()
-    async with async_session() as session:
+    async with database.session() as session:
         category = await session.get(Category, category_id)
         if category is None:
             return HTMLResponse("Not found", status_code=404)
@@ -378,8 +411,12 @@ async def update_category(category_id: int, request: Request):
 
 
 @router.get("/categories/{category_id}/edit-name", response_class=HTMLResponse)
-async def edit_category_name(category_id: int, request: Request):
-    async with async_session() as session:
+async def edit_category_name(
+    category_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         category = await session.get(Category, category_id)
     if category is None:
         return HTMLResponse("Not found", status_code=404)
@@ -417,7 +454,10 @@ def _build_filters(
 
 
 @router.get("/data/transactions", response_class=HTMLResponse)
-async def data_transactions_page(request: Request):
+async def data_transactions_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     params = request.query_params
 
     preset = params.get("preset", "all")
@@ -433,7 +473,7 @@ async def data_transactions_page(request: Request):
 
     date_from, date_to = compute_date_range(preset, date_from_str, date_to_str)
 
-    async with async_session() as session:
+    async with database.session() as session:
         base_where = Transaction.status.in_(
             [TransactionStatus.APPROVED, TransactionStatus.PENDING]
         )
@@ -555,8 +595,11 @@ async def data_transactions_page(request: Request):
 
 
 @router.get("/data/external-accounts", response_class=HTMLResponse)
-async def data_external_accounts_page(request: Request):
-    async with async_session() as session:
+async def data_external_accounts_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         shared = await shared_context("data", session)
         query = (
             select(
@@ -632,8 +675,11 @@ def _discover_importers() -> list[dict]:
 
 
 @router.get("/data/importers", response_class=HTMLResponse)
-async def data_importers_page(request: Request):
-    async with async_session() as session:
+async def data_importers_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         shared = await shared_context("data", session)
 
     importers = _discover_importers()
@@ -668,8 +714,11 @@ async def data_importers_page(request: Request):
 
 
 @router.get("/data/imports", response_class=HTMLResponse)
-async def data_imports_page(request: Request):
-    async with async_session() as session:
+async def data_imports_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         shared = await shared_context("data", session)
         result = await session.execute(
             select(Import).order_by(Import.imported_at.desc())

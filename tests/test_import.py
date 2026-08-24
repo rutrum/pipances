@@ -60,34 +60,36 @@ def test_try_all_importers_garbage():
     assert len(successes) == 0
 
 
-async def test_preview_dedup_flags_existing(session, seed_accounts):
+async def test_preview_dedup_flags_existing(database, session, seed_accounts):
     from pipances.ingest import ingest
 
     df = _make_df(
         [{"date": date(2026, 1, 15), "amount": 19.99, "description": "Coffee"}]
     )
-    await ingest(df, internal_account="Checking", importer_name="test")
+    await ingest(database, df, internal_account="Checking", importer_name="test")
 
-    flags = await preview_dedup(df, "Checking")
+    flags = await preview_dedup(database, df, "Checking")
     assert flags == [True]
 
 
-async def test_preview_dedup_no_dupes_empty_db(session, seed_accounts):
+async def test_preview_dedup_no_dupes_empty_db(database, session, seed_accounts):
     df = _make_df(
         [{"date": date(2026, 1, 15), "amount": 19.99, "description": "Coffee"}]
     )
-    flags = await preview_dedup(df, "Checking")
+    flags = await preview_dedup(database, df, "Checking")
     assert flags == [False]
 
 
-async def test_preview_dedup_same_file_dupes_not_flagged(session, seed_accounts):
+async def test_preview_dedup_same_file_dupes_not_flagged(
+    database, session, seed_accounts
+):
     df = _make_df(
         [
             {"date": date(2026, 1, 15), "amount": 5.00, "description": "Coffee"},
             {"date": date(2026, 1, 15), "amount": 5.00, "description": "Coffee"},
         ]
     )
-    flags = await preview_dedup(df, "Checking")
+    flags = await preview_dedup(database, df, "Checking")
     assert flags == [False, False]
 
 
@@ -188,14 +190,16 @@ async def test_commit_nonexistent_account(client, seed_accounts):
     assert "not found" in resp.text.lower()
 
 
-async def test_dedup_endpoint_shows_strikethrough(client, session, seed_accounts):
+async def test_dedup_endpoint_shows_strikethrough(
+    client, database, session, seed_accounts
+):
     from pipances.ingest import ingest
 
     # First ingest the data so it's in the DB
     df = _make_df(
         [{"date": date(2026, 1, 15), "amount": 19.99, "description": "Coffee"}]
     )
-    await ingest(df, internal_account="Checking", importer_name="test")
+    await ingest(database, df, internal_account="Checking", importer_name="test")
 
     # Preview the same data
     csv_data = b"date,amount,description\n2026-01-15,19.99,Coffee\n"

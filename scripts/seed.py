@@ -11,7 +11,7 @@ import random
 from datetime import date, timedelta
 from typing import TypedDict
 
-from pipances.db import async_session, create_tables
+from pipances.db import Database
 from pipances.models import (
     Account,
     AccountKind,
@@ -20,6 +20,7 @@ from pipances.models import (
     Transaction,
     TransactionStatus,
 )
+from pipances.settings import settings
 
 random.seed(42)
 
@@ -348,9 +349,10 @@ def credit_cards_for_month(year: int, month: int) -> list[str]:
 
 
 async def seed():
-    await create_tables()
+    database = Database(settings.database_url)
+    await database.create_tables()
 
-    async with async_session() as session:
+    async with database.session() as session:
         # === Create internal accounts ===
         internal_map: dict[str, Account] = {}
         for acct_data in INTERNAL_ACCOUNTS:

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from pipances.db import create_tables
+from pipances.db import Database
 from pipances.routes.api.explore import router as api_explore_router
 from pipances.routes.api.imports import router as api_imports_router
 from pipances.routes.api.inbox import router as api_inbox_router
@@ -22,8 +22,11 @@ from pipances.settings import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    await create_tables()
+    database = Database(settings.database_url)
+    await database.create_tables()
+    app.state.database = database
     yield
+    await database.dispose()
 
 
 app = FastAPI(lifespan=lifespan)

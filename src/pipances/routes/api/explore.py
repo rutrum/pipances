@@ -9,6 +9,7 @@ from pipances.charts import (
     top_expenses_chart,
     weekly_spending_chart,
 )
+from pipances.db import DatabaseDep
 from pipances.routes.api.queries import query_transactions
 from pipances.routes.api.schemas import ExploreResponse
 from pipances.utils import compute_date_range, safe_int
@@ -65,7 +66,10 @@ def _transactions_to_df(transactions: list[dict]) -> pl.DataFrame:
         " Used by the explore page Tabulator table and chart containers."
     ),
 )
-async def explore_data(request: Request):
+async def explore_data(
+    request: Request,
+    database: DatabaseDep,
+):
     params = request.query_params
     preset = params.get("preset", "ytd")
     date_from_str = params.get("date_from")
@@ -81,6 +85,7 @@ async def explore_data(request: Request):
     page_size = safe_int(params.get("page_size"), 25, min_val=1, max_val=100)
 
     all_result = await query_transactions(
+        database,
         date_from=date_from,
         date_to=date_to,
         internal_filter=internal_filter,
@@ -92,6 +97,7 @@ async def explore_data(request: Request):
     )
 
     table_result = await query_transactions(
+        database,
         date_from=date_from,
         date_to=date_to,
         internal_filter=internal_filter,

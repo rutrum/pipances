@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Request
 
+from pipances.db import DatabaseDep
 from pipances.models import TransactionStatus
 from pipances.routes.api.queries import query_transactions
 from pipances.routes.api.schemas import PaginatedTransactions
@@ -19,12 +20,16 @@ router = APIRouter(prefix="/api", tags=["inbox"])
         " Used by the inbox Tabulator table."
     ),
 )
-async def list_inbox_transactions(request: Request):
+async def list_inbox_transactions(
+    request: Request,
+    database: DatabaseDep,
+):
     params = request.query_params
     internal_id_str = params.get("internal_id", "").strip()
     import_id_str = params.get("import_id", "").strip()
 
     return await query_transactions(
+        database,
         statuses=[TransactionStatus.PENDING],
         date_from=(
             safe_date(params.get("date_from", "").strip())

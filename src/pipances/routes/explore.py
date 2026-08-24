@@ -1,7 +1,7 @@
 from math import ceil
 
 import polars as pl
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
@@ -12,7 +12,7 @@ from pipances.charts import (
     top_expenses_chart,
     weekly_spending_chart,
 )
-from pipances.db import async_session
+from pipances.db import DatabaseDep
 from pipances.models import (
     Account,
     AccountKind,
@@ -27,7 +27,7 @@ from pipances.utils import compute_date_range, safe_int
 router = APIRouter()
 
 
-def _transactions_to_df(transactions):
+def _transactions_to_df(transactions) -> pl.DataFrame:
     """Convert transaction ORM objects to a Polars DataFrame."""
     return pl.DataFrame(
         {
@@ -74,7 +74,10 @@ def _build_filters(
 
 
 @router.get("/explore", response_class=HTMLResponse)
-async def explore_page(request: Request):
+async def explore_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     params = request.query_params
 
     preset = params.get("preset", "ytd")
@@ -90,7 +93,7 @@ async def explore_page(request: Request):
 
     date_from, date_to = compute_date_range(preset, date_from_str, date_to_str)
 
-    async with async_session() as session:
+    async with database.session() as session:
         # Base query for all matching transactions (approved + pending)
         base_where = Transaction.status.in_(
             [TransactionStatus.APPROVED, TransactionStatus.PENDING]

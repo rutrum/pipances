@@ -1,13 +1,13 @@
 from math import ceil
 from typing import cast
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import exists as sa_exists
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from pipances.db import async_session
+from pipances.db import DatabaseDep
 from pipances.models import (
     Account,
     AccountKind,
@@ -42,7 +42,10 @@ def _render_inbox_pagination(page: int, page_size: int, total_count: int) -> str
 
 
 @router.get("/inbox", response_class=HTMLResponse)
-async def inbox_page(request: Request):
+async def inbox_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     params = request.query_params
     date_from_str = params.get("date_from", "").strip()
     date_to_str = params.get("date_to", "").strip()
@@ -55,7 +58,7 @@ async def inbox_page(request: Request):
     internal_id_val = safe_int(internal_id, 0) if internal_id else None
     import_id_val = safe_int(import_id, 0) if import_id else None
 
-    async with async_session() as session:
+    async with database.session() as session:
         query = (
             select(Transaction)
             .where(Transaction.status == TransactionStatus.PENDING)
@@ -161,8 +164,11 @@ async def inbox_page(request: Request):
 
 
 @router.get("/inbox/commit-summary", response_class=HTMLResponse)
-async def commit_summary(request: Request):
-    async with async_session() as session:
+async def commit_summary(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         result = await session.execute(
             select(Transaction)
             .where(
@@ -236,8 +242,11 @@ async def commit_summary(request: Request):
 
 
 @router.post("/inbox/commit", response_class=HTMLResponse)
-async def commit_inbox(request: Request):
-    async with async_session() as session:
+async def commit_inbox(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    async with database.session() as session:
         result = await session.execute(
             select(Transaction).where(
                 Transaction.status == TransactionStatus.PENDING,
@@ -310,7 +319,7 @@ async def commit_inbox(request: Request):
     filter_import_id = str(form.get("import_id", "")).strip()
     page_size = safe_int(str(form.get("page_size")), 25, min_val=1, max_val=100)
 
-    async with async_session() as session:
+    async with database.session() as session:
         query = (
             select(Transaction)
             .where(Transaction.status == TransactionStatus.PENDING)
@@ -376,13 +385,16 @@ async def commit_inbox(request: Request):
 
 
 @router.post("/inbox/retrain", response_class=HTMLResponse)
-async def retrain_inbox(request: Request):
+async def retrain_inbox(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
     # Extract sort parameters from filter bar
     form_data = await request.form()
     sort_col = form_data.get("sort", "date")
     sort_dir = form_data.get("dir", "asc")
 
-    async with async_session() as session:
+    async with database.session() as session:
         query = (
             select(Transaction)
             .where(Transaction.status == TransactionStatus.PENDING)

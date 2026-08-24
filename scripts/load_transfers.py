@@ -10,14 +10,13 @@ from pathlib import Path
 
 import polars as pl
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from pipances.db import Database
 from pipances.models import (
     Account,
     AccountKind,
-    Base,
     Category,
     Import,
     Transaction,
@@ -36,16 +35,12 @@ def _infer_account_kind(name: str) -> AccountKind:
     return AccountKind.EXTERNAL
 
 
-async def load_transfers(engine, df: pl.DataFrame) -> int:
-    async_session_maker = async_sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
-
+async def load_transfers(database: Database, df: pl.DataFrame) -> int:
     internal_names = df["internal"].unique().to_list()
     external_names = df["external"].unique().to_list()
     category_names = [c for c in df["category"].unique().to_list() if c]
 
-    async with async_session_maker() as session:
+    async with database.session() as session:
         # Ensure internal accounts exist
         internal_id_map = {}
         for name in internal_names:
@@ -114,26 +109,13 @@ def main():
     args = parser.parse_args()
 
     db_url = f"sqlite+aiosqlite:///{args.db_path}"
-    engine = create_async_engine(db_url)
+    database = Database(db_url)
 
-    # Create tables if they don't exist
-    from sqlalchemy import event
-
-    @event.listens_for(engine.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys = ON")
-        cursor.close()
-
-    async def _create_tables():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    asyncio.run(_create_tables())
+    asyncio.run(database.create_tables())
 
     df = pl.read_parquet(args.input_path)
 
-    import_id = asyncio.run(load_transfers(engine, df))
+    import_id = asyncio.run(load_transfers(database, df))
     print(f"Created import record with id: {import_id}")
 
 

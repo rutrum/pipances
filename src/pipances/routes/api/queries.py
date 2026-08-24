@@ -15,7 +15,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
 
-from pipances.db import async_session
+from pipances.db import Database
 from pipances.models import (
     Account,
     AccountKind,
@@ -133,6 +133,7 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
 
 
 async def query_transactions(
+    database: Database,
     *,
     statuses: list[TransactionStatus] | None = None,
     date_from: date | None = None,
@@ -153,7 +154,7 @@ async def query_transactions(
     external_name_filter: str | None = None,
     internal_name_filter: str | None = None,
 ) -> dict[str, Any]:
-    async with async_session() as session:
+    async with database.session() as session:
         statuses = statuses or [
             TransactionStatus.APPROVED,
             TransactionStatus.PENDING,
@@ -263,14 +264,14 @@ async def query_transactions(
     }
 
 
-async def get_categories() -> list[dict]:
-    async with async_session() as session:
+async def get_categories(database: Database) -> list[dict]:
+    async with database.session() as session:
         result = await session.execute(select(Category).order_by(Category.name))
         return [{"id": c.id, "name": c.name} for c in result.scalars().all()]
 
 
-async def get_internal_accounts() -> list[dict]:
-    async with async_session() as session:
+async def get_internal_accounts(database: Database) -> list[dict]:
+    async with database.session() as session:
         result = await session.execute(
             select(Account)
             .where(
@@ -285,8 +286,8 @@ async def get_internal_accounts() -> list[dict]:
         ]
 
 
-async def get_external_accounts() -> list[dict]:
-    async with async_session() as session:
+async def get_external_accounts(database: Database) -> list[dict]:
+    async with database.session() as session:
         result = await session.execute(
             select(Account)
             .where(Account.kind == AccountKind.EXTERNAL)
@@ -298,8 +299,8 @@ async def get_external_accounts() -> list[dict]:
         ]
 
 
-async def get_imports() -> list[dict]:
-    async with async_session() as session:
+async def get_imports(database: Database) -> list[dict]:
+    async with database.session() as session:
         result = await session.execute(
             select(Import).order_by(Import.imported_at.desc())
         )

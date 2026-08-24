@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from pipances.db import async_session
+from pipances.db import DatabaseDep
 from pipances.models import Transaction, TransactionSplit
 from pipances.routes.api.queries import (
     get_categories,
@@ -34,7 +34,10 @@ router = APIRouter(prefix="/api", tags=["transactions"])
         " (approved + pending). Used by the explore and data/transactions tables."
     ),
 )
-async def list_transactions(request: Request):
+async def list_transactions(
+    request: Request,
+    database: DatabaseDep,
+):
     params = request.query_params
     date_from, date_to = compute_date_range(
         params.get("preset", "all"),
@@ -42,6 +45,7 @@ async def list_transactions(request: Request):
         params.get("date_to"),
     )
     return await query_transactions(
+        database,
         date_from=date_from,
         date_to=date_to,
         internal_filter=params.get("internal") or None,
@@ -64,8 +68,11 @@ async def list_transactions(request: Request):
     summary="Get a single transaction",
     description="Return a single transaction by ID with all related entities.",
 )
-async def get_transaction(transaction_id: int):
-    async with async_session() as session:
+async def get_transaction(
+    transaction_id: int,
+    database: DatabaseDep,
+):
+    async with database.session() as session:
         result = await session.execute(
             select(Transaction)
             .where(Transaction.id == transaction_id)
@@ -93,8 +100,8 @@ async def get_transaction(transaction_id: int):
         " Used by Tabulator list editors for inline category selection."
     ),
 )
-async def list_categories():
-    return await get_categories()
+async def list_categories(database: DatabaseDep):
+    return await get_categories(database)
 
 
 @router.get(
@@ -106,8 +113,8 @@ async def list_categories():
         " ordered by name."
     ),
 )
-async def list_accounts():
-    return await get_internal_accounts()
+async def list_accounts(database: DatabaseDep):
+    return await get_internal_accounts(database)
 
 
 @router.get(
@@ -116,5 +123,5 @@ async def list_accounts():
     summary="List external accounts",
     description="Return all external (merchant) accounts ordered by name.",
 )
-async def list_external_accounts():
-    return await get_external_accounts()
+async def list_external_accounts(database: DatabaseDep):
+    return await get_external_accounts(database)

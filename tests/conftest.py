@@ -1,57 +1,34 @@
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from pipances.models import Account, Base, Category, Import
-
-
-@pytest.fixture
-async def engine():
-    eng = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield eng
-    await eng.dispose()
+from pipances.db import Database, get_database
+from pipances.models import Account, Category, Import
 
 
 @pytest.fixture
-async def session(engine):
-    async with AsyncSession(engine, expire_on_commit=False) as sess:
+async def database():
+    db = Database("sqlite+aiosqlite:///:memory:")
+    await db.create_tables()
+    yield db
+    await db.dispose()
+
+
+@pytest.fixture
+async def session(database):
+    async with database.session() as sess:
         yield sess
 
 
-@pytest.fixture(autouse=True)
-def patch_db(engine, monkeypatch):
-    test_session = async_sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
-    import pipances.db as db_mod
-    import pipances.ingest as ingest_mod
-    import pipances.routes.data as data_mod
-    import pipances.routes.explore as explore_mod
-    import pipances.routes.import_page as import_page_mod
-    import pipances.routes.inbox as inbox_mod
-    import pipances.routes.transactions as transactions_mod
-    import pipances.routes.widgets as widgets_mod
-
-    monkeypatch.setattr(db_mod, "async_session", test_session)
-    monkeypatch.setattr(ingest_mod, "async_session", test_session)
-    monkeypatch.setattr(explore_mod, "async_session", test_session)
-    monkeypatch.setattr(inbox_mod, "async_session", test_session)
-    monkeypatch.setattr(data_mod, "async_session", test_session)
-    monkeypatch.setattr(transactions_mod, "async_session", test_session)
-    monkeypatch.setattr(import_page_mod, "async_session", test_session)
-    monkeypatch.setattr(widgets_mod, "async_session", test_session)
-
-
 @pytest.fixture
-async def client():
-    from httpx2 import ASGITransport, AsyncClient
-
+async def client(database):
     from pipances.main import app
+
+    app.dependency_overrides[get_database] = lambda: database
+    from httpx2 import ASGITransport, AsyncClient
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture

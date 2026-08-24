@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from pipances.db import async_session
+from pipances.db import Database
 from pipances.models import (
     Account,
     AccountKind,
@@ -96,6 +96,7 @@ def try_all_importers(blob: bytes) -> dict[str, dict]:
 
 
 async def preview_dedup(
+    database: Database,
     df: pt.DataFrame[ImportedTransaction],
     internal_account: str,
 ) -> list[bool]:
@@ -115,7 +116,7 @@ async def preview_dedup(
         key = (row["date"], row["amount_cents"], row["description"], internal_account)
         csv_counts[key] += 1
 
-    async with async_session() as session:
+    async with database.session() as session:
         internal = await session.scalar(
             select(Account).where(Account.name == internal_account)
         )
@@ -165,6 +166,7 @@ async def _resolve_account(
 
 
 async def ingest(
+    database: Database,
     df: pt.DataFrame[ImportedTransaction],
     internal_account: str,
     importer_name: str,
@@ -187,7 +189,7 @@ async def ingest(
         key = (row["date"], row["amount_cents"], row["description"], internal_account)
         csv_counts[key] += 1
 
-    async with async_session() as session:
+    async with database.session() as session:
         internal = await session.scalar(
             select(Account).where(Account.name == internal_account)
         )
@@ -257,7 +259,7 @@ async def ingest(
 
     # Run ML predictions on newly inserted transactions
     if new_txn_ids:
-        await _predict_for_transactions(new_txn_ids)
+        await _predict_for_transactions(database, new_txn_ids)
 
     duplicate_count = len(rows) - inserted_count
     return IngestResult(
@@ -269,9 +271,9 @@ async def ingest(
     )
 
 
-async def _predict_for_transactions(txn_ids: list[int]) -> None:
+async def _predict_for_transactions(database: Database, txn_ids: list[int]) -> None:
     """Run ML predictions on the given transaction IDs."""
-    async with async_session() as session:
+    async with database.session() as session:
         # Load approved transactions as training data
         result = await session.execute(
             select(Transaction)
