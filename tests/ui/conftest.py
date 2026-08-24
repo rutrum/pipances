@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UI_TEST_PORT = 8099
@@ -450,8 +450,3 @@ def txn_with_existing_split(ui_db, txn_for_splitting):
     conn.execute("DELETE FROM transaction_splits WHERE id=?", (split_id,))
     conn.commit()
     conn.close()
-
-
-# === Re-export commonly used playwright assertions ===
-# Tests can import `expect` from here instead of playwright directly.
-__all__ = ["expect"]

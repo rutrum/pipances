@@ -1,13 +1,23 @@
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select
 
 from pipances.db import Database, DatabaseDep
-from pipances.ingest import _resolve_account
+from pipances.db.accounts import (
+    get_external_accounts,
+    get_or_create_external_account,
+)
+from pipances.db.categories import get_categories, get_or_create_category
+from pipances.db.transactions import (
+    get_txn,
+    remaining_split_capacity,
+    set_txn_category,
+    set_txn_description,
+    set_txn_external,
+    txn_options,
+)
 from pipances.models import (
     Account,
-    AccountKind,
     Category,
     Transaction,
     TransactionSplit,
@@ -15,12 +25,6 @@ from pipances.models import (
 from pipances.routes._utils import templates
 
 router = APIRouter()
-
-SORT_COLUMNS = {
-    "date": Transaction.date,
-    "amount": Transaction.amount_cents,
-    "description": Transaction.raw_description,
-}
 
 
 @router.patch("/transactions/bulk", response_class=HTMLResponse)
@@ -35,52 +39,36 @@ async def bulk_update_transactions(
 
     async with database.session() as session:
         result = await session.execute(
-            select(Transaction)
-            .where(Transaction.id.in_(ids))
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-            )
+            select(Transaction).where(Transaction.id.in_(ids)).options(*txn_options())
         )
         transactions = result.scalars().all()
 
         # Resolve category once if provided
         category_name = str(form.get("category", "")).strip()
-        category_obj = None
-        if category_name:
-            cat_result = await session.execute(
-                select(Category).where(
-                    func.lower(Category.name) == category_name.lower()
-                )
-            )
-            category_obj = cat_result.scalar_one_or_none()
-            if category_obj is None:
-                category_obj = Category(name=category_name)
-                session.add(category_obj)
-                await session.flush()
+        category_obj = (
+            await get_or_create_category(session, category_name)
+            if category_name
+            else None
+        )
 
         # Resolve external account once if provided
         external_name = str(form.get("external", "")).strip()
-        external_obj = None
-        if external_name:
-            external_obj = await _resolve_account(session, external_name)
+        external_obj = (
+            await get_or_create_external_account(session, external_name)
+            if external_name
+            else None
+        )
 
         description = str(form.get("description", "")).strip()
         approve = str(form.get("marked_for_approval", "")).strip()
 
         for txn in transactions:
             if description:
-                txn.description = description
-                txn.ml_confidence_description = None
+                set_txn_description(txn, description)
             if category_obj:
-                txn.category_id = category_obj.id
-                txn.category = category_obj
-                txn.ml_confidence_category = None
+                set_txn_category(txn, category_obj)
             if external_obj:
-                txn.external_id = external_obj.id
-                txn.external = external_obj
-                txn.ml_confidence_external = None
+                set_txn_external(txn, external_obj)
             if approve == "true" and txn.description:
                 txn.marked_for_approval = True
 
@@ -88,13 +76,7 @@ async def bulk_update_transactions(
 
         # Re-fetch to get fresh relationships
         result = await session.execute(
-            select(Transaction)
-            .where(Transaction.id.in_(ids))
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-            )
+            select(Transaction).where(Transaction.id.in_(ids)).options(*txn_options())
         )
         transactions = result.scalars().all()
 
@@ -116,87 +98,36 @@ async def update_transaction(
 ) -> Response:
     form = await request.form()
     async with database.session() as session:
-        txn = await session.get(
-            Transaction,
-            txn_id,
-            options=[
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-            ],
-        )
+        txn = await get_txn(session, txn_id)
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 
         if "description" in form:
-            txn.description = str(form["description"]) or None
-            txn.ml_confidence_description = None
+            set_txn_description(txn, str(form["description"]) or None)
 
         if "external_id" in form:
             external_id_val = str(form["external_id"]).strip()
+            external: Account | None = None
             if external_id_val:
                 # Combo sends the display name; try integer ID first, then name lookup
                 try:
-                    external_id = int(external_id_val)
-                    external = await session.get(Account, external_id)
-                    if external:
-                        txn.external_id = external_id
-                        txn.external = external
+                    external = await session.get(Account, int(external_id_val))
                 except (ValueError, TypeError):
-                    ext_result = await session.execute(
-                        select(Account).where(
-                            func.lower(Account.name) == external_id_val.lower()
-                        )
+                    external = await get_or_create_external_account(
+                        session, external_id_val
                     )
-                    external = ext_result.scalar_one_or_none()
-                    if external:
-                        txn.external_id = external.id
-                        txn.external = external
-                    else:
-                        # Create a new external account
-                        external = Account(
-                            name=external_id_val, kind=AccountKind.EXTERNAL
-                        )
-                        session.add(external)
-                        await session.flush()
-                        txn.external_id = external.id
-                        txn.external = external
-            else:
-                txn.external_id = None
-                txn.external = None
-            txn.ml_confidence_external = None
+            set_txn_external(txn, external)
 
         if "category_id" in form:
             category_id_val = str(form["category_id"]).strip()
+            category: Category | None = None
             if category_id_val:
                 # Combo sends the display name; try integer ID first, then name lookup
                 try:
-                    category_id = int(category_id_val)
-                    category = await session.get(Category, category_id)
-                    if category:
-                        txn.category_id = category_id
-                        txn.category = category
+                    category = await session.get(Category, int(category_id_val))
                 except (ValueError, TypeError):
-                    cat_result = await session.execute(
-                        select(Category).where(
-                            func.lower(Category.name) == category_id_val.lower()
-                        )
-                    )
-                    category = cat_result.scalar_one_or_none()
-                    if category:
-                        txn.category_id = category.id
-                        txn.category = category
-                    else:
-                        # Create a new category
-                        category = Category(name=category_id_val)
-                        session.add(category)
-                        await session.flush()
-                        txn.category_id = category.id
-                        txn.category = category
-            else:
-                txn.category_id = None
-                txn.category = None
-            txn.ml_confidence_category = None
+                    category = await get_or_create_category(session, category_id_val)
+            set_txn_category(txn, category)
 
         if "marked_for_approval" in form:
             if form["marked_for_approval"] == "toggle":
@@ -251,34 +182,15 @@ async def edit_modal(
 ) -> Response:
     """Load transaction edit modal with pre-filled form."""
     async with database.session() as session:
-        txn = await session.get(
-            Transaction,
-            txn_id,
-            options=[
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                ),
-            ],
-        )
+        txn = await get_txn(session, txn_id, splits=True)
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 
         # Load all external accounts for dropdown
-        external_result = await session.execute(
-            select(Account)
-            .where(Account.kind == AccountKind.EXTERNAL)
-            .order_by(Account.name)
-        )
-        external_accounts = external_result.scalars().all()
+        external_accounts = await get_external_accounts(session)
 
         # Load all categories for dropdown
-        categories_result = await session.execute(
-            select(Category).order_by(Category.name)
-        )
-        categories = categories_result.scalars().all()
+        categories = await get_categories(session)
         categories_data = [{"id": c.id, "name": c.name} for c in categories]
 
         return templates.TemplateResponse(
@@ -298,21 +210,9 @@ async def _render_splits_section(
 ) -> str:
     """Render the splits section partial for the given transaction."""
     async with database.session() as session:
-        categories_result = await session.execute(
-            select(Category).order_by(Category.name)
-        )
-        categories = categories_result.scalars().all()
+        categories = await get_categories(session)
         # Re-attach txn to load its category relationship
-        fetched = await session.get(
-            Transaction,
-            txn.id,
-            options=[
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                ),
-                selectinload(Transaction.category),
-            ],
-        )
+        fetched = await get_txn(session, txn.id, splits=True)
         if fetched is None:
             raise RuntimeError(f"Transaction {txn.id} not found")
         txn = fetched
@@ -330,15 +230,7 @@ async def create_split(
 ) -> HTMLResponse:
     form = await request.form()
     async with database.session() as session:
-        txn = await session.get(
-            Transaction,
-            txn_id,
-            options=[
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                ),
-            ],
-        )
+        txn = await get_txn(session, txn_id, splits=True)
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 
@@ -351,9 +243,7 @@ async def create_split(
         if amount_cents <= 0:
             return HTMLResponse("Amount must be positive", status_code=422)
 
-        total_cents = abs(txn.amount_cents)
-        existing_sum = sum(s.amount_cents for s in txn.splits)
-        if amount_cents >= total_cents - existing_sum:
+        if amount_cents >= remaining_split_capacity(txn):
             return HTMLResponse("Amount would eliminate remainder", status_code=422)
 
         category_id_val = str(form.get("category_id", "")).strip()
@@ -362,19 +252,8 @@ async def create_split(
             try:
                 category_id = int(category_id_val)
             except (ValueError, TypeError):
-                cat_result = await session.execute(
-                    select(Category).where(
-                        func.lower(Category.name) == category_id_val.lower()
-                    )
-                )
-                cat = cat_result.scalar_one_or_none()
-                if cat:
-                    category_id = cat.id
-                else:
-                    cat = Category(name=category_id_val)
-                    session.add(cat)
-                    await session.flush()
-                    category_id = cat.id
+                cat = await get_or_create_category(session, category_id_val)
+                category_id = cat.id
 
         split = TransactionSplit(
             transaction_id=txn_id,
@@ -402,15 +281,7 @@ async def update_split(
         if split is None or split.transaction_id != txn_id:
             return HTMLResponse("Not found", status_code=404)
 
-        txn = await session.get(
-            Transaction,
-            txn_id,
-            options=[
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                ),
-            ],
-        )
+        txn = await get_txn(session, txn_id, splits=True)
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 
@@ -423,9 +294,9 @@ async def update_split(
             if amount_cents <= 0:
                 return HTMLResponse("Amount must be positive", status_code=422)
 
-            other_sum = sum(s.amount_cents for s in txn.splits if s.id != split_id)
-            total_cents = abs(txn.amount_cents)
-            if amount_cents >= total_cents - other_sum:
+            if amount_cents >= remaining_split_capacity(
+                txn, excluding_split_id=split_id
+            ):
                 return HTMLResponse("Amount would eliminate remainder", status_code=422)
             split.amount_cents = amount_cents
 
@@ -435,19 +306,8 @@ async def update_split(
                 try:
                     split.category_id = int(category_id_val)
                 except (ValueError, TypeError):
-                    cat_result = await session.execute(
-                        select(Category).where(
-                            func.lower(Category.name) == category_id_val.lower()
-                        )
-                    )
-                    cat = cat_result.scalar_one_or_none()
-                    if cat:
-                        split.category_id = cat.id
-                    else:
-                        cat = Category(name=category_id_val)
-                        session.add(cat)
-                        await session.flush()
-                        split.category_id = cat.id
+                    cat = await get_or_create_category(session, category_id_val)
+                    split.category_id = cat.id
             else:
                 split.category_id = None
 
@@ -470,15 +330,7 @@ async def delete_split(
         if split is None or split.transaction_id != txn_id:
             return HTMLResponse("Not found", status_code=404)
 
-        txn = await session.get(
-            Transaction,
-            txn_id,
-            options=[
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                ),
-            ],
-        )
+        txn = await get_txn(session, txn_id, splits=True)
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 
@@ -498,15 +350,7 @@ async def transaction_row(
 ) -> Response:
     """Get a single transaction row for refreshing after modal close."""
     async with database.session() as session:
-        txn = await session.get(
-            Transaction,
-            txn_id,
-            options=[
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-            ],
-        )
+        txn = await get_txn(session, txn_id)
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 

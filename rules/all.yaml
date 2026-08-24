@@ -1,0 +1,8 @@
+id: no-dunder-all
+language: Python
+rule:
+  any:
+    - pattern: __all__ = $VALUE
+    - pattern: __all__ += $VALUE
+message: Don't use __all__; keep module exports implicit
+severity: error

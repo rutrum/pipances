@@ -8,13 +8,12 @@ from typing import cast
 
 import patito as pt
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from pipances.db import Database
+from pipances.db.accounts import get_or_create_external_account
+from pipances.db.transactions import txn_options
 from pipances.models import (
     Account,
-    AccountKind,
     Import,
     Transaction,
     TransactionStatus,
@@ -154,17 +153,6 @@ async def preview_dedup(
     return flags
 
 
-async def _resolve_account(
-    session: AsyncSession, name: str, kind: str = AccountKind.EXTERNAL
-) -> Account:
-    account = await session.scalar(select(Account).where(Account.name == name))
-    if account is None:
-        account = Account(name=name, kind=kind)
-        session.add(account)
-        await session.flush()
-    return account
-
-
 async def ingest(
     database: Database,
     df: pt.DataFrame[ImportedTransaction],
@@ -237,7 +225,7 @@ async def ingest(
             if inserted_per_key[key] >= to_insert_per_key[key]:
                 continue
 
-            external = await _resolve_account(session, row["description"])
+            external = await get_or_create_external_account(session, row["description"])
             txn = Transaction(
                 import_id=import_record.id,
                 internal_id=internal.id,
@@ -278,7 +266,7 @@ async def _predict_for_transactions(database: Database, txn_ids: list[int]) -> N
         result = await session.execute(
             select(Transaction)
             .where(Transaction.status == TransactionStatus.APPROVED)
-            .options(selectinload(Transaction.import_record))
+            .options(*txn_options(import_record=True))
         )
         approved = result.scalars().all()
 
@@ -314,7 +302,7 @@ async def _predict_for_transactions(database: Database, txn_ids: list[int]) -> N
         result = await session.execute(
             select(Transaction)
             .where(Transaction.id.in_(txn_ids))
-            .options(selectinload(Transaction.import_record))
+            .options(*txn_options(import_record=True))
         )
         pending = result.scalars().all()
 

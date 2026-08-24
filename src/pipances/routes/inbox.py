@@ -4,20 +4,25 @@ from typing import cast
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import exists as sa_exists
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select
 
 from pipances.db import DatabaseDep
+from pipances.db.accounts import get_active_internal_accounts
+from pipances.db.imports import get_imports
+from pipances.db.transactions import (
+    apply_filters,
+    fetch_page,
+    pending_txn_count,
+    resolve_order,
+    txn_options,
+)
 from pipances.models import (
     Account,
     AccountKind,
-    Import,
     Transaction,
-    TransactionSplit,
     TransactionStatus,
 )
 from pipances.routes._utils import shared_context, templates
-from pipances.routes.transactions import SORT_COLUMNS
 from pipances.utils import safe_date, safe_int
 
 router = APIRouter()
@@ -59,63 +64,27 @@ async def inbox_page(
     import_id_val = safe_int(import_id, 0) if import_id else None
 
     async with database.session() as session:
-        query = (
-            select(Transaction)
-            .where(Transaction.status == TransactionStatus.PENDING)
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-            )
+        txn_page = await fetch_page(
+            session,
+            statuses=(TransactionStatus.PENDING,),
+            date_from=safe_date(date_from_str),
+            date_to=safe_date(date_to_str),
+            internal_id=internal_id_val,
+            import_id=import_id_val,
+            sort_col=sort_col,
+            sort_dir=sort_dir,
+            page=page,
+            page_size=page_size,
         )
-
-        count_query = (
-            select(func.count())
-            .select_from(Transaction)
-            .where(Transaction.status == TransactionStatus.PENDING)
-        )
-
-        date_from = safe_date(date_from_str)
-        date_to = safe_date(date_to_str)
-        if date_from:
-            query = query.where(Transaction.date >= date_from)
-            count_query = count_query.where(Transaction.date >= date_from)
-        if date_to:
-            query = query.where(Transaction.date <= date_to)
-            count_query = count_query.where(Transaction.date <= date_to)
-        if internal_id_val:
-            query = query.where(Transaction.internal_id == internal_id_val)
-            count_query = count_query.where(Transaction.internal_id == internal_id_val)
-        if import_id_val:
-            query = query.where(Transaction.import_id == import_id_val)
-            count_query = count_query.where(Transaction.import_id == import_id_val)
-
-        col = SORT_COLUMNS.get(sort_col, Transaction.date)
-        if sort_dir == "desc":
-            query = query.order_by(col.desc())
-        else:
-            query = query.order_by(col.asc())
-
-        total_count = await session.scalar(count_query)
-        total_pages = max(1, ceil(total_count / page_size))
-        page = min(page, total_pages)
-        offset = (page - 1) * page_size
-
-        result = await session.execute(query.offset(offset).limit(page_size))
-        transactions = result.scalars().all()
+        total_count = txn_page.total_count
+        total_pages = txn_page.total_pages
+        page = txn_page.page
+        transactions = txn_page.rows
 
         # Filter dropdown data
-        internal_result = await session.execute(
-            select(Account)
-            .where(Account.kind != AccountKind.EXTERNAL, Account.active == True)
-            .order_by(Account.name)
-        )
-        internal_accounts = internal_result.scalars().all()
+        internal_accounts = await get_active_internal_accounts(session)
 
-        import_result = await session.execute(
-            select(Import).order_by(Import.imported_at.desc())
-        )
-        imports = import_result.scalars().all()
+        imports = await get_imports(session)
 
         shared = await shared_context("inbox", session)
 
@@ -175,13 +144,7 @@ async def commit_summary(
                 Transaction.status == TransactionStatus.PENDING,
                 Transaction.marked_for_approval == True,
             )
-            .options(
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                ),
-            )
+            .options(*txn_options(splits=True))
         )
         marked = result.scalars().all()
 
@@ -265,11 +228,7 @@ async def commit_inbox(
             remaining = await session.execute(
                 select(Transaction)
                 .where(Transaction.status == TransactionStatus.PENDING)
-                .options(
-                    selectinload(Transaction.internal),
-                    selectinload(Transaction.external),
-                    selectinload(Transaction.category),
-                )
+                .options(*txn_options())
                 .order_by(Transaction.date)
             )
             rows = ""
@@ -320,39 +279,25 @@ async def commit_inbox(
     page_size = safe_int(str(form.get("page_size")), 25, min_val=1, max_val=100)
 
     async with database.session() as session:
-        query = (
-            select(Transaction)
-            .where(Transaction.status == TransactionStatus.PENDING)
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
+        rows_result = await session.execute(
+            apply_filters(
+                select(Transaction)
+                .where(Transaction.status == TransactionStatus.PENDING)
+                .options(*txn_options())
+                .order_by(Transaction.date)
+                .limit(page_size),
+                date_from=safe_date(filter_date_from),
+                date_to=safe_date(filter_date_to),
+                internal_id=safe_int(filter_internal_id, 0)
+                if filter_internal_id
+                else None,
+                import_id=safe_int(filter_import_id, 0) if filter_import_id else None,
             )
-            .order_by(Transaction.date)
         )
-        d_from = safe_date(filter_date_from)
-        if d_from:
-            query = query.where(Transaction.date >= d_from)
-        d_to = safe_date(filter_date_to)
-        if d_to:
-            query = query.where(Transaction.date <= d_to)
-        int_id = safe_int(filter_internal_id, 0) if filter_internal_id else None
-        if int_id:
-            query = query.where(Transaction.internal_id == int_id)
-        imp_id = safe_int(filter_import_id, 0) if filter_import_id else None
-        if imp_id:
-            query = query.where(Transaction.import_id == imp_id)
-
-        result = await session.execute(query.limit(page_size))
-        transactions = result.scalars().all()
+        transactions = rows_result.scalars().all()
 
         # Count all remaining (unfiltered) for badge
-        total_result = await session.execute(
-            select(func.count(Transaction.id)).where(
-                Transaction.status == TransactionStatus.PENDING
-            )
-        )
-        remaining_count = total_result.scalar() or 0
+        remaining_count = await pending_txn_count(session)
 
     badge = templates.get_template("shared/_badge.jinja2").render(
         {"count": remaining_count}
@@ -395,25 +340,12 @@ async def retrain_inbox(
     sort_dir = form_data.get("dir", "asc")
 
     async with database.session() as session:
-        query = (
+        result = await session.execute(
             select(Transaction)
             .where(Transaction.status == TransactionStatus.PENDING)
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-                selectinload(Transaction.import_record),
-            )
+            .options(*txn_options(import_record=True))
+            .order_by(resolve_order(str(sort_col), str(sort_dir)))
         )
-
-        # Apply sort order from filter bar
-        col = SORT_COLUMNS.get(sort_col, Transaction.date)
-        if sort_dir == "desc":
-            query = query.order_by(col.desc())
-        else:
-            query = query.order_by(col.asc())
-
-        result = await session.execute(query)
         pending = result.scalars().all()
 
         if not pending:
@@ -425,7 +357,7 @@ async def retrain_inbox(
         result = await session.execute(
             select(Transaction)
             .where(Transaction.status == TransactionStatus.APPROVED)
-            .options(selectinload(Transaction.import_record))
+            .options(*txn_options(import_record=True))
         )
         approved = result.scalars().all()
 

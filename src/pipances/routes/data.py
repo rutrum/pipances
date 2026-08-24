@@ -1,23 +1,26 @@
 import importlib.util
-from math import ceil
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
 
 from pipances.db import DatabaseDep
+from pipances.db.accounts import get_active_internal_accounts, get_external_accounts
+from pipances.db.categories import (
+    categories_with_usage,
+    category_names_with_transactions,
+    transaction_count_for_category,
+)
+from pipances.db.imports import get_imports
+from pipances.db.transactions import fetch_page
 from pipances.models import (
     Account,
     AccountKind,
     Category,
-    Import,
     Transaction,
-    TransactionStatus,
 )
 from pipances.routes._utils import shared_context, templates
-from pipances.routes.transactions import SORT_COLUMNS
 from pipances.settings import settings
 from pipances.utils import compute_date_range, safe_date, safe_int
 
@@ -303,23 +306,10 @@ async def data_categories_page(
 ) -> Response:
     async with database.session() as session:
         shared = await shared_context("data", session)
-        query = (
-            select(
-                Category.id,
-                Category.name,
-                func.count(Transaction.id).label("txn_count"),
-            )
-            .outerjoin(Transaction, Transaction.category_id == Category.id)
-            .group_by(Category.id, Category.name)
-            .order_by(Category.name)
-        )
-        result = await session.execute(query)
-        categories = result.all()
+        categories = await categories_with_usage(session)
 
-    # Convert to list of dicts for template
     categories_data = [
-        {"id": cat.id, "name": cat.name, "txn_count": cat.txn_count}
-        for cat in categories
+        {"id": c.id, "name": c.name, "txn_count": c.txn_count} for c in categories
     ]
 
     columns = [
@@ -391,11 +381,7 @@ async def update_category(
             )
         await session.refresh(category)
 
-        txn_count = await session.scalar(
-            select(func.count(Transaction.id)).where(
-                Transaction.category_id == category.id
-            )
-        )
+        txn_count = await transaction_count_for_category(session, category.id)
 
     return HTMLResponse(
         templates.get_template("data/_category_row.jinja2").render(
@@ -435,24 +421,6 @@ async def edit_category_name(
 # === Transactions ===
 
 
-def _build_filters(
-    query, date_from, date_to, internal_filter, external_filter, category_filter
-):
-    if date_from is not None:
-        query = query.where(Transaction.date >= date_from)
-    if date_to is not None:
-        query = query.where(Transaction.date <= date_to)
-    if internal_filter:
-        query = query.join(Transaction.internal).where(Account.name == internal_filter)
-    if external_filter:
-        query = query.join(Transaction.external).where(Account.name == external_filter)
-    if category_filter == "__uncategorized__":
-        query = query.where(Transaction.category_id.is_(None))
-    elif category_filter:
-        query = query.join(Transaction.category).where(Category.name == category_filter)
-    return query
-
-
 @router.get("/data/transactions", response_class=HTMLResponse)
 async def data_transactions_page(
     request: Request,
@@ -474,78 +442,29 @@ async def data_transactions_page(
     date_from, date_to = compute_date_range(preset, date_from_str, date_to_str)
 
     async with database.session() as session:
-        base_where = Transaction.status.in_(
-            [TransactionStatus.APPROVED, TransactionStatus.PENDING]
+        txn_page = await fetch_page(
+            session,
+            date_from=date_from,
+            date_to=date_to,
+            internal_filter=internal_filter,
+            external_filter=external_filter,
+            category_filter=category_filter,
+            sort_col=sort_col,
+            sort_dir=sort_dir,
+            page=page,
+            page_size=page_size,
         )
+        total_count = txn_page.total_count
+        total_pages = txn_page.total_pages
+        page = txn_page.page
+        transactions = txn_page.rows
 
-        # Count total for pagination
-        count_query = select(func.count()).select_from(Transaction).where(base_where)
-        count_query = _build_filters(
-            count_query,
-            date_from,
-            date_to,
-            internal_filter,
-            external_filter,
-            category_filter,
-        )
-        total_count = await session.scalar(count_query)
-
-        total_pages = max(1, ceil(total_count / page_size))
-        page = min(page, total_pages)
-        offset = (page - 1) * page_size
-
-        # Paginated query for table
-        table_query = (
-            select(Transaction)
-            .where(base_where)
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-            )
-        )
-        table_query = _build_filters(
-            table_query,
-            date_from,
-            date_to,
-            internal_filter,
-            external_filter,
-            category_filter,
-        )
-
-        col = SORT_COLUMNS.get(sort_col, Transaction.date)
-        if sort_dir == "asc":
-            table_query = table_query.order_by(col.asc())
-        else:
-            table_query = table_query.order_by(col.desc())
-
-        result = await session.execute(table_query.offset(offset).limit(page_size))
-        transactions = result.scalars().all()
-
-        # Account lists for filter dropdowns
-        int_result = await session.execute(
-            select(Account.name)
-            .where(Account.kind != AccountKind.EXTERNAL)
-            .order_by(Account.name)
-        )
-        internal_accounts = [r[0] for r in int_result]
-
-        ext_result = await session.execute(
-            select(Account.name)
-            .where(Account.kind == AccountKind.EXTERNAL)
-            .order_by(Account.name)
-        )
-        external_accounts = [r[0] for r in ext_result]
-
-        # Category names for filter dropdown
-        cat_result = await session.execute(
-            select(Category.name)
-            .join(Transaction, Transaction.category_id == Category.id)
-            .where(base_where)
-            .distinct()
-            .order_by(Category.name)
-        )
-        category_options = [r[0] for r in cat_result]
+        # Filter dropdowns
+        internal_accounts = [
+            a.name for a in await get_active_internal_accounts(session)
+        ]
+        external_accounts = [a.name for a in await get_external_accounts(session)]
+        category_options = await category_names_with_transactions(session)
 
         shared = await shared_context("data", session)
 
@@ -720,10 +639,7 @@ async def data_imports_page(
 ) -> Response:
     async with database.session() as session:
         shared = await shared_context("data", session)
-        result = await session.execute(
-            select(Import).order_by(Import.imported_at.desc())
-        )
-        imports = result.scalars().all()
+        imports = await get_imports(session)
 
     columns = [
         {"key": "institution", "label": "Institution"},

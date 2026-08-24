@@ -8,16 +8,20 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import select
 
 from pipances.db import Database, DatabaseDep
+from pipances.db.accounts import (
+    get_account_by_name,
+    get_active_internal_accounts,
+    get_or_create_external_account,
+)
 from pipances.ingest import (
     discover_importers,
     ingest,
     preview_dedup,
     try_all_importers,
 )
-from pipances.models import Account, AccountKind, Import, Transaction, TransactionStatus
+from pipances.models import Account, Import, Transaction, TransactionStatus
 from pipances.routes._utils import shared_context, templates
 from pipances.schemas import ImportedTransaction
 from pipances.settings import settings
@@ -63,12 +67,7 @@ def _delete_temp_file(token: str) -> None:
 
 async def _get_active_accounts(database: Database) -> Sequence[Account]:
     async with database.session() as session:
-        result = await session.execute(
-            select(Account).where(
-                Account.active == True, Account.kind != AccountKind.EXTERNAL
-            )
-        )
-        return result.scalars().all()
+        return await get_active_internal_accounts(session)
 
 
 @router.get("/import", response_class=HTMLResponse)
@@ -78,8 +77,7 @@ async def import_page(
 ) -> Response:
     async with database.session() as session:
         shared = await shared_context("import", session)
-        result = await session.execute(select(Account).where(Account.active == True))
-        accounts = result.scalars().all()
+        accounts = await get_active_internal_accounts(session)
     csv_html = templates.get_template("import/_import_csv.jinja2").render(
         accounts=accounts
     )
@@ -391,9 +389,7 @@ async def import_manual_submit(
 
     try:
         async with database.session() as session:
-            internal = await session.scalar(
-                select(Account).where(Account.name == account_name)
-            )
+            internal = await get_account_by_name(session, account_name)
             if internal is None:
                 return HTMLResponse(
                     f'<div class="alert alert-error">Account {html_mod.escape(account_name)!r} not found.</div>',
@@ -412,13 +408,9 @@ async def import_manual_submit(
             all_dates = []
             for row in valid_rows:
                 # Resolve or create external account from description
-                ext = await session.scalar(
-                    select(Account).where(Account.name == row["description"])
+                ext = await get_or_create_external_account(
+                    session, str(row["description"])
                 )
-                if ext is None:
-                    ext = Account(name=row["description"], kind=AccountKind.EXTERNAL)
-                    session.add(ext)
-                    await session.flush()
 
                 txn = Transaction(
                     import_id=import_record.id,

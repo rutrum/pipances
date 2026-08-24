@@ -2,18 +2,12 @@
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from pipances.db import DatabaseDep
-from pipances.models import Transaction, TransactionSplit
-from pipances.routes.api.queries import (
-    get_categories,
-    get_external_accounts,
-    get_internal_accounts,
-    query_transactions,
-    transaction_to_dict,
-)
+from pipances.db.accounts import get_active_internal_accounts, get_external_accounts
+from pipances.db.categories import get_categories
+from pipances.db.transactions import fetch_page, get_txn
+from pipances.routes.api.queries import transaction_to_dict, txn_page_to_dict
 from pipances.routes.api.schemas import (
     AccountItem,
     NamedItem,
@@ -44,22 +38,24 @@ async def list_transactions(
         params.get("date_from"),
         params.get("date_to"),
     )
-    return await query_transactions(
-        database,
-        date_from=date_from,
-        date_to=date_to,
-        internal_filter=params.get("internal") or None,
-        external_filter=params.get("external") or None,
-        category_filter=params.get("category") or None,
-        sort_col=params.get("sort", "date"),
-        sort_dir=params.get("dir", "desc"),
-        page=safe_int(params.get("page"), 1, min_val=1),
-        page_size=safe_int(params.get("page_size"), 25, min_val=1, max_val=100),
-        description_filter=params.get("description") or None,
-        category_name_filter=params.get("category_name") or None,
-        external_name_filter=params.get("external_name") or None,
-        internal_name_filter=params.get("internal_name") or None,
-    )
+    async with database.session() as session:
+        page = await fetch_page(
+            session,
+            date_from=date_from,
+            date_to=date_to,
+            internal_filter=params.get("internal") or None,
+            external_filter=params.get("external") or None,
+            category_filter=params.get("category") or None,
+            sort_col=params.get("sort", "date"),
+            sort_dir=params.get("dir", "desc"),
+            page=safe_int(params.get("page"), 1, min_val=1),
+            page_size=safe_int(params.get("page_size"), 25, min_val=1, max_val=100),
+            description_filter=params.get("description") or None,
+            category_name_filter=params.get("category_name") or None,
+            external_name_filter=params.get("external_name") or None,
+            internal_name_filter=params.get("internal_name") or None,
+        )
+    return txn_page_to_dict(page)
 
 
 @router.get(
@@ -73,19 +69,7 @@ async def get_transaction(
     database: DatabaseDep,
 ):
     async with database.session() as session:
-        result = await session.execute(
-            select(Transaction)
-            .where(Transaction.id == transaction_id)
-            .options(
-                selectinload(Transaction.internal),
-                selectinload(Transaction.external),
-                selectinload(Transaction.category),
-                selectinload(Transaction.splits).selectinload(
-                    TransactionSplit.category
-                ),
-            )
-        )
-        txn = result.scalar_one_or_none()
+        txn = await get_txn(session, transaction_id, splits=True)
     if txn is None:
         return JSONResponse({"detail": "Transaction not found"}, status_code=404)
     return transaction_to_dict(txn)
@@ -101,7 +85,8 @@ async def get_transaction(
     ),
 )
 async def list_categories(database: DatabaseDep):
-    return await get_categories(database)
+    async with database.session() as session:
+        return [{"id": c.id, "name": c.name} for c in await get_categories(session)]
 
 
 @router.get(
@@ -114,7 +99,12 @@ async def list_categories(database: DatabaseDep):
     ),
 )
 async def list_accounts(database: DatabaseDep):
-    return await get_internal_accounts(database)
+    async with database.session() as session:
+        accounts = await get_active_internal_accounts(session)
+        return [
+            {"id": a.id, "name": a.name, "kind": a.kind, "active": a.active}
+            for a in accounts
+        ]
 
 
 @router.get(
@@ -124,4 +114,8 @@ async def list_accounts(database: DatabaseDep):
     description="Return all external (merchant) accounts ordered by name.",
 )
 async def list_external_accounts(database: DatabaseDep):
-    return await get_external_accounts(database)
+    async with database.session() as session:
+        return [
+            {"id": a.id, "name": a.name, "kind": a.kind, "active": a.active}
+            for a in await get_external_accounts(session)
+        ]
