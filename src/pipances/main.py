@@ -16,7 +16,6 @@ from pipances.routes.explore import router as explore_router
 from pipances.routes.import_page import router as import_router
 from pipances.routes.inbox import router as inbox_router
 from pipances.routes.transactions import router as transactions_router
-from pipances.routes.widgets import router as widgets_router
 from pipances.settings import settings
 
 
@@ -48,7 +47,6 @@ app.include_router(inbox_router)
 app.include_router(data_router)
 app.include_router(transactions_router)
 app.include_router(import_router)
-app.include_router(widgets_router)
 
 
 @app.get("/")

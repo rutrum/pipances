@@ -49,6 +49,14 @@
       url = "https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js";
       flake = false;
     };
+    tom-select-js = {
+      url = "https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js";
+      flake = false;
+    };
+    tom-select-css = {
+      url = "https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.min.css";
+      flake = false;
+    };
   };
 
   outputs =

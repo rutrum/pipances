@@ -9,8 +9,10 @@
       {% endblock title %}
     </title>
     <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/css/tom-select.min.css" />
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/response-targets.js"></script>
+    <script src="/static/js/tom-select.complete.min.js"></script>
     <script src="/static/js/alpine.min.js" defer></script>
     <script src="/static/js/lucide.min.js"></script>
   </head>
@@ -32,12 +34,59 @@
         function autoToast(el) {
             setTimeout(() => dismissToast(el), 4000);
         }
+
+        function initTomSelects(root) {
+            root.querySelectorAll('select.ts-select').forEach(function(el) {
+                if (el.tomselect) return;
+                var opts = JSON.parse(el.dataset.tsOptions || '[]');
+                // Map {id, name} items to {value, text} for Tom Select
+                var items = opts.map(function(i) {
+                    if (typeof i === 'string') return {
+                        value: i,
+                        text: i
+                    };
+                    return {
+                        value: i.name,
+                        text: i.name
+                    };
+                });
+                var initialVal = (el.querySelector('option[selected]') || el.querySelector('option'))?.value || '';
+                var settings = {
+                    valueField: 'value',
+                    labelField: 'text',
+                    searchField: 'text',
+                    create: el.dataset.tsCreate !== 'false',
+                    maxOptions: 50,
+                    options: items,
+                    onChange: function(value) {
+                        // Skip the initial sync call that Tom Select fires on init
+                        // Only fire PATCH when the user actually changes the value
+                        if (value === initialVal) return;
+                        initialVal = value;
+                        var field = el.dataset.tsField;
+                        if (field) {
+                            var vals = {};
+                            vals[field] = value || '';
+                            htmx.ajax('PATCH', el.dataset.tsPatch, {
+                                target: el.dataset.tsTarget || '#txn-' + el.dataset.tsTxnId,
+                                swap: 'outerHTML',
+                                values: vals
+                            });
+                        }
+                    }
+                };
+                new TomSelect(el, settings);
+            });
+        }
+
         document.addEventListener('htmx:afterSwap', function(evt) {
             lucide.createIcons();
             Alpine.initTree(document.body);
+            initTomSelects(evt.detail.elt);
         });
         document.addEventListener('htmx:oobAfterSwap', function(e) {
             lucide.createIcons();
+            initTomSelects(e.detail.target);
             if (e.detail.target.id === 'toast-container') {
                 e.detail.target.querySelectorAll('.alert').forEach(autoToast);
             }

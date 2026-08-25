@@ -61,8 +61,8 @@ def test_edit_description_and_blur_persists(page: Page, goto):
     dialog = page.locator("dialog")
     expect(dialog).to_be_visible()
 
-    # Find the Description combo box (first .combo-box in the modal)
-    combo_inputs = dialog.locator(".combo-box input")
+    # Find the Description Tom Select input (first .ts-wrapper input in the modal)
+    combo_inputs = dialog.locator(".ts-wrapper input")
     description_input = combo_inputs.first
 
     # Modify description field and blur
@@ -88,8 +88,8 @@ def test_clear_description_and_blur_persists(page: Page, goto):
     dialog = page.locator("dialog")
     expect(dialog).to_be_visible()
 
-    # Find the Description combo box (first .combo-box in the modal)
-    combo_inputs = dialog.locator(".combo-box input")
+    # Find the Description Tom Select input (first .ts-wrapper input in the modal)
+    combo_inputs = dialog.locator(".ts-wrapper input")
     description_input = combo_inputs.first
 
     # Clear description field and blur
@@ -120,8 +120,8 @@ def test_change_external_account_dropdown(page: Page, goto):
     dialog = page.locator("dialog")
     expect(dialog).to_be_visible()
 
-    # Find External Account combo box (second .combo-box in the modal)
-    combo_inputs = dialog.locator(".combo-box input")
+    # Find External Account Tom Select input (second .ts-wrapper input in the modal)
+    combo_inputs = dialog.locator(".ts-wrapper input")
     external_input = combo_inputs.nth(1)
 
     # Type to search and select an account
@@ -129,7 +129,7 @@ def test_change_external_account_dropdown(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Click on a dropdown result if available
-    results = dialog.locator("[data-combo-item]")
+    results = dialog.locator(".ts-dropdown .option")
     if results.count() > 0:
         results.first.click()
         page.wait_for_load_state("networkidle")
@@ -139,7 +139,7 @@ def test_change_external_account_dropdown(page: Page, goto):
 
 
 def test_clear_external_account(page: Page, goto):
-    """When user clears external account from combo, value clears."""
+    """When user clears external account from Tom Select, value clears."""
     goto("/inbox")
 
     # Open modal
@@ -149,8 +149,8 @@ def test_clear_external_account(page: Page, goto):
     dialog = page.locator("dialog")
     expect(dialog).to_be_visible()
 
-    # Find External Account combo box (second .combo-box in the modal)
-    combo_inputs = dialog.locator(".combo-box input")
+    # Find External Account Tom Select input (second .ts-wrapper input in the modal)
+    combo_inputs = dialog.locator(".ts-wrapper input")
     external_input = combo_inputs.nth(1)
 
     # Clear the input
@@ -181,8 +181,8 @@ def test_change_category_dropdown(page: Page, goto):
     dialog = page.locator("dialog")
     expect(dialog).to_be_visible()
 
-    # Find Category combo box (third .combo-box in the modal)
-    combo_inputs = dialog.locator(".combo-box input")
+    # Find Category Tom Select input (third .ts-wrapper input in the modal)
+    combo_inputs = dialog.locator(".ts-wrapper input")
     category_input = combo_inputs.nth(2)
 
     # Type to search and select a category
@@ -190,7 +190,7 @@ def test_change_category_dropdown(page: Page, goto):
     page.wait_for_load_state("networkidle")
 
     # Click on a dropdown result if available
-    results = dialog.locator("[data-combo-item]")
+    results = dialog.locator(".ts-dropdown .option")
     if results.count() > 0:
         results.first.click()
         page.wait_for_load_state("networkidle")
@@ -200,7 +200,7 @@ def test_change_category_dropdown(page: Page, goto):
 
 
 def test_clear_category(page: Page, goto):
-    """When user clears category from combo, value clears."""
+    """When user clears category from Tom Select, value clears."""
     goto("/inbox")
 
     # Open modal
@@ -210,8 +210,8 @@ def test_clear_category(page: Page, goto):
     dialog = page.locator("dialog")
     expect(dialog).to_be_visible()
 
-    # Find Category combo box (third .combo-box in the modal)
-    combo_inputs = dialog.locator(".combo-box input")
+    # Find Category Tom Select input (third .ts-wrapper input in the modal)
+    combo_inputs = dialog.locator(".ts-wrapper input")
     category_input = combo_inputs.nth(2)
 
     # Clear the input
@@ -264,7 +264,7 @@ def test_close_modal_via_x_button_and_row_refreshes(page: Page, goto):
     expect(dialog).to_be_visible()
 
     # Make a change
-    combo_inputs = dialog.locator(".combo-box input")
+    combo_inputs = dialog.locator(".ts-wrapper input")
     description_input = combo_inputs.first
     description_input.fill("Test refresh")
     description_input.blur()

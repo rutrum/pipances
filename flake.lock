@@ -168,6 +168,8 @@
         "nixpkgs": "nixpkgs_2",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
+        "tom-select-css": "tom-select-css",
+        "tom-select-js": "tom-select-js",
         "uv2nix": "uv2nix",
         "vega-embed-js": "vega-embed-js",
         "vega-js": "vega-js",
@@ -187,6 +189,30 @@
         "owner": "nix-systems",
         "repo": "default",
         "type": "github"
+      }
+    },
+    "tom-select-css": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-sD+suzF8ksbqM2n/G6QR7YyDBW42kuqaG5jB7QmfGQo=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.min.css"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.min.css"
+      }
+    },
+    "tom-select-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-8wZiLEvuMhEY/m0EigOADgSS0Qe5HoI9jOChf6CmddU=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"
       }
     },
     "uv2nix": {

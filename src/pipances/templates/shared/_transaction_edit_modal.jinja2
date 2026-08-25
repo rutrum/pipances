@@ -33,42 +33,56 @@
     </div>
     <!-- Editable form section with combo boxes -->
     <div class="space-y-4">
-      <!-- Description field with combo box -->
+      <!-- Description field with Tom Select -->
       <div class="form-control w-full">
         <label class="label">
           <span class="label-text">Description</span>
         </label>
-        {% set txn_id = txn.id %}
-        {% set current_value = txn.description or '' %}
-        {% set entity = "descriptions" %}
-        {% set field_name = "description" %}
-        {% include "shared/_combo_edit.jinja2" %}
+        <select class="ts-select w-full"
+                data-ts-options='{{ descriptions | tojson }}'
+                data-ts-patch="/transactions/{{ txn.id }}"
+                data-ts-target="#txn-{{ txn.id }}"
+                data-ts-field="description"
+                placeholder="Type to search..."
+                autocomplete="off">
+          {% if txn.description %}<option value="{{ txn.description }}" selected>{{ txn.description }}</option>{% endif %}
+        </select>
         <div data-error-description class="text-error text-sm mt-1"></div>
       </div>
-      <!-- External account field with combo box -->
+      <!-- External account field with Tom Select -->
       <div class="form-control w-full">
         <label class="label">
           <span class="label-text">External Account</span>
         </label>
         {% set external_display = external_accounts|selectattr('id', 'equalto', txn.external_id)|map(attribute='name')|first or '' %}
-        {% set txn_id = txn.id %}
-        {% set current_value = external_display %}
-        {% set entity = "external-accounts" %}
-        {% set field_name = "external_id" %}
-        {% include "shared/_combo_edit.jinja2" %}
+        {% set external_names = external_accounts|map(attribute='name')|list %}
+        <select class="ts-select w-full"
+                data-ts-options='{{ external_names | tojson }}'
+                data-ts-patch="/transactions/{{ txn.id }}"
+                data-ts-target="#txn-{{ txn.id }}"
+                data-ts-field="external_id"
+                placeholder="Type to search..."
+                autocomplete="off">
+          {% if external_display %}<option value="{{ external_display }}" selected>{{ external_display }}</option>{% endif %}
+        </select>
         <div data-error-external class="text-error text-sm mt-1"></div>
       </div>
-      <!-- Category field with combo box -->
+      <!-- Category field with Tom Select -->
       <div class="form-control w-full">
         <label class="label">
           <span class="label-text">Category</span>
         </label>
         {% set category_display = categories|selectattr('id', 'equalto', txn.category_id)|map(attribute='name')|first or '' %}
-        {% set txn_id = txn.id %}
-        {% set current_value = category_display %}
-        {% set entity = "categories" %}
-        {% set field_name = "category_id" %}
-        {% include "shared/_combo_edit.jinja2" %}
+        {% set category_names = categories|map(attribute='name')|list %}
+        <select class="ts-select w-full"
+                data-ts-options='{{ category_names | tojson }}'
+                data-ts-patch="/transactions/{{ txn.id }}"
+                data-ts-target="#txn-{{ txn.id }}"
+                data-ts-field="category_id"
+                placeholder="Type to search..."
+                autocomplete="off">
+          {% if category_display %}<option value="{{ category_display }}" selected>{{ category_display }}</option>{% endif %}
+        </select>
         <div data-error-category class="text-error text-sm mt-1"></div>
       </div>
       {% include "shared/_splits_section.jinja2" %}

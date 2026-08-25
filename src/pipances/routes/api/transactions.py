@@ -1,12 +1,14 @@
 """JSON API for transactions -- list, single lookup, categories, accounts."""
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 
 from pipances.db import DatabaseDep
 from pipances.db.accounts import get_active_internal_accounts, get_external_accounts
 from pipances.db.categories import get_categories
 from pipances.db.transactions import fetch_page, get_txn
+from pipances.models import Account, Category, Transaction
 from pipances.routes.api.queries import transaction_to_dict, txn_page_to_dict
 from pipances.routes.api.schemas import (
     AccountItem,
@@ -14,7 +16,7 @@ from pipances.routes.api.schemas import (
     PaginatedTransactions,
     TransactionResponse,
 )
-from pipances.utils import compute_date_range, safe_int
+from pipances.utils import compute_date_range, escape_like, safe_int
 
 router = APIRouter(prefix="/api", tags=["transactions"])
 
@@ -84,8 +86,19 @@ async def get_transaction(
         " Used by Tabulator list editors for inline category selection."
     ),
 )
-async def list_categories(database: DatabaseDep):
+async def list_categories(
+    database: DatabaseDep,
+    q: str = Query("", description="Search filter"),
+):
     async with database.session() as session:
+        if q:
+            result = await session.execute(
+                select(Category)
+                .where(Category.name.ilike(f"%{escape_like(q)}%"))
+                .order_by(Category.name)
+                .limit(50)
+            )
+            return [{"id": c.id, "name": c.name} for c in result.scalars().all()]
         return [{"id": c.id, "name": c.name} for c in await get_categories(session)]
 
 
@@ -113,9 +126,47 @@ async def list_accounts(database: DatabaseDep):
     summary="List external accounts",
     description="Return all external (merchant) accounts ordered by name.",
 )
-async def list_external_accounts(database: DatabaseDep):
+async def list_external_accounts(
+    database: DatabaseDep,
+    q: str = Query("", description="Search filter"),
+):
     async with database.session() as session:
+        if q:
+            result = await session.execute(
+                select(Account)
+                .where(Account.kind == "external")
+                .where(Account.name.ilike(f"%{escape_like(q)}%"))
+                .order_by(Account.name)
+                .limit(50)
+            )
+            return [
+                {"id": a.id, "name": a.name, "kind": a.kind, "active": a.active}
+                for a in result.scalars().all()
+            ]
         return [
             {"id": a.id, "name": a.name, "kind": a.kind, "active": a.active}
             for a in await get_external_accounts(session)
         ]
+
+
+@router.get(
+    "/descriptions",
+    summary="Search transaction descriptions",
+    description="Return distinct transaction descriptions matching the query.",
+)
+async def search_descriptions(
+    database: DatabaseDep,
+    q: str = Query("", description="Search filter"),
+):
+    async with database.session() as session:
+        query = (
+            select(Transaction.description)
+            .where(Transaction.description.isnot(None))
+            .where(Transaction.description != "")
+            .distinct()
+            .order_by(Transaction.description)
+        )
+        if q:
+            query = query.where(Transaction.description.ilike(f"%{escape_like(q)}%"))
+        result = await session.execute(query.limit(50))
+        return [{"id": d[0], "name": d[0]} for d in result.fetchall() if d[0]]

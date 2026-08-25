@@ -193,6 +193,16 @@ async def edit_modal(
         categories = await get_categories(session)
         categories_data = [{"id": c.id, "name": c.name} for c in categories]
 
+        # Load all distinct descriptions for dropdown
+        desc_result = await session.execute(
+            select(Transaction.description)
+            .where(Transaction.description.isnot(None))
+            .where(Transaction.description != "")
+            .distinct()
+            .order_by(Transaction.description)
+        )
+        descriptions = [r[0] for r in desc_result.fetchall() if r[0]]
+
         return templates.TemplateResponse(
             request,
             "shared/_transaction_edit_modal.jinja2",
@@ -201,6 +211,7 @@ async def edit_modal(
                 "external_accounts": external_accounts,
                 "categories": categories,
                 "categories_data": categories_data,
+                "descriptions": descriptions,
             },
         )
 

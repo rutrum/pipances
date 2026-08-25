@@ -57,6 +57,8 @@ let
       cp ${inputs.vega-lite-js} $out/static/js/vega-lite.min.js
       cp ${inputs.vega-embed-js} $out/static/js/vega-embed.min.js
       cp ${inputs.alpine-js} $out/static/js/alpine.min.js
+      cp ${inputs.tom-select-js} $out/static/js/tom-select.complete.min.js
+      cp ${inputs.tom-select-css} $out/static/css/tom-select.min.css
     '';
   };
 

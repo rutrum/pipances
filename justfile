@@ -19,7 +19,11 @@ sync:
 
 # Run the dev server
 serve: css
-    uv run python -m pipances.main
+    uv run uvicorn pipances.main:app --port 8098 --reload
+
+# Run dev server with hot reload, skipping CSS build for speed
+serve-hot:
+    uv run uvicorn pipances.main:app --port 8098 --reload
 
 # Build CSS and sync deps (fresh checkout setup)
 setup: sync css

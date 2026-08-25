@@ -316,11 +316,11 @@ def test_combo_select_existing_external_by_partial_type(page: Page, goto, full_t
     goto("/inbox")
     dialog = open_modal(page, txn_id)
 
-    inp = dialog.locator(".combo-box").nth(1).locator("input")
+    inp = dialog.locator(".ts-wrapper").nth(1).locator("input")
     inp.click()
     inp.fill("Net")
 
-    netflix_item = dialog.locator('[data-combo-item]:has-text("Netflix")').first
+    netflix_item = dialog.locator('.ts-dropdown .option:has-text("Netflix")').first
     expect(netflix_item).to_be_visible(timeout=3000)
     netflix_item.click()
 
@@ -356,11 +356,11 @@ def test_combo_create_new_external_account(page: Page, goto, full_txn):
     goto("/inbox")
     dialog = open_modal(page, txn_id)
 
-    inp = dialog.locator(".combo-box").nth(1).locator("input")
+    inp = dialog.locator(".ts-wrapper").nth(1).locator("input")
     inp.click()
     inp.fill("Walmart")
 
-    create_item = dialog.locator('[data-combo-item]:has-text("Create")').first
+    create_item = dialog.locator(".ts-dropdown .option.create").first
     expect(create_item).to_be_visible(timeout=3000)
     create_item.click()
 
@@ -477,14 +477,13 @@ def test_approve_btn_disables_after_clearing_external(
     expect(approve_btn).to_be_enabled()
 
     # Clear the external account -- type nothing and wait for Clear option
-    ext_input = dialog.locator(".combo-box").nth(1).locator("input")
+    ext_input = dialog.locator(".ts-wrapper").nth(1).locator("input")
     ext_input.click()
     ext_input.clear()
     page.wait_for_load_state("networkidle")
 
-    clear_item = dialog.locator('[data-combo-item][data-combo-value=""]')
-    expect(clear_item).to_be_visible(timeout=3000)
-    clear_item.click()
+    # With Tom Select, clearing input and blurring fires onChange with empty value
+    ext_input.blur()
     page.wait_for_load_state("networkidle")
 
     # After clearing external, Approve button should be disabled
