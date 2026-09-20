@@ -1,0 +1,10 @@
+{#
+  Categories table rendered with Tabulator. Name cells are edited inline via
+  PATCH /api/categories/{id}; the transaction count is recomputed server-side
+  on rename and reconciled into the row.
+#}
+<div id="categories-table-root">
+  <div id="categories-table"></div>
+</div>
+<script src="/static/js/pages/table-editors.js?v={{ static_version('js', 'pages', 'table-editors.js') }}"></script>
+<script src="/static/js/pages/categories-table.js?v={{ static_version('js', 'pages', 'categories-table.js') }}"></script>

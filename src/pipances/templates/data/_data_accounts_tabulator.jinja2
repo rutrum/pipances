@@ -1,0 +1,32 @@
+{#
+  Internal accounts table rendered with Tabulator. Cells edit inline via
+  PATCH /api/accounts/{id}; the add form posts to POST /api/accounts and the
+  show-closed toggle reloads the table with a show_closed body flag.
+#}
+<div class="flex justify-between items-center mb-4">
+  <h2 class="text-lg font-semibold">Internal Accounts</h2>
+  <label class="label cursor-pointer gap-2">
+    <span class="label-text">Show closed</span>
+    <input type="checkbox" id="accounts-show-closed" class="toggle toggle-sm" />
+  </label>
+</div>
+<div id="accounts-table"></div>
+<form id="account-add-form"
+      class="mt-4 flex flex-wrap items-end gap-2"
+      autocomplete="off">
+  <input name="name"
+         placeholder="Account name"
+         required
+         class="input input-sm" />
+  <select name="kind" id="account-add-kind" required></select>
+  <input name="starting_balance"
+         type="number"
+         step="0.01"
+         placeholder="0.00"
+         class="input input-sm" />
+  <input name="balance_date" type="date" class="input input-sm" />
+  <button type="submit" class="btn btn-primary btn-sm">Add</button>
+</form>
+<div id="account-add-error" class="mt-2"></div>
+<script src="/static/js/pages/table-editors.js?v={{ static_version('js', 'pages', 'table-editors.js') }}"></script>
+<script src="/static/js/pages/accounts-table.js?v={{ static_version('js', 'pages', 'accounts-table.js') }}"></script>

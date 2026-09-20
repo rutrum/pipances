@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import NamedTuple
+from math import ceil
+from typing import Any, NamedTuple
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
+from pipances.db import TablePage
 from pipances.db.transactions import VISIBLE_STATUSES, statuses_where
 from pipances.models import Category, Transaction, TransactionStatus
+from pipances.utils import escape_like
 
 
 async def get_categories(session: AsyncSession) -> Sequence[Category]:
@@ -73,3 +77,62 @@ async def transaction_count_for_category(
         select(func.count(Transaction.id)).where(Transaction.category_id == category_id)
     )
     return int(count or 0)
+
+
+_CATEGORY_TXN_COUNT = func.count(Transaction.id).label("txn_count")
+
+_CATEGORY_SORTS: dict[str, Any] = {
+    "name": Category.name,
+    "txn_count": _CATEGORY_TXN_COUNT,
+}
+
+
+def _categories_query() -> Select[Any]:
+    return (
+        select(Category.id, Category.name, _CATEGORY_TXN_COUNT)
+        .outerjoin(Transaction, Transaction.category_id == Category.id)
+        .group_by(Category.id, Category.name)
+    )
+
+
+async def fetch_categories_page(
+    session: AsyncSession,
+    *,
+    sorters: Sequence[dict[str, Any]] | None = None,
+    filters: Sequence[dict[str, Any]] | None = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> TablePage:
+    """One page of categories with their transaction counts."""
+    query = _categories_query()
+
+    for spec in filters or ():
+        if str(spec.get("field", "")) != "name":
+            continue
+        value = spec.get("value")
+        if value in (None, ""):
+            continue
+        query = query.where(Category.name.ilike(f"%{escape_like(str(value))}%"))
+
+    total_count = int(
+        await session.scalar(select(func.count()).select_from(query.subquery())) or 0
+    )
+    total_pages = max(1, ceil(total_count / page_size))
+    page = min(page, total_pages)
+    offset = (page - 1) * page_size
+
+    order_by = []
+    for sorter in sorters or ():
+        col = _CATEGORY_SORTS.get(str(sorter.get("field", "")))
+        if col is None:
+            continue
+        order_by.append(
+            col.asc() if str(sorter.get("dir", "asc")).lower() == "asc" else col.desc()
+        )
+    if not order_by:
+        order_by.append(Category.name.asc())
+
+    result = await session.execute(
+        query.order_by(*order_by).offset(offset).limit(page_size)
+    )
+    return TablePage(result.all(), total_count, page, page_size, total_pages)

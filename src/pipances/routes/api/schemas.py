@@ -78,6 +78,12 @@ class TabulatorRequest(BaseModel):
     date_to: str | None = None
 
 
+class AccountsTableRequest(TabulatorRequest):
+    """Accounts table body; adds the show-closed toggle to the base request."""
+
+    show_closed: bool = False
+
+
 class TabulatorResponse(BaseModel):
     """Tabulator's default remote-pagination response envelope."""
 
@@ -97,6 +103,40 @@ class TabulatorTableResponse(BaseModel):
 class ImporterItem(BaseModel):
     name: str
     filename: str
+
+
+class CategoryRow(BaseModel):
+    id: int
+    name: str
+    txn_count: int
+
+
+class CategoryUpdate(BaseModel):
+    name: str | None = None
+
+
+class AccountRow(BaseModel):
+    id: int
+    name: str
+    kind: str
+    starting_balance: float
+    balance_date: str | None = None
+    active: bool
+
+
+class AccountUpdate(BaseModel):
+    name: str | None = None
+    kind: str | None = None
+    starting_balance: float | None = None
+    balance_date: str | None = None
+    active: bool | None = None
+
+
+class AccountCreate(BaseModel):
+    name: str
+    kind: str
+    starting_balance: float | None = None
+    balance_date: str | None = None
 
 
 class AccountItem(BaseModel):

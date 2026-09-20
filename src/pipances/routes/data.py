@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from pipances.db import DatabaseDep
 from pipances.db.categories import (
-    categories_with_usage,
     transaction_count_for_category,
 )
 from pipances.models import (
@@ -39,41 +37,13 @@ async def data_accounts_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
-    show_closed = request.query_params.get("show_closed", "false") == "true"
+    """Tabulator-based internal accounts table with inline editing."""
     async with database.session() as session:
         shared = await shared_context("data", session)
-        query = (
-            select(Account)
-            .where(Account.kind != AccountKind.EXTERNAL)
-            .order_by(Account.name)
-        )
-        if not show_closed:
-            query = query.where(Account.active == True)  # noqa: E712
-        result = await session.execute(query)
-        accounts = result.scalars().all()
 
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        # If triggered by the show_closed toggle, return just table rows
-        if "show_closed" in request.query_params:
-            rows = ""
-            for account in accounts:
-                rows += templates.get_template("data/_account_row.jinja2").render(
-                    {"account": account, "show_closed": show_closed}
-                )
-            rows += templates.get_template("data/_account_input_row.jinja2").render()
-            return HTMLResponse(rows)
-        # Sidebar click: return the full accounts partial
-        return HTMLResponse(
-            templates.get_template("data/_data_accounts.jinja2").render(
-                {"accounts": accounts, "show_closed": show_closed}
-            )
-        )
-
-    content_html = templates.get_template("data/_data_accounts.jinja2").render(
-        {"accounts": accounts, "show_closed": show_closed}
-    )
-
+    content_html = templates.get_template(
+        "data/_data_accounts_tabulator.jinja2"
+    ).render()
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",
@@ -296,49 +266,13 @@ async def data_categories_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
+    """Tabulator-based categories table with inline name editing."""
     async with database.session() as session:
         shared = await shared_context("data", session)
-        categories = await categories_with_usage(session)
 
-    categories_data = [
-        {"id": c.id, "name": c.name, "txn_count": c.txn_count} for c in categories
-    ]
-
-    columns = [
-        {
-            "key": "name",
-            "label": "Name",
-            "type": "editable",
-            "id_key": "id",
-            "edit_endpoint": "/categories/{id}/edit-name",
-        },
-        {"key": "txn_count", "label": "Transactions"},
-        {
-            "key": "_explore",
-            "label": "",
-            "type": "link",
-            "href": "/explore?category={name}",
-            "icon": "compass",
-            "title": "View in Explore",
-        },
-    ]
-
-    ctx = {
-        "title": "Categories",
-        "empty_message": "No categories yet. Categories are created automatically when you assign them to transactions.",
-        "columns": columns,
-        "rows": categories_data,
-        "tbody_id": "categories-table-body",
-        "row_id_key": "id",
-    }
-
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        return HTMLResponse(
-            templates.get_template("data/_data_table.jinja2").render(ctx)
-        )
-
-    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
+    content_html = templates.get_template(
+        "data/_data_categories_tabulator.jinja2"
+    ).render()
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",

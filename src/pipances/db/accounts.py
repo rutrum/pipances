@@ -123,3 +123,58 @@ async def fetch_external_accounts_page(
         query.order_by(*order_by).offset(offset).limit(page_size)
     )
     return TablePage(result.all(), total_count, page, page_size, total_pages)
+
+
+_ACCOUNT_SORTS: dict[str, Any] = {
+    "name": Account.name,
+    "kind": Account.kind,
+    "starting_balance": Account.starting_balance_cents,
+    "balance_date": Account.balance_date,
+    "active": Account.active,
+}
+
+
+async def fetch_accounts_page(
+    session: AsyncSession,
+    *,
+    show_closed: bool = False,
+    sorters: Sequence[dict[str, Any]] | None = None,
+    filters: Sequence[dict[str, Any]] | None = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> TablePage:
+    """One page of internal accounts, optionally including closed ones."""
+    query = select(Account).where(Account.kind != AccountKind.EXTERNAL)
+    if not show_closed:
+        query = query.where(Account.active == True)  # noqa: E712
+
+    for spec in filters or ():
+        if str(spec.get("field", "")) != "name":
+            continue
+        value = spec.get("value")
+        if value in (None, ""):
+            continue
+        query = query.where(Account.name.ilike(f"%{escape_like(str(value))}%"))
+
+    total_count = int(
+        await session.scalar(select(func.count()).select_from(query.subquery())) or 0
+    )
+    total_pages = max(1, ceil(total_count / page_size))
+    page = min(page, total_pages)
+    offset = (page - 1) * page_size
+
+    order_by = []
+    for sorter in sorters or ():
+        col = _ACCOUNT_SORTS.get(str(sorter.get("field", "")))
+        if col is None:
+            continue
+        order_by.append(
+            col.asc() if str(sorter.get("dir", "asc")).lower() == "asc" else col.desc()
+        )
+    if not order_by:
+        order_by.append(Account.name.asc())
+
+    result = await session.execute(
+        query.order_by(*order_by).offset(offset).limit(page_size)
+    )
+    return TablePage(result.scalars().all(), total_count, page, page_size, total_pages)

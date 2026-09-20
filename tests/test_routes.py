@@ -405,23 +405,21 @@ async def test_data_categories_includes_txn_count_and_explore(
     session.add(txn)
     await session.commit()
 
+    # The page now renders a Tabulator container; rows come from the JSON API.
     resp = await client.get("/data/categories")
     assert resp.status_code == 200
-    assert "Groceries" in resp.text
-    assert "/explore?category=Groceries" in resp.text
+    assert "categories-table.js" in resp.text
+
+    table = await client.post("/api/categories/table", json={"page": 1, "size": 25})
+    groceries = next(row for row in table.json()["data"] if row["name"] == "Groceries")
+    assert groceries["txn_count"] == 1
 
 
-# === Explore links URL encoding ===
-
-
-async def test_explore_link_url_encoding(client, seed_accounts):
+async def test_data_accounts_renders_tabulator_container(client, seed_accounts):
     resp = await client.get("/data/accounts")
     assert resp.status_code == 200
-    # "Credit Card" should be URL-encoded in the Explore link
-    assert (
-        "/explore?internal=Credit+Card" in resp.text
-        or "/explore?internal=Credit%20Card" in resp.text
-    )
+    assert 'id="accounts-table"' in resp.text
+    assert "accounts-table.js" in resp.text
 
 
 async def test_combo_search_with_percent(client, seed_accounts, seed_categories):
