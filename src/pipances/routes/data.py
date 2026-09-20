@@ -476,7 +476,12 @@ async def data_tab_transactions_page(
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",
-        _data_page_ctx("tab_transactions", shared, data_content_html=content_html),
+        _data_page_ctx(
+            "tab_transactions",
+            shared,
+            data_content_html=content_html,
+            tab_css_version=_static_asset_version("css", "tabulator-daisy.css"),
+        ),
     )
 
 

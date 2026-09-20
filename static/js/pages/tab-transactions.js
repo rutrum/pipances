@@ -9,6 +9,11 @@
   var dateFrom = root.dataset.dateFrom || "";
   var dateTo = root.dataset.dateTo || "";
 
+  // Give Tabulator's built-in header filter inputs real daisyUI `input` styling.
+  var headerFilterParams = {
+    elementAttributes: { class: "input input-xs" },
+  };
+
   function activatePreset(key) {
     root.querySelectorAll(".date-preset-btn").forEach(function (btn) {
       btn.classList.toggle("btn-active", btn.dataset.preset === key);
@@ -56,6 +61,7 @@
         field: "description",
         sorter: "string",
         headerFilter: "input",
+        headerFilterParams: headerFilterParams,
         headerFilterPlaceholder: "Search...",
       },
       {
@@ -63,6 +69,7 @@
         field: "category.name",
         sorter: "string",
         headerFilter: "input",
+        headerFilterParams: headerFilterParams,
         headerFilterPlaceholder: "Filter...",
       },
       {
@@ -70,6 +77,7 @@
         field: "external_account.name",
         sorter: "string",
         headerFilter: "input",
+        headerFilterParams: headerFilterParams,
         headerFilterPlaceholder: "Filter...",
       },
       {
@@ -77,6 +85,7 @@
         field: "internal_account.name",
         sorter: "string",
         headerFilter: "input",
+        headerFilterParams: headerFilterParams,
         headerFilterPlaceholder: "Filter...",
       },
     ],

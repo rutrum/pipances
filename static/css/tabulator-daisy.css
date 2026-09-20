@@ -1,0 +1,158 @@
+/*
+  Tabulator theme mapped onto daisyUI semantic tokens.
+
+  Tabulator ships its own hardcoded-hex stylesheet and renders div-based markup,
+  so daisyUI's `table` component cannot be applied to it. This file recolors
+  Tabulator's chrome using daisyUI CSS variables only, so it follows the active
+  theme (and never hardcodes a color).
+*/
+
+.tabulator {
+  background-color: var(--color-base-100);
+  border: var(--border) solid var(--color-base-300);
+  border-radius: var(--radius-box);
+  color: var(--color-base-content);
+}
+
+/* Header */
+
+.tabulator .tabulator-header {
+  background-color: var(--color-base-200);
+  border-bottom: var(--border) solid var(--color-base-300);
+  color: var(--color-base-content);
+}
+
+.tabulator .tabulator-header .tabulator-col {
+  background: var(--color-base-200);
+  border-right: none;
+}
+
+.tabulator
+  .tabulator-header
+  .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover {
+  background-color: var(--color-base-300);
+}
+
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  padding: 0.5rem 0.6rem;
+}
+
+/* Sort arrows */
+
+.tabulator
+  .tabulator-header
+  .tabulator-col.tabulator-sortable[aria-sort="none"]
+  .tabulator-col-content
+  .tabulator-col-sorter
+  .tabulator-arrow {
+  border-bottom-color: color-mix(
+    in oklab,
+    var(--color-base-content) 30%,
+    transparent
+  );
+}
+
+.tabulator
+  .tabulator-header
+  .tabulator-col.tabulator-sortable[aria-sort="ascending"]
+  .tabulator-col-content
+  .tabulator-col-sorter
+  .tabulator-arrow,
+.tabulator
+  .tabulator-header
+  .tabulator-col.tabulator-sortable[aria-sort="descending"]
+  .tabulator-col-content
+  .tabulator-col-sorter
+  .tabulator-arrow {
+  border-bottom-color: var(--color-primary);
+  border-top-color: var(--color-primary);
+}
+
+/* Header filters are given daisyUI `input` classes via headerFilterParams. */
+
+.tabulator .tabulator-header .tabulator-col .tabulator-header-filter {
+  margin-block: 0.25rem;
+}
+
+/* Body */
+
+.tabulator .tabulator-tableholder .tabulator-table {
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+}
+
+.tabulator-row {
+  background-color: var(--color-base-100);
+  border-bottom: 1px solid var(--color-base-300);
+}
+
+.tabulator-row .tabulator-cell {
+  border-right: none;
+  padding: 0.6rem;
+}
+
+.tabulator-row.tabulator-row-even {
+  background-color: var(--color-base-200);
+}
+
+.tabulator-row.tabulator-selected {
+  background-color: color-mix(
+    in oklab,
+    var(--color-primary) 18%,
+    var(--color-base-100)
+  );
+}
+
+.tabulator .tabulator-tableholder .tabulator-placeholder .tabulator-placeholder-contents {
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tabulator-row.tabulator-selectable:hover {
+    background-color: var(--color-base-300);
+  }
+}
+
+/* Footer / pagination */
+
+.tabulator .tabulator-footer {
+  background-color: var(--color-base-200);
+  border-top: var(--border) solid var(--color-base-300);
+  color: var(--color-base-content);
+}
+
+.tabulator .tabulator-footer .tabulator-page-counter {
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+
+.tabulator .tabulator-footer .tabulator-page-size {
+  background-color: var(--color-base-100);
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-field);
+  color: var(--color-base-content);
+}
+
+.tabulator .tabulator-footer .tabulator-page {
+  background: var(--color-base-100);
+  border: 1px solid var(--color-base-300);
+  border-radius: var(--radius-field);
+  color: var(--color-base-content);
+  padding: 0.2rem 0.6rem;
+}
+
+.tabulator .tabulator-footer .tabulator-page.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-content);
+}
+
+.tabulator .tabulator-footer .tabulator-page:disabled {
+  opacity: 0.4;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tabulator .tabulator-footer .tabulator-page:not(disabled):hover {
+    background: var(--color-base-300);
+    color: var(--color-base-content);
+  }
+}

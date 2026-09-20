@@ -5,6 +5,8 @@
 {% block head %}
   {% if data_section == 'tab_transactions' %}
     <link rel="stylesheet" href="/static/css/external/tabulator.min.css" />
+    <link rel="stylesheet"
+          href="/static/css/tabulator-daisy.css?v={{ tab_css_version }}" />
     <script src="/static/js/external/tabulator.min.js"></script>
   {% endif %}
 {% endblock head %}
