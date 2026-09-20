@@ -1,9 +1,9 @@
-// Data/Tab Transactions — Tabulator in fully remote mode.
+// Read-only transactions table — Tabulator in fully remote mode.
 // Sorting, filtering and pagination are handled by POST /api/transactions/table.
 // The only imperative code here is wiring the page-level date-range control.
 (function () {
-  var root = document.getElementById("tab-transactions");
-  var container = document.getElementById("tab-transactions-table");
+  var root = document.getElementById("transactions-table-root");
+  var container = document.getElementById("transactions-table");
   if (!root || !container) return;
 
   var dateFrom = root.dataset.dateFrom || "";
@@ -18,7 +18,7 @@
     root.querySelectorAll(".date-preset-btn").forEach(function (btn) {
       btn.classList.toggle("btn-active", btn.dataset.preset === key);
     });
-    var customRange = document.getElementById("tab-custom-range");
+    var customRange = document.getElementById("transactions-custom-range");
     if (customRange) customRange.classList.toggle("hidden", key !== "custom");
   }
 
@@ -115,11 +115,11 @@
     });
   });
 
-  var applyBtn = document.getElementById("tab-apply-custom");
+  var applyBtn = document.getElementById("transactions-apply-custom");
   if (applyBtn) {
     applyBtn.addEventListener("click", function () {
-      dateFrom = document.getElementById("tab-date-from").value || "";
-      dateTo = document.getElementById("tab-date-to").value || "";
+      dateFrom = document.getElementById("transactions-date-from").value || "";
+      dateTo = document.getElementById("transactions-date-to").value || "";
       activatePreset("custom");
       reload();
     });

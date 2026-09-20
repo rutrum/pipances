@@ -1,12 +1,7 @@
 """
 Regression tests for OOB swap fragility bugs.
 
-Bug 1: Pagination disappears after clicking Next on /data/transactions.
-  Root cause: _pagination.html always emitted hx-swap-oob, so HTMX stripped
-  the pagination element from the primary swap target (#data-content) and then
-  couldn't find the OOB target because it was inside the replaced element.
-
-Bug 2: Commit modal doesn't dismiss and table doesn't update after confirming.
+Bug: Commit modal doesn't dismiss and table doesn't update after confirming.
   Root cause: pagination_id was missing from inbox.py OOB render calls,
   producing hx-swap-oob="outerHTML:#" (invalid selector) which threw a JS
   error and halted all remaining OOB processing including dialog_clear.
@@ -18,59 +13,12 @@ from playwright.sync_api import Page, expect
 
 from tests.ui.helpers import (
     confirm_commit,
-    data_page_label,
-    data_pagination,
     do_approve,
     open_commit_dialog,
 )
 
 # ============================================================
-# Bug 1: Pagination persists after navigating pages
-# ============================================================
-
-
-def test_data_transactions_pagination_visible_on_load(page: Page, goto):
-    """Baseline: pagination renders on initial page load."""
-    goto("/data/transactions")
-    expect(data_pagination(page)).to_be_visible()
-    expect(data_page_label(page, 1)).to_be_visible()
-
-
-def test_data_transactions_pagination_persists_after_next(page: Page, goto):
-    """
-    Regression: clicking Next must not make the pagination disappear.
-
-    Before fix: _pagination.html had unconditional hx-swap-oob. HTMX stripped
-    the element from the primary response and then couldn't find the OOB target
-    (it was inside #data-content which had just been replaced). Pagination
-    silently vanished from the DOM.
-    """
-    goto("/data/transactions")
-    page.click("button:text('Next >>')")
-    expect(data_page_label(page, 2)).to_be_visible()
-    expect(data_pagination(page)).to_be_visible()
-
-
-def test_data_transactions_pagination_persists_after_multiple_pages(page: Page, goto):
-    """Pagination survives multiple sequential page navigations."""
-    goto("/data/transactions")
-    page.click("button:text('Next >>')")
-    expect(data_page_label(page, 2)).to_be_visible()
-    page.click("button:text('Next >>')")
-    expect(data_page_label(page, 3)).to_be_visible()
-    expect(data_pagination(page)).to_be_visible()
-
-
-def test_data_transactions_prev_button_updates_pagination(page: Page, goto):
-    """Prev button also keeps pagination intact."""
-    goto("/data/transactions?page=3")
-    page.click("button:text('<< Prev')")
-    expect(data_page_label(page, 2)).to_be_visible()
-    expect(data_pagination(page)).to_be_visible()
-
-
-# ============================================================
-# Bug 2: Commit modal dismisses and table updates
+# Commit modal dismisses and table updates
 # ============================================================
 
 

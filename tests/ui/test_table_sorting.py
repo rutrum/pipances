@@ -12,6 +12,8 @@ passed to sort header macros, which caused arrows to disappear and toggling
 to break in the initial refactoring.
 """
 
+import re
+
 from playwright.sync_api import Page, expect
 
 # ============================================================
@@ -124,90 +126,65 @@ def test_explore_sort_persists_across_pagination(page: Page, goto):
 
 
 # ============================================================
-# Data/Transactions Page Sorting
+# Data/Transactions Page Sorting (Tabulator)
 # ============================================================
 
 
-def test_data_transactions_default_sort_shows_arrow(page: Page, goto):
+def test_data_transactions_table_renders(page: Page, goto):
+    """
+    WHEN  user opens Data > Transactions
+    THEN  a Tabulator grid renders with the expected columns
+    """
+    goto("/data/transactions")
+
+    expect(page.locator("#transactions-table .tabulator")).to_be_visible()
+    for title in ("Date", "Amount", "Description", "Category", "External", "Internal"):
+        expect(
+            page.locator(".tabulator-col-title", has_text=title).first
+        ).to_be_visible()
+
+
+def test_data_transactions_default_sort_is_date_descending(page: Page, goto):
     """
     WHEN  user opens Data > Transactions (default sort = date DESC)
-    THEN  Date column shows the down arrow (v)
+    THEN  Tabulator marks the Date column as descending
     """
     goto("/data/transactions")
 
-    date_header = page.locator("thead th").filter(has_text="Date v").first
-    expect(date_header).to_be_visible()
+    date_col = page.locator(".tabulator-col", has_text="Date").first
+    expect(date_col).to_have_attribute("aria-sort", "descending")
 
 
-def test_data_transactions_sort_toggle(page: Page, goto):
+def test_data_transactions_sort_toggles_direction(page: Page, goto):
     """
-    WHEN  user clicks Date header on Data/Transactions page
-    THEN  arrow toggles from v to ^
-    THEN  clicking again toggles back to v
-    """
-    goto("/data/transactions")
-
-    date_header = page.locator("thead th:has-text('Date')").first
-
-    # Initial: down arrow
-    expect(page.locator("thead th:has-text('Date v')")).to_be_visible()
-
-    # Click to toggle up
-    date_header.click()
-    page.wait_for_load_state("networkidle")
-    expect(page.locator("thead th:has-text('Date ^')")).to_be_visible()
-
-    # Click to toggle down
-    date_header.click()
-    page.wait_for_load_state("networkidle")
-    expect(page.locator("thead th:has-text('Date v')")).to_be_visible()
-
-
-def test_data_transactions_sort_by_description(page: Page, goto):
-    """
-    WHEN  user clicks Description column header
-    THEN  arrow appears on Description
-    THEN  Date column no longer shows an arrow
+    WHEN  user clicks the Date header (initially DESC)
+    THEN  Tabulator toggles the Date column to ASC
+    THEN  clicking again toggles it back to DESC
     """
     goto("/data/transactions")
 
-    desc_header = page.locator("thead th:has-text('Description')").first
+    date_col = page.locator(".tabulator-col", has_text="Date").first
+    expect(date_col).to_have_attribute("aria-sort", "descending")
 
-    # Click to sort by description
-    desc_header.click()
-    page.wait_for_load_state("networkidle")
+    date_col.click()
+    expect(date_col).to_have_attribute("aria-sort", "ascending")
 
-    # Arrow should be on Description
-    expect(page.locator("thead th:has-text('Description ^')")).to_be_visible()
-
-    # Date column should not have arrow
-    expect(page.locator("thead th:has-text('Date ^')")).not_to_be_visible()
-    expect(page.locator("thead th:has-text('Date v')")).not_to_be_visible()
+    date_col.click()
+    expect(date_col).to_have_attribute("aria-sort", "descending")
 
 
-def test_data_transactions_sort_persists_with_date_filter(page: Page, goto):
+def test_data_transactions_date_preset_reloads_table(page: Page, goto):
     """
-    WHEN  user sorts by Amount
-    AND   user changes date preset (e.g., Last 30 Days)
-    THEN  Amount sort indicator remains visible
+    WHEN  user changes the date preset
+    THEN  the preset button becomes active and the grid stays rendered
     """
     goto("/data/transactions")
 
-    # Sort by Amount
-    amount_header = page.locator("thead th:has-text('Amount')").first
-    amount_header.click()
-    page.wait_for_load_state("networkidle")
-
-    # Verify sort is active
-    expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
-
-    # Change date preset
     last_30_btn = page.locator("button:text-is('Last 30 Days')").first
     last_30_btn.click()
-    page.wait_for_load_state("networkidle")
 
-    # Amount sort should still be active
-    expect(page.locator("thead th:has-text('Amount ($) ^')")).to_be_visible()
+    expect(last_30_btn).to_have_class(re.compile("btn-active"))
+    expect(page.locator("#transactions-table .tabulator")).to_be_visible()
 
 
 # ============================================================
@@ -312,22 +289,17 @@ def test_inbox_sort_persists_across_pagination(page: Page, goto, bulk_pending_tx
 
 
 # ============================================================
-# Cross-page consistency
+# Remaining HTML tables (Explore, Inbox)
 # ============================================================
 
 
-def test_all_three_pages_have_working_sort(page: Page, goto):
+def test_html_pages_have_working_sort(page: Page, goto):
     """
-    WHEN  user visits Explore, Data/Transactions, and Inbox
-    THEN  all three pages show sort arrows
-    AND   all three pages allow sort toggling
-
-    This is a high-level regression test for the consolidate-transaction-tables
-    refactoring, ensuring the unified _transaction_table.html works across all uses.
+    Explore and Inbox still render server-side HTML tables with their own sort
+    headers. This guards that behavior while they await migration to Tabulator.
     """
     pages_to_test = [
         ("/explore", "Date v"),
-        ("/data/transactions", "Date v"),
         ("/inbox", "Date ^"),
     ]
 
@@ -335,12 +307,9 @@ def test_all_three_pages_have_working_sort(page: Page, goto):
         goto(path)
 
         # Verify default sort indicator
-        (
-            expect(
-                page.locator(f"thead th:has-text('{expected_initial_sort}')")
-            ).to_be_visible(timeout=5000),
-            f"{path} should show initial sort {expected_initial_sort}",
-        )
+        expect(
+            page.locator(f"thead th:has-text('{expected_initial_sort}')")
+        ).to_be_visible(timeout=5000)
 
         # Verify we can toggle sort
         date_header = page.locator("thead th:has-text('Date')").first
@@ -349,16 +318,10 @@ def test_all_three_pages_have_working_sort(page: Page, goto):
 
         # Arrow should have changed
         if "v" in expected_initial_sort:
-            (
-                expect(page.locator("thead th:has-text('Date ^')")).to_be_visible(
-                    timeout=5000
-                ),
-                f"{path} should toggle sort indicator to up arrow",
+            expect(page.locator("thead th:has-text('Date ^')")).to_be_visible(
+                timeout=5000
             )
         else:
-            (
-                expect(page.locator("thead th:has-text('Date v')")).to_be_visible(
-                    timeout=5000
-                ),
-                f"{path} should toggle sort indicator to down arrow",
+            expect(page.locator("thead th:has-text('Date v')")).to_be_visible(
+                timeout=5000
             )

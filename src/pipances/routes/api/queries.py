@@ -71,8 +71,19 @@ def txn_page_to_dict(page: TxnPage) -> dict[str, Any]:
 
 def tabulator_page_to_dict(page: TxnPage) -> dict[str, Any]:
     """Shape a fetched page into Tabulator's default remote envelope."""
+    return tabulator_envelope(
+        [transaction_to_dict(t) for t in page.rows],
+        page.total_count,
+        page.total_pages,
+    )
+
+
+def tabulator_envelope(
+    data: list[dict[str, Any]], total_count: int, total_pages: int
+) -> dict[str, Any]:
+    """Shape arbitrary serialized rows into Tabulator's default remote envelope."""
     return {
-        "last_page": page.total_pages,
-        "last_row": page.total_count,
-        "data": [transaction_to_dict(t) for t in page.rows],
+        "last_page": total_pages,
+        "last_row": total_count,
+        "data": data,
     }

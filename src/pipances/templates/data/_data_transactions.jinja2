@@ -1,8 +1,43 @@
 {#
-  Data page transaction table - uses unified _transaction_table.html partial.
-  Date range presets are in _transaction_date_range.html.
+  Read-only transactions table rendered with Tabulator in fully remote mode.
+
+  Sorting, filtering and pagination are handled by POST /api/transactions/table.
+  This partial only provides the container and the page-level date-range control;
+  all table behavior lives in static/js/pages/transactions-table.js.
 #}
-{# Date range filter with presets #}
-{% include "shared/_transaction_date_range.jinja2" %}
-{# Transaction table with sort/filter headers #}
-{% include "shared/_transaction_table.jinja2" %}
+<div id="transactions-table-root"
+     data-preset="{{ preset }}"
+     data-date-from="{{ date_from }}"
+     data-date-to="{{ date_to }}">
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="join">
+      {% for range in preset_ranges %}
+        <button type="button"
+                class="btn join-item date-preset-btn {% if preset == range.key %}btn-active{% endif %}"
+                data-preset="{{ range.key }}"
+                data-date-from="{{ range.date_from }}"
+                data-date-to="{{ range.date_to }}">{{ range.label }}</button>
+      {% endfor %}
+      <button type="button"
+              class="btn join-item date-preset-btn {% if preset == 'custom' %}btn-active{% endif %}"
+              data-preset="custom">Custom</button>
+    </div>
+    <div id="transactions-custom-range"
+         class="{% if preset != 'custom' %}hidden{% endif %} flex items-center gap-2">
+      <input type="date"
+             id="transactions-date-from"
+             value="{{ date_from }}"
+             class="input input-sm" />
+      <span>to</span>
+      <input type="date"
+             id="transactions-date-to"
+             value="{{ date_to }}"
+             class="input input-sm" />
+      <button type="button"
+              id="transactions-apply-custom"
+              class="btn btn-sm btn-primary">Apply</button>
+    </div>
+  </div>
+  <div id="transactions-table"></div>
+</div>
+<script src="/static/js/pages/transactions-table.js?v={{ js_version }}"></script>

@@ -1,4 +1,5 @@
-from typing import Annotated
+from collections.abc import Sequence
+from typing import Annotated, Any, NamedTuple
 
 from fastapi import Depends, Request
 from sqlalchemy import event
@@ -15,6 +16,19 @@ from pipances.db.migrations import (
     migrate_transactions,
 )
 from pipances.models import Base
+
+
+class TablePage(NamedTuple):
+    """One page of table rows plus pagination metadata.
+
+    Rows are intentionally untyped: each table serializes its own shape.
+    """
+
+    rows: Sequence[Any]
+    total_count: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 def _set_sqlite_pragma(dbapi_conn, connection_record) -> None:

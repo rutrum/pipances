@@ -49,6 +49,9 @@ let
       # Copy built CSS
       cp static/css/style.css $out/static/css/
 
+      # Copy first-party CSS (tracked in git)
+      cp static/css/tabulator-daisy.css $out/static/css/
+
       # Copy vendor JS from flake inputs
       cp ${inputs.htmx-js} $out/static/js/external/htmx.min.js
       cp ${inputs.htmx-response-targets-js} $out/static/js/external/response-targets.js

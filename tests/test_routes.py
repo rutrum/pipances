@@ -299,9 +299,10 @@ async def test_data_transactions_get_200(client, seed_accounts):
     assert resp.status_code == 200
 
 
-async def test_data_transactions_invalid_params(client, seed_accounts):
-    resp = await client.get("/data/transactions?page=abc&sort=bad&dir=nope")
-    assert resp.status_code == 200
+async def test_data_tab_transactions_redirects(client, seed_accounts):
+    resp = await client.get("/data/tab_transactions", follow_redirects=False)
+    assert resp.status_code == 307
+    assert resp.headers["location"] == "/data/transactions"
 
 
 # === Root Redirect ===
@@ -345,11 +346,13 @@ async def test_data_external_accounts_includes_txn_count(
     session.add(txn)
     await session.commit()
 
-    resp = await client.get("/data/external-accounts")
+    resp = await client.post(
+        "/api/external-accounts/table",
+        json={"page": 1, "size": 25, "sort": [], "filter": []},
+    )
     assert resp.status_code == 200
-    assert "Walmart" in resp.text
-    # The transaction count should be visible
-    assert ">1<" in resp.text.replace(" ", "").replace("\n", "")
+    walmart = next(a for a in resp.json()["data"] if a["name"] == "Walmart")
+    assert walmart["txn_count"] == 1
 
 
 # === Data: Importers ===
@@ -361,10 +364,11 @@ async def test_data_importers_get_200(client, seed_accounts):
 
 
 async def test_data_importers_lists_files(client, seed_accounts):
-    resp = await client.get("/data/importers")
+    resp = await client.get("/api/importers")
     assert resp.status_code == 200
-    assert "example.py" in resp.text
-    assert "Example Bank" in resp.text
+    items = resp.json()
+    assert "example.py" in {item["filename"] for item in items}
+    assert "Example Bank" in {item["name"] for item in items}
 
 
 # === Data: Imports ===

@@ -1,42 +1,26 @@
-import importlib.util
-
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from pipances.db import DatabaseDep
-from pipances.db.accounts import get_active_internal_accounts, get_external_accounts
 from pipances.db.categories import (
     categories_with_usage,
-    category_names_with_transactions,
     transaction_count_for_category,
 )
-from pipances.db.imports import get_imports
-from pipances.db.transactions import fetch_page
 from pipances.models import (
     Account,
     AccountKind,
     Category,
-    Transaction,
 )
-from pipances.routes._utils import shared_context, templates
-from pipances.settings import settings
-from pipances.utils import compute_date_range, safe_date, safe_int
+from pipances.routes._utils import shared_context, static_version, templates
+from pipances.utils import compute_date_range, safe_date
 
 router = APIRouter()
 
 
 def _data_page_ctx(section: str, shared: dict, **extra) -> dict:
     return {"data_section": section, **shared, **extra}
-
-
-def _static_asset_version(*parts: str) -> str:
-    """Cache-busting token for a first-party static asset (its file mtime)."""
-    try:
-        return str(int(settings.static_dir.joinpath(*parts).stat().st_mtime))
-    except OSError:
-        return "0"
 
 
 # === Redirect ===
@@ -429,12 +413,12 @@ async def edit_category_name(
 # === Transactions ===
 
 
-@router.get("/data/tab_transactions", response_class=HTMLResponse)
-async def data_tab_transactions_page(
+@router.get("/data/transactions", response_class=HTMLResponse)
+async def data_transactions_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
-    """Experimental Tabulator-based transactions table."""
+    """Tabulator-based transactions table (read-only, remote mode)."""
     params = request.query_params
     preset = params.get("preset", "all")
     date_from, date_to = compute_date_range(
@@ -467,104 +451,8 @@ async def data_tab_transactions_page(
         "date_from": str(date_from) if date_from else "",
         "date_to": str(date_to) if date_to else "",
         "preset_ranges": preset_ranges,
-        "js_version": _static_asset_version("js", "pages", "tab-transactions.js"),
+        "js_version": static_version("js", "pages", "transactions-table.js"),
     }
-
-    content_html = templates.get_template("data/_data_tab_transactions.jinja2").render(
-        ctx
-    )
-    return templates.TemplateResponse(
-        request,
-        "pages/data.jinja2",
-        _data_page_ctx(
-            "tab_transactions",
-            shared,
-            data_content_html=content_html,
-            tab_css_version=_static_asset_version("css", "tabulator-daisy.css"),
-        ),
-    )
-
-
-@router.get("/data/transactions", response_class=HTMLResponse)
-async def data_transactions_page(
-    request: Request,
-    database: DatabaseDep,
-) -> Response:
-    params = request.query_params
-
-    preset = params.get("preset", "all")
-    date_from_str = params.get("date_from")
-    date_to_str = params.get("date_to")
-    sort_col = params.get("sort", "date")
-    sort_dir = params.get("dir", "desc")
-    internal_filter = params.get("internal", "")
-    external_filter = params.get("external", "")
-    category_filter = params.get("category", "")
-    page = safe_int(params.get("page"), 1, min_val=1)
-    page_size = safe_int(params.get("page_size"), 25, min_val=1, max_val=100)
-
-    date_from, date_to = compute_date_range(preset, date_from_str, date_to_str)
-
-    async with database.session() as session:
-        txn_page = await fetch_page(
-            session,
-            date_from=date_from,
-            date_to=date_to,
-            internal_filter=internal_filter,
-            external_filter=external_filter,
-            category_filter=category_filter,
-            sort_col=sort_col,
-            sort_dir=sort_dir,
-            page=page,
-            page_size=page_size,
-        )
-        total_count = txn_page.total_count
-        total_pages = txn_page.total_pages
-        page = txn_page.page
-        transactions = txn_page.rows
-
-        # Filter dropdowns
-        internal_accounts = [
-            a.name for a in await get_active_internal_accounts(session)
-        ]
-        external_accounts = [a.name for a in await get_external_accounts(session)]
-        category_options = await category_names_with_transactions(session)
-
-        shared = await shared_context("data", session)
-
-    ctx = {
-        # Transaction table data
-        "transactions": transactions,
-        # Filters and sorting
-        "preset": preset,
-        "date_from": str(date_from) if date_from else "",
-        "date_to": str(date_to) if date_to else "",
-        "sort": sort_col,
-        "dir": sort_dir,
-        "internal_filter": internal_filter,
-        "external_filter": external_filter,
-        "category_filter": category_filter,
-        "internal_accounts": internal_accounts,
-        "external_accounts": external_accounts,
-        "category_options": category_options,
-        # Pagination
-        "page": page,
-        "page_size": page_size,
-        "total_pages": total_pages,
-        "total_count": total_count,
-        # Table template parameters (for _transaction_table.html)
-        "endpoint": "/data/transactions",
-        "target": "#data-content",
-        "include_selector": "#data-txn-filters, #data-transactions-pagination-page-size",
-        "filters_container_id": "data-txn-filters",
-        "pagination_id": "data-transactions-pagination",
-    }
-
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        return HTMLResponse(
-            templates.get_template("data/_data_transactions.jinja2").render(ctx)
-        )
 
     content_html = templates.get_template("data/_data_transactions.jinja2").render(ctx)
     return templates.TemplateResponse(
@@ -572,6 +460,12 @@ async def data_transactions_page(
         "pages/data.jinja2",
         _data_page_ctx("transactions", shared, data_content_html=content_html),
     )
+
+
+@router.get("/data/tab_transactions")
+async def data_tab_transactions_redirect() -> RedirectResponse:
+    """Legacy path for the experimental Tabulator page, kept as a redirect."""
+    return RedirectResponse(url="/data/transactions")
 
 
 # === External Accounts ===
@@ -582,49 +476,14 @@ async def data_external_accounts_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
+    """Tabulator-based external accounts table (read-only, remote mode)."""
     async with database.session() as session:
         shared = await shared_context("data", session)
-        query = (
-            select(
-                Account.id,
-                Account.name,
-                func.count(Transaction.id).label("txn_count"),
-            )
-            .outerjoin(Transaction, Transaction.external_id == Account.id)
-            .where(Account.kind == AccountKind.EXTERNAL)
-            .group_by(Account.id, Account.name)
-            .order_by(Account.name)
-        )
-        result = await session.execute(query)
-        accounts = [{"name": row.name, "txn_count": row.txn_count} for row in result]
 
-    columns = [
-        {"key": "name", "label": "Name"},
-        {"key": "txn_count", "label": "Transactions"},
-        {
-            "key": "_explore",
-            "label": "",
-            "type": "link",
-            "href": "/explore?external={name}",
-            "icon": "compass",
-            "title": "View in Explore",
-        },
-    ]
-
-    ctx = {
-        "title": "External Accounts",
-        "empty_message": "No external accounts yet. They are created automatically when you import transactions.",
-        "columns": columns,
-        "rows": accounts,
-    }
-
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        return HTMLResponse(
-            templates.get_template("data/_data_table.jinja2").render(ctx)
-        )
-
-    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
+    ctx = {"js_version": static_version("js", "pages", "external-accounts-table.js")}
+    content_html = templates.get_template("data/_data_external_accounts.jinja2").render(
+        ctx
+    )
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",
@@ -635,57 +494,17 @@ async def data_external_accounts_page(
 # === Importers ===
 
 
-def _discover_importers() -> list[dict]:
-    importers = []
-    if not settings.importers_dir.is_dir():
-        return importers
-    for path in sorted(settings.importers_dir.glob("*.py")):
-        if path.name.startswith("__"):
-            continue
-        name = path.stem
-        try:
-            spec = importlib.util.spec_from_file_location(f"importers.{name}", path)
-            if spec is None or spec.loader is None:
-                display_name = path.name
-            else:
-                mod = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-                display_name = getattr(mod, "IMPORTER_NAME", path.name)
-        except Exception:
-            display_name = path.name
-        importers.append({"name": display_name, "filename": path.name})
-    return importers
-
-
 @router.get("/data/importers", response_class=HTMLResponse)
 async def data_importers_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
+    """Tabulator-based importers table (filesystem-backed, client mode)."""
     async with database.session() as session:
         shared = await shared_context("data", session)
 
-    importers = _discover_importers()
-
-    columns = [
-        {"key": "name", "label": "Name"},
-        {"key": "filename", "label": "Filename"},
-    ]
-
-    ctx = {
-        "title": "Importers",
-        "empty_message": "No importers available.",
-        "columns": columns,
-        "rows": importers,
-    }
-
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        return HTMLResponse(
-            templates.get_template("data/_data_table.jinja2").render(ctx)
-        )
-
-    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
+    ctx = {"js_version": static_version("js", "pages", "importers-table.js")}
+    content_html = templates.get_template("data/_data_importers.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",
@@ -701,46 +520,12 @@ async def data_imports_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
+    """Tabulator-based import history table (read-only, remote mode)."""
     async with database.session() as session:
         shared = await shared_context("data", session)
-        imports = await get_imports(session)
 
-    columns = [
-        {"key": "institution", "label": "Institution"},
-        {
-            "key": "filename",
-            "label": "Filename",
-            "type": "null_safe",
-            "null_value": "--",
-        },
-        {
-            "key": "imported_at",
-            "label": "Imported At",
-            "type": "date",
-            "format": "%Y-%m-%d %H:%M",
-        },
-        {
-            "key": "row_count",
-            "label": "Rows",
-            "type": "null_safe",
-            "null_value": "--",
-        },
-    ]
-
-    ctx = {
-        "title": "Import History",
-        "empty_message": "No imports yet. Upload a CSV file to get started.",
-        "columns": columns,
-        "rows": imports,
-    }
-
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        return HTMLResponse(
-            templates.get_template("data/_data_table.jinja2").render(ctx)
-        )
-
-    content_html = templates.get_template("data/_data_table.jinja2").render(ctx)
+    ctx = {"js_version": static_version("js", "pages", "imports-table.js")}
+    content_html = templates.get_template("data/_data_imports.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",

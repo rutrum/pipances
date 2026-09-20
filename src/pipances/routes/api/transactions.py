@@ -73,7 +73,7 @@ async def list_transactions(
     description=(
         "Tabulator-native endpoint: accepts Tabulator's page/size/sorters/filters"
         " body and returns Tabulator's default remote envelope"
-        " (last_page/last_row/data). Used by /data/tab_transactions."
+        " (last_page/last_row/data). Used by /data/transactions."
     ),
 )
 async def transactions_table(

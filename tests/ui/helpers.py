@@ -61,17 +61,6 @@ def cancel_commit(page: Page):
     expect(page.locator("#commit-dialog-container")).to_be_empty()
 
 
-# === Data transactions locators ===
-
-
-def data_pagination(page: Page):
-    return page.locator("#data-transactions-pagination")
-
-
-def data_page_label(page: Page, n: int):
-    return data_pagination(page).locator(f"span:has-text('Page {n} of')")
-
-
 # === Pagination maths ===
 
 

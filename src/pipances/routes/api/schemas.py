@@ -86,6 +86,19 @@ class TabulatorResponse(BaseModel):
     data: list[TransactionResponse]
 
 
+class TabulatorTableResponse(BaseModel):
+    """Tabulator envelope for tables with table-specific row shapes."""
+
+    last_page: int
+    last_row: int
+    data: list[dict[str, Any]]
+
+
+class ImporterItem(BaseModel):
+    name: str
+    filename: str
+
+
 class AccountItem(BaseModel):
     id: int
     name: str
