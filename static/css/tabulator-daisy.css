@@ -166,4 +166,10 @@
 
 .tabulator .tabulator-cell .ts-control > input {
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* While editing, show only the editor box, not the selected-value chip. */
+.tabulator .tabulator-cell.tabulator-editing .ts-control .item {
+  display: none;
 }

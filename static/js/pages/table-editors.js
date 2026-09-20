@@ -71,11 +71,17 @@
       ts.on("blur", function () {
         revert();
       });
+      // Keep Tom Select's own key handling from bubbling up to Tabulator's
+      // keybindings module (bound on the table element). Otherwise the arrow
+      // keys both move Tom Select's active option *and* navigate the editor
+      // to the cell above/below.
       ts.wrapper.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
           revert();
+        } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          event.stopPropagation();
         }
       });
 
