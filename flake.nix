@@ -57,6 +57,14 @@
       url = "https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.min.css";
       flake = false;
     };
+    tabulator-js = {
+      url = "https://cdn.jsdelivr.net/npm/tabulator-tables@6.5.0/dist/js/tabulator.min.js";
+      flake = false;
+    };
+    tabulator-css = {
+      url = "https://cdn.jsdelivr.net/npm/tabulator-tables@6.5.0/dist/css/tabulator.min.css";
+      flake = false;
+    };
   };
 
   outputs =

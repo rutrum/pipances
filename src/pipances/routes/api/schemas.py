@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MlConfidence(BaseModel):
@@ -26,6 +26,7 @@ class TransactionResponse(BaseModel):
     id: int
     date: str
     amount_cents: int
+    amount: float
     raw_description: str
     description: str | None = None
     status: str
@@ -53,6 +54,36 @@ class PaginatedTransactions(BaseModel):
 class NamedItem(BaseModel):
     id: int
     name: str
+
+
+class TabulatorSorter(BaseModel):
+    field: str
+    dir: str = "asc"
+
+
+class TabulatorFilter(BaseModel):
+    field: str
+    type: str = "like"
+    value: Any = None
+
+
+class TabulatorRequest(BaseModel):
+    """Body Tabulator 6.5.0 sends when all modes are remote, plus page dates."""
+
+    page: int = 1
+    size: int = 25
+    sort: list[TabulatorSorter] = Field(default_factory=list)
+    filter: list[TabulatorFilter] = Field(default_factory=list)
+    date_from: str | None = None
+    date_to: str | None = None
+
+
+class TabulatorResponse(BaseModel):
+    """Tabulator's default remote-pagination response envelope."""
+
+    last_page: int
+    last_row: int
+    data: list[TransactionResponse]
 
 
 class AccountItem(BaseModel):

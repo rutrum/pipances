@@ -9,12 +9,14 @@
       {% endblock title %}
     </title>
     <link rel="stylesheet" href="/static/css/style.css" />
-    <link rel="stylesheet" href="/static/css/tom-select.min.css" />
-    <script src="/static/js/htmx.min.js"></script>
-    <script src="/static/js/response-targets.js"></script>
-    <script src="/static/js/tom-select.complete.min.js"></script>
-    <script src="/static/js/alpine.min.js" defer></script>
-    <script src="/static/js/lucide.min.js"></script>
+    <link rel="stylesheet" href="/static/css/external/tom-select.min.css" />
+    <script src="/static/js/external/htmx.min.js"></script>
+    <script src="/static/js/external/response-targets.js"></script>
+    <script src="/static/js/external/tom-select.complete.min.js"></script>
+    <script src="/static/js/external/alpine.min.js" defer></script>
+    <script src="/static/js/external/lucide.min.js"></script>
+    {% block head %}
+    {% endblock head %}
   </head>
   <body class="min-h-screen bg-base-200" hx-ext="response-targets">
     {% include "shared/_navbar.jinja2" %}

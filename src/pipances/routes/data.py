@@ -31,6 +31,14 @@ def _data_page_ctx(section: str, shared: dict, **extra) -> dict:
     return {"data_section": section, **shared, **extra}
 
 
+def _static_asset_version(*parts: str) -> str:
+    """Cache-busting token for a first-party static asset (its file mtime)."""
+    try:
+        return str(int(settings.static_dir.joinpath(*parts).stat().st_mtime))
+    except OSError:
+        return "0"
+
+
 # === Redirect ===
 
 
@@ -419,6 +427,57 @@ async def edit_category_name(
 
 
 # === Transactions ===
+
+
+@router.get("/data/tab_transactions", response_class=HTMLResponse)
+async def data_tab_transactions_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    """Experimental Tabulator-based transactions table."""
+    params = request.query_params
+    preset = params.get("preset", "all")
+    date_from, date_to = compute_date_range(
+        preset, params.get("date_from"), params.get("date_to")
+    )
+
+    preset_ranges = []
+    for key, label in (
+        ("all", "All"),
+        ("ytd", "YTD"),
+        ("last_month", "Last 30 Days"),
+        ("last_3_months", "Last 90 Days"),
+        ("last_year", "Last 365 Days"),
+    ):
+        df, dt = compute_date_range(key, None, None)
+        preset_ranges.append(
+            {
+                "key": key,
+                "label": label,
+                "date_from": str(df) if df else "",
+                "date_to": str(dt) if dt else "",
+            }
+        )
+
+    async with database.session() as session:
+        shared = await shared_context("data", session)
+
+    ctx = {
+        "preset": preset,
+        "date_from": str(date_from) if date_from else "",
+        "date_to": str(date_to) if date_to else "",
+        "preset_ranges": preset_ranges,
+        "js_version": _static_asset_version("js", "pages", "tab-transactions.js"),
+    }
+
+    content_html = templates.get_template("data/_data_tab_transactions.jinja2").render(
+        ctx
+    )
+    return templates.TemplateResponse(
+        request,
+        "pages/data.jinja2",
+        _data_page_ctx("tab_transactions", shared, data_content_html=content_html),
+    )
 
 
 @router.get("/data/transactions", response_class=HTMLResponse)

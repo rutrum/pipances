@@ -1,0 +1,46 @@
+{#
+  Experimental Tabulator-based transaction table.
+
+  REQUIRED CONTEXT VARIABLES:
+    - preset: active date preset key (e.g. 'all', 'ytd', 'custom')
+    - date_from / date_to: active range (YYYY-MM-DD, empty when unbounded)
+    - preset_ranges: list of {key, label, date_from, date_to} for the preset buttons
+
+  Fully client-driven: Tabulator talks to POST /api/transactions/table in remote
+  sort/filter/pagination mode. This page is a plain full-page navigation (not an
+  HTMX swap), so the Tabulator assets can be loaded from the page's head block.
+#}
+<div id="tab-transactions"
+     data-preset="{{ preset }}"
+     data-date-from="{{ date_from }}"
+     data-date-to="{{ date_to }}">
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="join">
+      {% for range in preset_ranges %}
+        <button type="button"
+                class="btn join-item date-preset-btn {% if preset == range.key %}btn-active{% endif %}"
+                data-preset="{{ range.key }}"
+                data-date-from="{{ range.date_from }}"
+                data-date-to="{{ range.date_to }}">{{ range.label }}</button>
+      {% endfor %}
+      <button type="button"
+              class="btn join-item date-preset-btn {% if preset == 'custom' %}btn-active{% endif %}"
+              data-preset="custom">Custom</button>
+    </div>
+    <div id="tab-custom-range"
+         class="{% if preset != 'custom' %}hidden{% endif %} flex items-center gap-2">
+      <input type="date"
+             id="tab-date-from"
+             value="{{ date_from }}"
+             class="input input-bordered input-sm" />
+      <span>to</span>
+      <input type="date"
+             id="tab-date-to"
+             value="{{ date_to }}"
+             class="input input-bordered input-sm" />
+      <button type="button" id="tab-apply-custom" class="btn btn-sm btn-primary">Apply</button>
+    </div>
+  </div>
+  <div id="tab-transactions-table"></div>
+</div>
+<script src="/static/js/pages/tab-transactions.js?v={{ js_version }}"></script>

@@ -2,6 +2,12 @@
 {% block title %}
   Data - Pipances
 {% endblock title %}
+{% block head %}
+  {% if data_section == 'tab_transactions' %}
+    <link rel="stylesheet" href="/static/css/external/tabulator.min.css" />
+    <script src="/static/js/external/tabulator.min.js"></script>
+  {% endif %}
+{% endblock head %}
 {% block content %}
   <div class="container mx-auto p-6">
     <h1 class="text-2xl font-bold mb-4">Data</h1>
@@ -26,6 +32,10 @@
              hx-target="#data-content"
              hx-push-url="/data/transactions"
              {% if data_section == 'transactions' %}class="active"{% endif %}>Transactions</a>
+        </li>
+        <li>
+          <a href="/data/tab_transactions"
+             {% if data_section == 'tab_transactions' %}class="active"{% endif %}>Transactions (Tabulator)</a>
         </li>
         <li>
           <a hx-get="/data/external-accounts"

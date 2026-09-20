@@ -11,6 +11,16 @@ Interactive table generation JavaScript library.
 **Site:** <https://www.tabulator.info>  
 **GitHub:** <https://github.com/tabulator-tables/tabulator>
 
+> **⚠️ This skill is out of date and needs updating.**
+>
+> Parts of it were written from older Tabulator documentation and are known to
+> be inaccurate. In particular, remote AJAX parameter names were wrong: in
+> Tabulator **6.5.0** the remote sort/filter params are `sort` and `filter`
+> (not `sorters`/`filters`), because `dataSendParams` defaults to `{}`. Other
+> sections may be similarly stale. When in doubt, verify against the 6.5.0
+> source at `static/js/external/tabulator.min.js` or
+> <https://github.com/tabulator-tables/tabulator/tree/v6.5.0>.
+
 ---
 
 ## Quickstart
@@ -186,7 +196,7 @@ table.clearSort();
 
 ```js
 sortMode: "remote",
-// Sends "sorters" param: [{field:"age", dir:"asc"}]
+// Sends `sort` param: [{field:"age", dir:"asc"}]
 ```
 
 ---
@@ -267,7 +277,7 @@ table.searchData("age", ">", 12);   // returns row data[]
 
 ```js
 filterMode: "remote",
-// Sends "filters" param: [{field:"age", type:">", value:52}]
+// Sends `filter` param: [{field:"age", type:">", value:52}]
 ```
 
 ---
@@ -384,11 +394,14 @@ paginationSize: 25,
 **Custom parameter names:**
 
 ```js
+// dataSendParams maps each param name Tabulator generates -> the name sent on
+// the wire. The modules generate "page", "size", "sort" and "filter"; the
+// default is {}, so those names are sent unchanged.
 dataSendParams: {
   page: "page",
   size: "size",
-  sorters: "sorters",
-  filters: "filters",
+  sort: "sort",
+  filter: "filter",
 },
 dataReceiveParams: {
   last_page: "last_page",
@@ -483,8 +496,8 @@ When any mode is `"remote"`, the AJAX request includes:
 |---|---|---|
 | `page` | int | Requested page number (if remote pagination) |
 | `size` | int | Rows per page (if remote pagination) |
-| `sorters` | array | `[{field:"age", dir:"asc"}, ...]` (if remote sorting) |
-| `filters` | array | `[{field:"age", type:">", value:52}, ...]` (if remote filtering) |
+| `sort` | array | `[{field:"age", dir:"asc"}, ...]` (if remote sorting) |
+| `filter` | array | `[{field:"age", type:">", value:52}, ...]` (if remote filtering) |
 
 Customize param names with `dataSendParams`.
 

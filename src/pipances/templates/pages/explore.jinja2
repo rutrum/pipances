@@ -15,9 +15,9 @@
       {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}" />{% endif %}
     </div>
     {# Vega-Embed scripts #}
-    <script src="/static/js/vega.min.js"></script>
-    <script src="/static/js/vega-lite.min.js"></script>
-    <script src="/static/js/vega-embed.min.js"></script>
+    <script src="/static/js/external/vega.min.js"></script>
+    <script src="/static/js/external/vega-lite.min.js"></script>
+    <script src="/static/js/external/vega-embed.min.js"></script>
     {# Main content area (stats + charts + table) #}
     <div id="explore-content">{% include "explore/_explore_content.jinja2" %}</div>
   </div>

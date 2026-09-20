@@ -11,7 +11,7 @@ from datetime import date
 from math import ceil
 from typing import Any, NamedTuple
 
-from sqlalchemy import ColumnElement, UnaryExpression, func, select
+from sqlalchemy import ColumnElement, String, UnaryExpression, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.interfaces import ORMOption
@@ -25,6 +25,7 @@ from pipances.models import (
     TransactionSplit,
     TransactionStatus,
 )
+from pipances.utils import escape_like, safe_date
 
 VISIBLE_STATUSES: tuple[TransactionStatus, ...] = (
     TransactionStatus.APPROVED,
@@ -149,33 +150,157 @@ def apply_filters(
     return query
 
 
-def resolve_order(sort_col: str = "date", sort_dir: str = "desc") -> UnaryExpression:
-    """ORDER BY clause for transaction listings, including relationship-name keys."""
-    col: ColumnElement[Any]
+def _sort_expression(sort_col: str) -> ColumnElement[Any] | None:
+    """Map a client-facing sort field to a SQL expression, or None if unknown."""
     if sort_col == "category.name":
-        col = (
+        return (
             select(Category.name)
             .where(Category.id == Transaction.category_id)
             .correlate(Transaction)
             .scalar_subquery()
         )
-    elif sort_col == "external_account.name":
-        col = (
+    if sort_col == "external_account.name":
+        return (
             select(Account.name)
             .where(Account.id == Transaction.external_id)
             .correlate(Transaction)
             .scalar_subquery()
         )
-    elif sort_col == "internal_account.name":
-        col = (
+    if sort_col == "internal_account.name":
+        return (
             select(Account.name)
             .where(Account.id == Transaction.internal_id)
             .correlate(Transaction)
             .scalar_subquery()
         )
-    else:
-        col = SORT_COLUMNS.get(sort_col, _column(Transaction.date))
+    return SORT_COLUMNS.get(sort_col)
+
+
+def resolve_order(sort_col: str = "date", sort_dir: str = "desc") -> UnaryExpression:
+    """ORDER BY clause for transaction listings, including relationship-name keys."""
+    col = _sort_expression(sort_col) or _column(Transaction.date)
     return col.asc() if sort_dir == "asc" else col.desc()
+
+
+def order_clauses(sorters: Sequence[dict[str, Any]]) -> list[UnaryExpression]:
+    """Compose an ORDER BY list from Tabulator ``sorters`` payload entries.
+
+    Unknown fields are ignored. Falls back to most-recent-first when nothing
+    usable was supplied.
+    """
+    clauses: list[UnaryExpression] = []
+    for sorter in sorters:
+        field = str(sorter.get("field", ""))
+        # The Tabulator page displays `description` (not `raw_description`), so
+        # sort on what the user sees. Legacy resolve_order keeps raw_description.
+        col = (
+            _column(Transaction.description)
+            if field == "description"
+            else _sort_expression(field)
+        )
+        if col is None:
+            continue
+        direction = str(sorter.get("dir", "asc")).lower()
+        clauses.append(col.asc() if direction == "asc" else col.desc())
+    if not clauses:
+        clauses.append(_column(Transaction.date).desc())
+    return clauses
+
+
+# Client field -> (column, value kind) for Tabulator-style filters.
+_FILTER_COLUMNS: dict[str, tuple[ColumnElement[Any], str]] = {
+    "date": (_column(Transaction.date), "date"),
+    "amount": (_column(Transaction.amount_cents), "amount"),
+    "description": (_column(Transaction.description), "text"),
+    "status": (_column(Transaction.status), "text"),
+}
+
+# Client field -> (relationship, related column) for filters on joined names.
+_FILTER_RELATIONSHIPS: dict[str, tuple[Any, ColumnElement[Any]]] = {
+    "category.name": (Transaction.category, _column(Category.name)),
+    "external_account.name": (Transaction.external, _column(Account.name)),
+    "internal_account.name": (Transaction.internal, _column(Account.name)),
+}
+
+
+def _coerce_value(value: Any, kind: str) -> Any:
+    """Coerce a raw filter value to the column's expected Python type."""
+    if kind == "date":
+        return safe_date(str(value)) if value is not None else None
+    if kind == "amount":
+        try:
+            return int(round(float(value) * 100))
+        except (TypeError, ValueError):
+            return None
+    return value
+
+
+def _apply_operator(col: ColumnElement[Any], op: str, value: Any) -> Any:
+    """Build a WHERE clause for one column/operator/value triple."""
+    op = op.lower()
+    if op in ("like", "starts", "ends"):
+        pattern = escape_like(str(value))
+        if op == "like":
+            pattern = f"%{pattern}%"
+        elif op == "starts":
+            pattern = f"{pattern}%"
+        else:
+            pattern = f"%{pattern}"
+        return col.ilike(pattern)
+    if op == "=":
+        return col == value
+    if op == "!=":
+        return col != value
+    if op == "<":
+        return col < value
+    if op == "<=":
+        return col <= value
+    if op == ">":
+        return col > value
+    if op == ">=":
+        return col >= value
+    if op == "in":
+        return col.in_(value if isinstance(value, list) else [value])
+    return None
+
+
+def apply_tabulator_filters(query: Select, filters: Sequence[dict[str, Any]]) -> Select:
+    """Apply Tabulator ``filters`` payload entries to a transaction SELECT.
+
+    Relationship-name filters use ``.has()`` so repeated filters on the same
+    relationship never produce duplicate/ambiguous joins. Unknown fields and
+    unsupported operators are ignored.
+    """
+    for spec in filters:
+        field = str(spec.get("field", ""))
+        op = str(spec.get("type", "like"))
+        raw_value = spec.get("value")
+        if raw_value is None or raw_value == "":
+            continue
+
+        if field in _FILTER_COLUMNS:
+            col, kind = _FILTER_COLUMNS[field]
+            value = _coerce_value(raw_value, kind)
+            if value is None:
+                continue
+            # Numeric `like` from a header filter degrades to a text match.
+            if kind == "amount" and op.lower() in ("like", "starts", "ends"):
+                clause = _apply_operator(cast(col, String), op, str(raw_value))
+            else:
+                clause = _apply_operator(col, op, value)
+        elif field in _FILTER_RELATIONSHIPS:
+            rel, col = _FILTER_RELATIONSHIPS[field]
+            clause = _apply_operator(col, op, raw_value)
+            if clause is None:
+                continue
+            query = query.where(rel.has(clause))
+            continue
+        else:
+            continue
+
+        if clause is not None:
+            query = query.where(clause)
+    return query
 
 
 def remaining_split_capacity(
@@ -234,6 +359,8 @@ async def fetch_page(
     internal_name_filter: str | None = None,
     sort_col: str = "date",
     sort_dir: str = "desc",
+    sorters: Sequence[dict[str, Any]] | None = None,
+    tabulator_filters: Sequence[dict[str, Any]] | None = None,
     page: int = 1,
     page_size: int = 25,
     splits: bool = False,
@@ -242,14 +369,15 @@ async def fetch_page(
     """Count matching transactions, then fetch one sorted page.
 
     Page numbers beyond the last page are clamped back into range.
-    Statuses default to approved + pending.
+    Statuses default to approved + pending. ``sorters``/``tabulator_filters``
+    accept Tabulator remote payload entries and override ``sort_col``/``sort_dir``.
     """
     base_where = statuses_where(
         tuple(statuses) if statuses is not None else VISIBLE_STATUSES
     )
 
     def filtered(query: Select) -> Select:
-        return apply_filters(
+        query = apply_filters(
             query,
             date_from=date_from,
             date_to=date_to,
@@ -264,6 +392,9 @@ async def fetch_page(
             external_name_filter=external_name_filter,
             internal_name_filter=internal_name_filter,
         )
+        if tabulator_filters:
+            query = apply_tabulator_filters(query, tabulator_filters)
+        return query
 
     count_query = filtered(
         select(func.count()).select_from(Transaction).where(base_where)
@@ -274,11 +405,16 @@ async def fetch_page(
     page = min(page, total_pages)
     offset = (page - 1) * page_size
 
+    if sorters:
+        order_by = order_clauses(sorters)
+    else:
+        order_by = [resolve_order(sort_col, sort_dir)]
+
     table_query = filtered(
         select(Transaction)
         .where(base_where)
         .options(*txn_options(splits=splits, import_record=import_record)),
-    ).order_by(resolve_order(sort_col, sort_dir))
+    ).order_by(*order_by)
 
     result = await session.execute(table_query.offset(offset).limit(page_size))
     return TxnPage(result.scalars().all(), total_count, page, page_size, total_pages)

@@ -44,21 +44,28 @@ let
     '';
 
     installPhase = ''
-      mkdir -p $out/static/js $out/static/css
+      mkdir -p $out/static/js/external $out/static/css/external $out/static/js/pages
 
       # Copy built CSS
       cp static/css/style.css $out/static/css/
 
-      # Copy JS from flake inputs
-      cp ${inputs.htmx-js} $out/static/js/htmx.min.js
-      cp ${inputs.htmx-response-targets-js} $out/static/js/response-targets.js
-      cp ${inputs.lucide-js} $out/static/js/lucide.min.js
-      cp ${inputs.vega-js} $out/static/js/vega.min.js
-      cp ${inputs.vega-lite-js} $out/static/js/vega-lite.min.js
-      cp ${inputs.vega-embed-js} $out/static/js/vega-embed.min.js
-      cp ${inputs.alpine-js} $out/static/js/alpine.min.js
-      cp ${inputs.tom-select-js} $out/static/js/tom-select.complete.min.js
-      cp ${inputs.tom-select-css} $out/static/css/tom-select.min.css
+      # Copy vendor JS from flake inputs
+      cp ${inputs.htmx-js} $out/static/js/external/htmx.min.js
+      cp ${inputs.htmx-response-targets-js} $out/static/js/external/response-targets.js
+      cp ${inputs.lucide-js} $out/static/js/external/lucide.min.js
+      cp ${inputs.vega-js} $out/static/js/external/vega.min.js
+      cp ${inputs.vega-lite-js} $out/static/js/external/vega-lite.min.js
+      cp ${inputs.vega-embed-js} $out/static/js/external/vega-embed.min.js
+      cp ${inputs.alpine-js} $out/static/js/external/alpine.min.js
+      cp ${inputs.tom-select-js} $out/static/js/external/tom-select.complete.min.js
+      cp ${inputs.tabulator-js} $out/static/js/external/tabulator.min.js
+
+      # Copy vendor CSS from flake inputs
+      cp ${inputs.tom-select-css} $out/static/css/external/tom-select.min.css
+      cp ${inputs.tabulator-css} $out/static/css/external/tabulator.min.css
+
+      # Copy first-party page scripts (tracked in git)
+      cp -r static/js/pages/. $out/static/js/pages/
     '';
   };
 

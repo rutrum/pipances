@@ -4,8 +4,11 @@ __pycache__
 
 # Nix-managed symlinks
 daisyui.css
-static/js/
 result
+
+# Nix-managed vendor assets (symlinked from flake inputs)
+static/js/external/
+static/css/external/
 
 # Tailwind build output
 static/css/style.css
@@ -13,5 +16,3 @@ static/css/style.css
 # Database / test data
 *.db
 *.csv
-
-static/lib/tabulator

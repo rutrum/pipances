@@ -168,6 +168,8 @@
         "nixpkgs": "nixpkgs_2",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
+        "tabulator-css": "tabulator-css",
+        "tabulator-js": "tabulator-js",
         "tom-select-css": "tom-select-css",
         "tom-select-js": "tom-select-js",
         "uv2nix": "uv2nix",
@@ -189,6 +191,30 @@
         "owner": "nix-systems",
         "repo": "default",
         "type": "github"
+      }
+    },
+    "tabulator-css": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-QTPGbZfgZWxAW6uQc7A0xtSKHHHDv5mPYYytuMa+ZWY=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tabulator-tables@6.5.0/dist/css/tabulator.min.css"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tabulator-tables@6.5.0/dist/css/tabulator.min.css"
+      }
+    },
+    "tabulator-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-WGCm/t9+CfPh1yiTg6IEP563f9b3h+wnyZG/PgHut8c=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tabulator-tables@6.5.0/dist/js/tabulator.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/tabulator-tables@6.5.0/dist/js/tabulator.min.js"
       }
     },
     "tom-select-css": {

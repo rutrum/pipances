@@ -23,6 +23,7 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
         "id": txn.id,
         "date": str(txn.date),
         "amount_cents": txn.amount_cents,
+        "amount": txn.amount_cents / 100,
         "raw_description": txn.raw_description,
         "description": txn.description,
         "status": txn.status,
@@ -65,4 +66,13 @@ def txn_page_to_dict(page: TxnPage) -> dict[str, Any]:
             "total": page.total_count,
             "total_pages": page.total_pages,
         },
+    }
+
+
+def tabulator_page_to_dict(page: TxnPage) -> dict[str, Any]:
+    """Shape a fetched page into Tabulator's default remote envelope."""
+    return {
+        "last_page": page.total_pages,
+        "last_row": page.total_count,
+        "data": [transaction_to_dict(t) for t in page.rows],
     }

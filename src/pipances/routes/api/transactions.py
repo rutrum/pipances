@@ -9,14 +9,20 @@ from pipances.db.accounts import get_active_internal_accounts, get_external_acco
 from pipances.db.categories import get_categories
 from pipances.db.transactions import fetch_page, get_txn
 from pipances.models import Account, Category, Transaction
-from pipances.routes.api.queries import transaction_to_dict, txn_page_to_dict
+from pipances.routes.api.queries import (
+    tabulator_page_to_dict,
+    transaction_to_dict,
+    txn_page_to_dict,
+)
 from pipances.routes.api.schemas import (
     AccountItem,
     NamedItem,
     PaginatedTransactions,
+    TabulatorRequest,
+    TabulatorResponse,
     TransactionResponse,
 )
-from pipances.utils import compute_date_range, escape_like, safe_int
+from pipances.utils import compute_date_range, escape_like, safe_date, safe_int
 
 router = APIRouter(prefix="/api", tags=["transactions"])
 
@@ -58,6 +64,33 @@ async def list_transactions(
             internal_name_filter=params.get("internal_name") or None,
         )
     return txn_page_to_dict(page)
+
+
+@router.post(
+    "/transactions/table",
+    response_model=TabulatorResponse,
+    summary="Transactions for Tabulator (remote mode)",
+    description=(
+        "Tabulator-native endpoint: accepts Tabulator's page/size/sorters/filters"
+        " body and returns Tabulator's default remote envelope"
+        " (last_page/last_row/data). Used by /data/tab_transactions."
+    ),
+)
+async def transactions_table(
+    payload: TabulatorRequest,
+    database: DatabaseDep,
+):
+    async with database.session() as session:
+        page = await fetch_page(
+            session,
+            date_from=safe_date(payload.date_from),
+            date_to=safe_date(payload.date_to),
+            sorters=[s.model_dump() for s in payload.sort],
+            tabulator_filters=[f.model_dump() for f in payload.filter],
+            page=max(payload.page, 1),
+            page_size=min(max(payload.size, 1), 100),
+        )
+    return tabulator_page_to_dict(page)
 
 
 @router.get(

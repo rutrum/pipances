@@ -2,6 +2,14 @@
 
 Focused reference for: **General Usage, Sorting, Filtering, Pagination, Client/Server Side**.
 
+> **⚠️ This skill is out of date and needs updating.**
+>
+> Parts of it were written from older Tabulator documentation and are known to
+> be inaccurate. In particular, remote AJAX parameter names were wrong: in
+> Tabulator **6.5.0** the remote sort/filter params are `sort` and `filter`
+> (not `sorters`/`filters`), because `dataSendParams` defaults to `{}`. Other
+> sections may be similarly stale. Verify against the 6.5.0 source when unsure.
+
 ---
 
 ## 1. General Usage
@@ -275,13 +283,13 @@ table.clearSort();
 sortMode: "remote",
 ```
 
-When set, the `sorters` parameter is sent with AJAX requests:
+When set, the `sort` parameter is sent with AJAX requests:
 
 ```text
-sorters[0][field]=age&sorters[0][dir]=asc
+sort[0][field]=age&sort[0][dir]=asc
 ```
 
-The parameter name can be customized via `dataSendParams.sorters`.
+The parameter name can be customized via `dataSendParams.sort`.
 
 ### Sort Events
 
@@ -473,14 +481,14 @@ table.searchRows([
 filterMode: "remote",
 ```
 
-Sends `filters` parameter with AJAX requests:
+Sends `filter` parameter with AJAX requests:
 
 ```text
-filters[0][field]=age&filters[0][type]=>&filters[0][value]=52
+filter[0][field]=age&filter[0][type]=>&filter[0][value]=52
 ```
 
-Custom filters send `filters[0][type]=function`.
-Parameter name customizable via `dataSendParams.filters`.
+Custom filters send `filter[0][type]=function`.
+Parameter name customizable via `dataSendParams.filter`.
 
 ### Filter Events
 
@@ -558,11 +566,14 @@ paginationInitialPage: 2,
 **Custom parameter names:**
 
 ```js
+// dataSendParams maps the param name Tabulator generates -> the name sent on
+// the wire. Modules generate "page", "size", "sort" and "filter"; the
+// default is {}, so those names are sent unchanged.
 dataSendParams: {
-  page: "page",           // default: "page"
-  size: "size",           // default: "size"
-  sorters: "sorters",     // default: "sorters"
-  filters: "filters",     // default: "filters"
+  page: "page",           // wire name: "page"
+  size: "size",           // wire name: "size"
+  sort: "sort",           // wire name: "sort"
+  filter: "filter",       // wire name: "filter"
 },
 dataReceiveParams: {
   last_page: "last_page", // default: "last_page"
@@ -724,11 +735,11 @@ When any mode is `"remote"`, Tabulator sends the following as query/form paramet
 |---|---|---|
 | `page` | int | Remote pagination enabled |
 | `size` | int | Remote pagination + `paginationSize` set |
-| `sorters[0][field]` | string | Remote sorting + table sorted |
-| `sorters[0][dir]` | string | `"asc"` or `"desc"` |
-| `filters[0][field]` | string | Remote filtering + filters active |
-| `filters[0][type]` | string | Filter type: `"="`, `">"`, `"like"`, etc. |
-| `filters[0][value]` | string | Filter value |
+| `sort[0][field]` | string | Remote sorting + table sorted |
+| `sort[0][dir]` | string | `"asc"` or `"desc"` |
+| `filter[0][field]` | string | Remote filtering + filters active |
+| `filter[0][type]` | string | Filter type: `"="`, `">"`, `"like"`, etc. |
+| `filter[0][value]` | string | Filter value |
 | (any `ajaxParams`) | — | Custom static/dynamic params |
 
 Custom param names via `dataSendParams`:
@@ -737,8 +748,8 @@ Custom param names via `dataSendParams`:
 dataSendParams: {
   page: "pageNo",
   size: "pageSize",
-  sorters: "orderBy",
-  filters: "conditions",
+  sort: "orderBy",
+  filter: "conditions",
 }
 ```
 
@@ -858,7 +869,7 @@ paginationSize: 50,         // size of each chunk
 When a user changes a header filter on a table with remote pagination + sorting, the request looks like:
 
 ```text
-GET /api/data?page=1&size=25&sorters[0][field]=age&sorters[0][dir]=asc&filters[0][field]=name&filters[0][type]=like&filters[0][value]=bob
+GET /api/data?page=1&size=25&sort[0][field]=age&sort[0][dir]=asc&filter[0][field]=name&filter[0][type]=like&filter[0][value]=bob
 ```
 
 ---
