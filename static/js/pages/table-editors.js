@@ -46,7 +46,7 @@
     }
 
     onRendered(function () {
-      ts = new TomSelect(select, {
+      var settings = {
         valueField: params.valueField || "value",
         labelField: params.labelField || "text",
         searchField: params.searchField || "text",
@@ -56,7 +56,12 @@
         items: initial ? [initial] : [],
         placeholder: params.placeholder || "",
         dropdownParent: "body",
-      });
+      };
+      // Short enums don't need an inline search box, and Tom Select's input
+      // has a wide min-width that wraps the control in narrow table cells.
+      if (params.searchable === false) settings.controlInput = null;
+
+      ts = new TomSelect(select, settings);
       ts.wrapper.style.width = "100%";
 
       ts.on("change", function (value) {

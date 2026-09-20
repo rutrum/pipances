@@ -156,3 +156,14 @@
     color: var(--color-base-content);
   }
 }
+
+/* Tom Select cell editors: keep the control on a single line inside narrow
+   table cells. Tom Select's search input defaults to a 7rem min-width, which
+   would otherwise wrap below the selected item. */
+.tabulator .tabulator-cell .ts-control {
+  flex-wrap: nowrap;
+}
+
+.tabulator .tabulator-cell .ts-control > input {
+  min-width: 0;
+}
