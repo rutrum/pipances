@@ -1,22 +1,20 @@
 """ML prediction engine for transaction field suggestions.
 
-Uses TF-IDF character n-grams on raw_description combined with numeric
-and categorical features via a ColumnTransformer + kNN pipeline.
+Stage 1 retrieves neighbours with kNN over TF-IDF character n-grams on
+raw_description. Stage 2 reweights those neighbours using amount, date,
+account and institution agreement.
 """
 
 from __future__ import annotations
 
-import math
 from collections import Counter
 from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
-from scipy.sparse import hstack, issparse
-from sklearn.compose import ColumnTransformer
+from scipy.sparse import issparse
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from pipances.settings import settings
 
@@ -51,47 +49,10 @@ class TransactionPrediction:
     external_id: FieldPrediction | None = None
 
 
-def _cyclical_encode(value: float, period: float) -> tuple[float, float]:
-    angle = 2 * math.pi * value / period
-    return math.sin(angle), math.cos(angle)
-
-
-def _build_feature_matrix(
-    raw_descriptions: list[str],
-    amounts: list[int],
-    days_of_week: list[int],
-    days_of_month: list[int],
-    internal_ids: list[str],
-    institutions: list[str],
-) -> np.ndarray:
-    """Build the numeric/categorical feature matrix (non-text features).
-
-    Returns a 2D array with columns:
-    [amount, sin_dow, cos_dow, sin_dom, cos_dom, internal_id_str, institution_str]
-    """
-    rows = []
-    for i in range(len(raw_descriptions)):
-        sin_dow, cos_dow = _cyclical_encode(days_of_week[i], 7)
-        sin_dom, cos_dom = _cyclical_encode(days_of_month[i], 31)
-        rows.append(
-            [
-                amounts[i],
-                sin_dow,
-                cos_dow,
-                sin_dom,
-                cos_dom,
-                internal_ids[i],
-                institutions[i],
-            ]
-        )
-    return np.array(rows, dtype=object)
-
-
 class TransactionPredictor:
     """Predicts description, category, and external account for transactions."""
 
     def __init__(self):
-        self._knn: NearestNeighbors | None = None
         self._text_knn: NearestNeighbors | None = None
         self._text_tfidf: TfidfVectorizer | None = None
         self._labels: dict[str, list] = {}
@@ -119,13 +80,9 @@ class TransactionPredictor:
     ) -> None:
         """Fit the model on approved transaction data.
 
-        Trains both:
-        - Text-only kNN on TF-IDF features (primary signal for Stage 1 of prediction)
-        - Combined-feature kNN on text + structured features (kept for compatibility)
-
-        The text-only model is the primary signal: Stage 1 retrieves ~50 neighbors
-        based purely on raw_description similarity. Stage 2 reweights these neighbors
-        using structured features (amount, date, account, institution) as tiebreakers.
+        Stage 1 retrieves ~50 neighbors based purely on raw_description
+        similarity. Stage 2 reweights these neighbors using structured
+        features (amount, date, account, institution) as tiebreakers.
 
         Args:
             raw_descriptions: Raw bank transaction descriptions for training
@@ -139,27 +96,14 @@ class TransactionPredictor:
             external_ids: External account IDs (for voting)
         """
         if not raw_descriptions:
-            self._knn = None
             self._text_knn = None
             self._description_freq = Counter()
             self._category_freq = Counter()
             self._external_freq = Counter()
             return
 
-        features = _build_feature_matrix(
-            raw_descriptions,
-            amounts,
-            days_of_week,
-            days_of_month,
-            internal_ids,
-            institutions,
-        )
-
-        numeric_indices = [0, 1, 2, 3, 4]  # amount, sin/cos dow, sin/cos dom
-        categorical_indices = [5, 6]  # internal_id, institution
-
-        # TF-IDF needs string input, so we handle it separately from the
-        # ColumnTransformer which operates on the structured feature array.
+        # TF-IDF operates on raw text, so it is built here rather than in a
+        # feature-matrix helper.
         tfidf = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5))
         text_features = tfidf.fit_transform(raw_descriptions)
 
@@ -177,32 +121,6 @@ class TransactionPredictor:
         self._text_tfidf = tfidf
         self._text_knn = text_knn
 
-        # ---- Combined-feature kNN (fallback for compatibility) ------------------------
-        ct = ColumnTransformer(
-            transformers=[
-                ("num", StandardScaler(), numeric_indices),
-                (
-                    "cat",
-                    OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-                    categorical_indices,
-                ),
-            ],
-            remainder="drop",
-        )
-        structured_features = ct.fit_transform(features)
-
-        if issparse(text_features):
-            combined = hstack([text_features, structured_features]).tocsr()
-        else:
-            combined = np.hstack([text_features, structured_features])
-
-        k = min(settings.ml_k_neighbors, len(raw_descriptions))
-        knn = NearestNeighbors(n_neighbors=k, metric="cosine", algorithm="brute")
-        knn.fit(combined)
-
-        self._tfidf = tfidf
-        self._ct = ct
-        self._knn = knn
         self._labels = {
             "description": descriptions,
             "category_id": category_ids,

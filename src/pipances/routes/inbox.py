@@ -318,7 +318,7 @@ async def commit_inbox(
             '<div class="flex flex-col items-center justify-center py-16 text-base-content/60">'
             '<p class="text-xl font-semibold mb-2">All cleaned up!</p>'
             '<p class="mb-4">No pending transactions to review.</p>'
-            '<a href="/upload" class="btn btn-primary">Upload transactions</a>'
+            '<a href="/import" class="btn btn-primary">Upload transactions</a>'
             "</div></td></tr>"
         )
         return HTMLResponse(empty + oob)

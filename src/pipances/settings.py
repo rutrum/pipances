@@ -29,7 +29,6 @@ class Settings(BaseSettings):
     # --- ML hyperparameters ---
     ml_similarity_floor: float = 0.4
     ml_agreement_threshold: float = 0.6
-    ml_k_neighbors: int = 10
 
 
 settings = Settings()

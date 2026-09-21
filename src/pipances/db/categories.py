@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from math import ceil
-from typing import Any, NamedTuple
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,25 +48,6 @@ async def category_names_with_transactions(
         .order_by(Category.name)
     )
     return [row[0] for row in result]
-
-
-class CategoryUsage(NamedTuple):
-    """A category with the number of transactions referencing it."""
-
-    id: int
-    name: str
-    txn_count: int
-
-
-async def categories_with_usage(session: AsyncSession) -> Sequence[CategoryUsage]:
-    """All categories ordered by name with a count of referencing transactions."""
-    result = await session.execute(
-        select(Category.id, Category.name, func.count(Transaction.id))
-        .outerjoin(Transaction, Transaction.category_id == Category.id)
-        .group_by(Category.id, Category.name)
-        .order_by(Category.name)
-    )
-    return [CategoryUsage(*row) for row in result.all()]
 
 
 async def transaction_count_for_category(
