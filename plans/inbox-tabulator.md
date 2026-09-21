@@ -17,14 +17,14 @@ Branch: `ui-redesign`. Work is committed; nothing is pushed.
 | 2 — Inline editing + clear | ✅ Done | `d5f8896` |
 | 3 — Approve + commit | ✅ Done | `1ad3621` |
 | 4 — Range clipboard | ✅ Done | `84d6205` |
-| 5 — Modal + splits | ✅ Done | `2fe240e` |
+| 5 — Modal + splits | ✅ Done | `9db0fe4` |
 | 6 — Retrain + styling | ⬜ Not started | — |
 | 7 — Hardening | ⬜ Not started | — |
 
 `d5f8896` = "Add Tabulator inbox page with inline editing (phases 0-2)".
 `1ad3621` = "Add approve and commit flow to Tabulator inbox (phase 3)".
 `84d6205` = "Add range clipboard paste to Tabulator inbox (phase 4)".
-`2fe240e` = "Add edit modal and splits to Tabulator inbox (phase 5)".
+`9db0fe4` = "Add edit modal and splits to Tabulator inbox (phase 5)".
 Nothing is pushed; the branch is 13 commits ahead of `origin/ui-redesign`.
 
 ## Goals
@@ -459,7 +459,7 @@ rows are unmistakable; no visual regressions to `/data` tables.
 
 The page is fully usable for the core loop: view → inline edit → range paste →
 modal edit → splits → approve → commit. It is unauthenticated single-user, same
-as the rest of the app. Phases 4 and 5 are committed (`84d6205`, `2fe240e`);
+as the rest of the app. Phases 4 and 5 are committed (`84d6205`, `9db0fe4`);
 nothing is pushed and the working tree is clean.
 
 ### Commands
