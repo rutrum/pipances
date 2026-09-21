@@ -7,8 +7,11 @@ from pipances.db import DatabaseDep
 from pipances.db.accounts import get_or_create_external_account
 from pipances.db.categories import get_or_create_category
 from pipances.db.transactions import (
+    commit_marked_transactions,
+    commit_summary,
     fetch_page,
     get_txn,
+    pending_txn_count,
     set_txn_category,
     set_txn_description,
     set_txn_external,
@@ -20,6 +23,8 @@ from pipances.routes.api.queries import (
     txn_page_to_dict,
 )
 from pipances.routes.api.schemas import (
+    CommitResult,
+    CommitSummaryResponse,
     InboxRowUpdate,
     PaginatedTransactions,
     TabulatorRequest,
@@ -164,7 +169,61 @@ async def update_inbox_transaction(
         if "external_id" in payload.model_fields_set:
             set_txn_external(txn, await _resolve_external(session, payload.external_id))
 
+        if (
+            "marked_for_approval" in payload.model_fields_set
+            and payload.marked_for_approval is not None
+        ):
+            if payload.marked_for_approval:
+                if not (txn.description or "").strip():
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Description is required for approval",
+                    )
+                if not txn.external_id:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="External account is required for approval",
+                    )
+                txn.marked_for_approval = True
+            else:
+                txn.marked_for_approval = False
+
         await session.commit()
         await session.refresh(txn, ["internal", "external", "category", "splits"])
 
     return transaction_to_dict(txn)
+
+
+@router.get(
+    "/inbox/commit-summary",
+    response_model=CommitSummaryResponse,
+    summary="Preview the pending inbox commit",
+    description=(
+        "Count the marked pending transactions and list categories / external"
+        " accounts that committing them would newly create."
+    ),
+)
+async def inbox_commit_summary(database: DatabaseDep):
+    async with database.session() as session:
+        summary = await commit_summary(session)
+    return {
+        "count": summary.count,
+        "new_categories": summary.new_categories,
+        "new_externals": summary.new_externals,
+    }
+
+
+@router.post(
+    "/inbox/commit",
+    response_model=CommitResult,
+    summary="Commit marked inbox transactions",
+    description=(
+        "Approve every marked pending transaction, prune orphaned external"
+        " accounts, and return the committed and remaining counts."
+    ),
+)
+async def inbox_commit(database: DatabaseDep):
+    async with database.session() as session:
+        committed = await commit_marked_transactions(session)
+        remaining = await pending_txn_count(session)
+    return {"committed": committed, "remaining": remaining}

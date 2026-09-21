@@ -66,6 +66,22 @@ class InboxRowUpdate(BaseModel):
     description: str | None = None
     category_id: int | str | None = None
     external_id: int | str | None = None
+    marked_for_approval: bool | None = None
+
+
+class CommitSummaryResponse(BaseModel):
+    """Preview of a pending inbox commit."""
+
+    count: int
+    new_categories: list[str]
+    new_externals: list[str]
+
+
+class CommitResult(BaseModel):
+    """Outcome of committing marked inbox transactions."""
+
+    committed: int
+    remaining: int
 
 
 class TabulatorSorter(BaseModel):

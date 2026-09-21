@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 
 from pipances.db import DatabaseDep
+from pipances.db.transactions import marked_txn_count
 from pipances.routes._utils import shared_context, static_version, templates
 from pipances.settings import settings
 
@@ -22,10 +23,12 @@ async def inbox_tabulator_page(
 ) -> Response:
     async with database.session() as session:
         shared = await shared_context("inbox_tabulator", session)
+        marked_count = await marked_txn_count(session)
 
     ctx = {
         "page_size": settings.inbox_default_page_size,
         "page_size_options": settings.inbox_page_size_options,
+        "marked_count": marked_count,
         "js_version": static_version("js", "pages", "inbox-tabulator.js"),
         **shared,
     }

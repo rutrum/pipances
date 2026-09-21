@@ -6,16 +6,48 @@
   <div class="container mx-auto p-6">
     <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
       <h1 class="text-2xl font-bold">Inbox</h1>
+      <button type="button" id="commit-btn" class="btn btn-primary">
+        Commit
+        <span id="commit-count-badge"
+              class="badge badge-sm {% if not marked_count %}hidden{% endif %}">{{ marked_count }}</span>
+      </button>
     </div>
     <div id="inbox-tabulator-root"
          data-page-size="{{ page_size }}"
-         data-page-size-options='{{ page_size_options | tojson }}'>
+         data-page-size-options='{{ page_size_options | tojson }}'
+         data-marked-count="{{ marked_count }}">
       <div id="inbox-tabulator"></div>
     </div>
-    <div id="inbox-message" class="mt-2"></div>
-    <div id="commit-dialog-container"></div>
     <div id="edit-modal-container"></div>
   </div>
+  <dialog id="commit-dialog" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg mb-4">
+        Commit <span id="commit-dialog-count">0</span> <span id="commit-dialog-noun">transactions</span>
+      </h3>
+      <div id="commit-dialog-categories" class="mb-3 hidden">
+        <p class="text-sm font-semibold text-base-content/70 mb-1">New categories:</p>
+        <ul id="commit-dialog-categories-list"
+            class="list-disc list-inside text-sm">
+        </ul>
+      </div>
+      <div id="commit-dialog-externals" class="mb-3 hidden">
+        <p class="text-sm font-semibold text-base-content/70 mb-1">New external accounts:</p>
+        <ul id="commit-dialog-externals-list"
+            class="list-disc list-inside text-sm">
+        </ul>
+      </div>
+      <p id="commit-dialog-none"
+         class="text-sm text-base-content/60 mb-3 hidden">No new categories or accounts will be created.</p>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" id="commit-cancel-btn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="commit-confirm-btn">Confirm</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>close</button>
+    </form>
+  </dialog>
   <script src="/static/js/pages/table-editors.js?v={{ static_version('js', 'pages', 'table-editors.js') }}"></script>
   <script src="/static/js/pages/inbox-tabulator.js?v={{ js_version }}"></script>
 {% endblock content %}

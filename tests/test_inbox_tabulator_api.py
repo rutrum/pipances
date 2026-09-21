@@ -269,3 +269,135 @@ async def test_patch_unknown_transaction_is_404(client, seed_pending):
         "/api/inbox/transactions/999999", json={"description": "x"}
     )
     assert resp.status_code == 404
+
+
+async def test_patch_approve_requires_description(client, seed_pending):
+    txn_id = seed_pending["bare"].id
+    resp = await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
+    )
+    assert resp.status_code == 422
+    assert "Description" in resp.json()["detail"]
+
+
+async def test_patch_approve_requires_external(client, seed_pending):
+    txn_id = seed_pending["bare"].id
+    await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"description": "Has a description"}
+    )
+    resp = await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
+    )
+    assert resp.status_code == 422
+    assert "External" in resp.json()["detail"]
+
+
+async def test_patch_approve_succeeds_and_toggles(client, seed_pending):
+    txn_id = seed_pending["categorized"].id
+    resp = await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["marked_for_approval"] is True
+
+    resp = await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": False}
+    )
+    assert resp.json()["marked_for_approval"] is False
+
+
+async def test_patch_approve_alongside_field_updates(client, seed_pending):
+    txn_id = seed_pending["bare"].id
+    resp = await client.patch(
+        f"/api/inbox/transactions/{txn_id}",
+        json={
+            "description": "Fresh",
+            "external_id": "Fresh Merchant",
+            "marked_for_approval": True,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["marked_for_approval"] is True
+    assert body["description"] == "Fresh"
+    assert body["external_account"]["name"] == "Fresh Merchant"
+
+
+async def test_commit_summary_nothing_marked(client, seed_pending):
+    resp = await client.get("/api/inbox/commit-summary")
+    assert resp.status_code == 200
+    assert resp.json() == {"count": 0, "new_categories": [], "new_externals": []}
+
+
+async def test_commit_summary_lists_new_entities(client, seed_pending):
+    txn_id = seed_pending["bare"].id
+    await client.patch(
+        f"/api/inbox/transactions/{txn_id}",
+        json={
+            "description": "Pretty new",
+            "category_id": "Brand New Category",
+            "external_id": "Brand New Merchant",
+            "marked_for_approval": True,
+        },
+    )
+    resp = await client.get("/api/inbox/commit-summary")
+    body = resp.json()
+    assert body["count"] == 1
+    assert body["new_categories"] == ["Brand New Category"]
+    assert body["new_externals"] == ["Brand New Merchant"]
+
+
+async def test_commit_summary_ignores_existing_approved_entities(client, seed_pending):
+    # The seed's approved transaction already references Kroger, so it is not
+    # listed as new; Groceries is referenced only by pending rows.
+    txn_id = seed_pending["categorized"].id
+    await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
+    )
+    body = (await client.get("/api/inbox/commit-summary")).json()
+    assert body["count"] == 1
+    assert body["new_categories"] == ["Groceries"]
+    assert body["new_externals"] == []
+
+
+async def test_commit_json_approves_and_reports_remaining(client, seed_pending):
+    txn_id = seed_pending["categorized"].id
+    await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
+    )
+
+    resp = await client.post("/api/inbox/commit")
+    assert resp.status_code == 200
+    assert resp.json() == {"committed": 1, "remaining": 2}
+
+    table = await _post_table(client)
+    assert table.json()["last_row"] == 2
+
+
+async def test_commit_json_nothing_marked(client, seed_pending):
+    resp = await client.post("/api/inbox/commit")
+    assert resp.json() == {"committed": 0, "remaining": 3}
+
+
+async def test_commit_prunes_orphan_external(client, session, seed_pending):
+    session.add(Account(name="Orphan Only", kind="external"))
+    await session.commit()
+
+    txn_id = seed_pending["categorized"].id
+    await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
+    )
+    await client.post("/api/inbox/commit")
+
+    resp = await client.get("/api/external-accounts", params={"q": "Orphan Only"})
+    assert resp.json() == []
+
+
+async def test_page_shows_marked_count(client, seed_pending):
+    txn_id = seed_pending["categorized"].id
+    await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
+    )
+    resp = await client.get("/inbox-tabulator")
+    assert resp.status_code == 200
+    assert 'data-marked-count="1"' in resp.text

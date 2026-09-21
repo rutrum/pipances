@@ -120,10 +120,29 @@ def goto(page: Page, live_server):
     return _goto
 
 
+def _external_on_approved(conn):
+    """Pick an external account already referenced by an approved transaction.
+
+    Using one that already exists keeps the commit-summary "new entities"
+    checks meaningful for the fixtures below.
+    """
+    return conn.execute(
+        """
+        SELECT a.id
+        FROM accounts a
+        JOIN transactions t ON t.external_id = a.id
+        WHERE a.kind = 'external' AND t.status = 'approved'
+        ORDER BY a.name
+        LIMIT 1
+        """
+    ).fetchone()
+
+
 @pytest.fixture
 def approvable_txn(ui_db):
     """
-    Set description on one pending transaction so its Approve button is enabled.
+    Set description and external on one pending transaction so its Approve
+    button is enabled.
     Yields the transaction ID. Restores the transaction fully after the test,
     even if it was committed during the test.
     """
@@ -135,19 +154,23 @@ def approvable_txn(ui_db):
         conn.close()
         pytest.skip("No pending transactions available for this test")
     txn_id = row[0]
+    ext = _external_on_approved(conn)
+    if ext is None:
+        conn.close()
+        pytest.skip("No approved external account available for this test")
     conn.execute(
-        "UPDATE transactions SET description='Test Transaction' WHERE id=?",
-        (txn_id,),
+        "UPDATE transactions SET description='Test Transaction', external_id=? WHERE id=?",
+        (ext[0], txn_id),
     )
     conn.commit()
     conn.close()
 
     yield txn_id
 
-    # Restore: reset description, marked_for_approval, and status to pending
+    # Restore: reset description, external, marked_for_approval, and status
     conn = sqlite3.connect(str(ui_db))
     conn.execute(
-        "UPDATE transactions SET description=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
         (txn_id,),
     )
     conn.commit()
@@ -189,9 +212,13 @@ def bulk_pending_txns(ui_db):
 
     # Make the first inserted row approvable
     approvable_id = inserted_ids[0]
+    ext = _external_on_approved(conn)
+    if ext is None:
+        conn.close()
+        pytest.skip("No approved external account available for this test")
     conn.execute(
-        "UPDATE transactions SET description='Bulk Test Transaction' WHERE id=?",
-        (approvable_id,),
+        "UPDATE transactions SET description='Bulk Test Transaction', external_id=? WHERE id=?",
+        (ext[0], approvable_id),
     )
     conn.commit()
     conn.close()
@@ -231,9 +258,13 @@ def approvable_txn_with_new_category(ui_db):
         conn.close()
         pytest.skip("No pending transactions available for this test")
     txn_id = row[0]
+    ext = _external_on_approved(conn)
+    if ext is None:
+        conn.close()
+        pytest.skip("No approved external account available for this test")
     conn.execute(
-        "UPDATE transactions SET description='Test Transaction', category_id=? WHERE id=?",
-        (cat_id, txn_id),
+        "UPDATE transactions SET description='Test Transaction', category_id=?, external_id=? WHERE id=?",
+        (cat_id, ext[0], txn_id),
     )
     conn.commit()
     conn.close()
@@ -243,7 +274,7 @@ def approvable_txn_with_new_category(ui_db):
     # Restore transaction and remove the test category
     conn = sqlite3.connect(str(ui_db))
     conn.execute(
-        "UPDATE transactions SET description=NULL, marked_for_approval=0, status='pending', category_id=NULL WHERE id=?",
+        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending', category_id=NULL WHERE id=?",
         (txn_id,),
     )
     conn.execute("DELETE FROM categories WHERE name=?", (category_name,))

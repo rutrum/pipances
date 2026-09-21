@@ -11,7 +11,15 @@ from datetime import date
 from math import ceil
 from typing import Any, NamedTuple
 
-from sqlalchemy import ColumnElement, String, UnaryExpression, cast, func, select
+from sqlalchemy import (
+    ColumnElement,
+    String,
+    UnaryExpression,
+    cast,
+    exists,
+    func,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.interfaces import ORMOption
@@ -61,6 +69,122 @@ async def pending_txn_count(session: AsyncSession) -> int:
         .where(Transaction.status == TransactionStatus.PENDING)
     )
     return int(count or 0)
+
+
+async def marked_txn_count(session: AsyncSession) -> int:
+    """Number of pending transactions currently marked for approval."""
+    count = await session.scalar(
+        select(func.count())
+        .select_from(Transaction)
+        .where(
+            Transaction.status == TransactionStatus.PENDING,
+            Transaction.marked_for_approval == True,  # noqa: E712
+        )
+    )
+    return int(count or 0)
+
+
+class CommitSummary(NamedTuple):
+    """Preview of the work a commit would do."""
+
+    count: int
+    new_categories: list[str]
+    new_externals: list[str]
+
+
+async def commit_summary(session: AsyncSession) -> CommitSummary:
+    """Count marked transactions and the entities a commit would newly create."""
+    result = await session.execute(
+        select(Transaction)
+        .where(
+            Transaction.status == TransactionStatus.PENDING,
+            Transaction.marked_for_approval == True,  # noqa: E712
+        )
+        .options(*txn_options(splits=True))
+    )
+    marked = result.scalars().all()
+    if not marked:
+        return CommitSummary(0, [], [])
+
+    # Categories referenced only by pending transactions.
+    new_category_names: set[str] = set()
+    for txn in marked:
+        categories = [txn.category] if txn.category else []
+        categories.extend(split.category for split in txn.splits if split.category)
+        for category in categories:
+            approved_ref = await session.execute(
+                select(Transaction.id).where(
+                    Transaction.category_id == category.id,
+                    Transaction.status == TransactionStatus.APPROVED,
+                )
+            )
+            if not approved_ref.first():
+                new_category_names.add(category.name)
+
+    # External accounts referenced only by pending transactions.
+    new_external_names: set[str] = set()
+    for txn in marked:
+        if txn.external is None:
+            continue
+        approved_ref = await session.execute(
+            select(Transaction.id).where(
+                Transaction.external_id == txn.external_id,
+                Transaction.status == TransactionStatus.APPROVED,
+            )
+        )
+        if not approved_ref.first():
+            new_external_names.add(txn.external.name)
+
+    return CommitSummary(
+        len(marked), sorted(new_category_names), sorted(new_external_names)
+    )
+
+
+async def commit_marked_transactions(session: AsyncSession) -> int:
+    """Approve every marked pending transaction; prune orphaned externals.
+
+    Returns the number of transactions committed (0 when nothing was marked).
+    """
+    result = await session.execute(
+        select(Transaction).where(
+            Transaction.status == TransactionStatus.PENDING,
+            Transaction.marked_for_approval == True,  # noqa: E712
+        )
+    )
+    marked = result.scalars().all()
+    if not marked:
+        return 0
+
+    for txn in marked:
+        txn.status = TransactionStatus.APPROVED
+        txn.marked_for_approval = False
+    await session.commit()
+
+    orphans = (
+        (
+            await session.execute(
+                select(Account).where(
+                    Account.kind == AccountKind.EXTERNAL,
+                    ~exists(
+                        select(Transaction.id).where(
+                            Transaction.external_id == Account.id
+                        )
+                    ),
+                    ~exists(
+                        select(Transaction.id).where(
+                            Transaction.internal_id == Account.id
+                        )
+                    ),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for orphan in orphans:
+        await session.delete(orphan)
+    await session.commit()
+    return len(marked)
 
 
 def txn_options(

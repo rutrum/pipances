@@ -3,7 +3,6 @@ from typing import cast
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
-from sqlalchemy import exists as sa_exists
 from sqlalchemy import select
 
 from pipances.db import DatabaseDep
@@ -11,14 +10,14 @@ from pipances.db.accounts import get_active_internal_accounts
 from pipances.db.imports import get_imports
 from pipances.db.transactions import (
     apply_filters,
+    commit_marked_transactions,
+    commit_summary,
     fetch_page,
     pending_txn_count,
     resolve_order,
     txn_options,
 )
 from pipances.models import (
-    Account,
-    AccountKind,
     Transaction,
     TransactionStatus,
 )
@@ -133,73 +132,29 @@ async def inbox_page(
 
 
 @router.get("/inbox/commit-summary", response_class=HTMLResponse)
-async def commit_summary(
+async def inbox_commit_summary(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
     async with database.session() as session:
-        result = await session.execute(
-            select(Transaction)
-            .where(
-                Transaction.status == TransactionStatus.PENDING,
-                Transaction.marked_for_approval == True,
-            )
-            .options(*txn_options(splits=True))
+        summary = await commit_summary(session)
+
+    if not summary.count:
+        toast = templates.get_template("shared/_toast.jinja2").render(
+            {
+                "message": "Nothing to commit -- no transactions are approved.",
+                "type": "warning",
+            }
         )
-        marked = result.scalars().all()
-
-        if not marked:
-            toast = templates.get_template("shared/_toast.jinja2").render(
-                {
-                    "message": "Nothing to commit -- no transactions are approved.",
-                    "type": "warning",
-                }
-            )
-            return HTMLResponse("<!-- empty -->" + toast)
-
-        commit_count = len(marked)
-
-        # Find categories only referenced by pending transactions
-        new_category_names = set()
-        for txn in marked:
-            cats = []
-            if txn.category:
-                cats.append(txn.category)
-            for split in txn.splits:
-                if split.category:
-                    cats.append(split.category)
-            for cat in cats:
-                approved_ref = await session.execute(
-                    select(Transaction.id).where(
-                        Transaction.category_id == cat.id,
-                        Transaction.status == TransactionStatus.APPROVED,
-                    )
-                )
-                if not approved_ref.first():
-                    new_category_names.add(cat.name)
-
-        # Find external accounts only referenced by pending transactions
-        new_external_names = set()
-        for txn in marked:
-            if txn.external is None:
-                continue
-            ext_id = txn.external_id
-            approved_ref = await session.execute(
-                select(Transaction.id).where(
-                    Transaction.external_id == ext_id,
-                    Transaction.status == TransactionStatus.APPROVED,
-                )
-            )
-            if not approved_ref.first():
-                new_external_names.add(txn.external.name)
+        return HTMLResponse("<!-- empty -->" + toast)
 
     return templates.TemplateResponse(
         request,
         "inbox/_commit_summary.jinja2",
         {
-            "commit_count": commit_count,
-            "new_categories": sorted(new_category_names),
-            "new_externals": sorted(new_external_names),
+            "commit_count": summary.count,
+            "new_categories": summary.new_categories,
+            "new_externals": summary.new_externals,
         },
     )
 
@@ -210,15 +165,9 @@ async def commit_inbox(
     database: DatabaseDep,
 ) -> Response:
     async with database.session() as session:
-        result = await session.execute(
-            select(Transaction).where(
-                Transaction.status == TransactionStatus.PENDING,
-                Transaction.marked_for_approval == True,
-            )
-        )
-        marked = result.scalars().all()
+        committed_count = await commit_marked_transactions(session)
 
-        if not marked:
+        if not committed_count:
             toast = templates.get_template("shared/_toast.jinja2").render(
                 {
                     "message": "Nothing to commit -- no transactions are marked.",
@@ -237,38 +186,6 @@ async def commit_inbox(
                     {"txn": txn}
                 )
             return HTMLResponse(rows + toast)
-
-        committed_count = len(marked)
-        for txn in marked:
-            txn.status = TransactionStatus.APPROVED
-            txn.marked_for_approval = False
-        await session.commit()
-
-        # Prune orphaned external accounts
-        orphans = (
-            (
-                await session.execute(
-                    select(Account).where(
-                        Account.kind == AccountKind.EXTERNAL,
-                        ~sa_exists(
-                            select(Transaction.id).where(
-                                Transaction.external_id == Account.id
-                            )
-                        ),
-                        ~sa_exists(
-                            select(Transaction.id).where(
-                                Transaction.internal_id == Account.id
-                            )
-                        ),
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-        for orphan in orphans:
-            await session.delete(orphan)
-        await session.commit()
 
     # Re-render remaining pending transactions (with filters if present)
     form = await request.form()
