@@ -18,6 +18,7 @@ from pipances.routes.data import router as data_router
 from pipances.routes.explore import router as explore_router
 from pipances.routes.import_page import router as import_router
 from pipances.routes.inbox import router as inbox_router
+from pipances.routes.inbox_tabulator import router as inbox_tabulator_router
 from pipances.routes.transactions import router as transactions_router
 from pipances.settings import settings
 
@@ -50,6 +51,7 @@ app.include_router(api_transactions_router)
 # HTML page routes
 app.include_router(explore_router)
 app.include_router(inbox_router)
+app.include_router(inbox_tabulator_router)
 app.include_router(data_router)
 app.include_router(transactions_router)
 app.include_router(import_router)

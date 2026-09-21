@@ -19,6 +19,10 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
     if txn.ml_confidence_external is not None:
         ml["external"] = txn.ml_confidence_external
 
+    split_count: int | None = None
+    if "splits" not in sa_inspect(txn).unloaded:
+        split_count = len(txn.splits)
+
     result: dict[str, Any] = {
         "id": txn.id,
         "date": str(txn.date),
@@ -28,7 +32,11 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
         "description": txn.description,
         "status": txn.status,
         "marked_for_approval": txn.marked_for_approval,
+        "can_approve": bool(txn.description and txn.external_id),
+        "split_count": split_count,
         "ml_confidence": ml if ml else None,
+        "category_id": txn.category_id,
+        "external_id": txn.external_id,
         "category": (
             {"id": txn.category.id, "name": txn.category.name} if txn.category else None
         ),

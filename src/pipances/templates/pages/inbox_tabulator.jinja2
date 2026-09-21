@@ -1,0 +1,21 @@
+{% extends "base.jinja2" %}
+{% block title %}
+  Inbox Tabulator - Pipances
+{% endblock title %}
+{% block content %}
+  <div class="container mx-auto p-6">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+      <h1 class="text-2xl font-bold">Inbox</h1>
+    </div>
+    <div id="inbox-tabulator-root"
+         data-page-size="{{ page_size }}"
+         data-page-size-options='{{ page_size_options | tojson }}'>
+      <div id="inbox-tabulator"></div>
+    </div>
+    <div id="inbox-message" class="mt-2"></div>
+    <div id="commit-dialog-container"></div>
+    <div id="edit-modal-container"></div>
+  </div>
+  <script src="/static/js/pages/table-editors.js?v={{ static_version('js', 'pages', 'table-editors.js') }}"></script>
+  <script src="/static/js/pages/inbox-tabulator.js?v={{ js_version }}"></script>
+{% endblock content %}

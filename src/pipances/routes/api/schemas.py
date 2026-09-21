@@ -31,7 +31,11 @@ class TransactionResponse(BaseModel):
     description: str | None = None
     status: str
     marked_for_approval: bool
+    can_approve: bool = False
+    split_count: int | None = None
     ml_confidence: MlConfidence | None = None
+    category_id: int | None = None
+    external_id: int | None = None
     category: TransactionRef | None = None
     external_account: TransactionRef | None = None
     internal_account: TransactionRef | None = None
@@ -54,6 +58,14 @@ class PaginatedTransactions(BaseModel):
 class NamedItem(BaseModel):
     id: int
     name: str
+
+
+class InboxRowUpdate(BaseModel):
+    """Single-row edit from the Tabulator inbox. Only provided fields apply."""
+
+    description: str | None = None
+    category_id: int | str | None = None
+    external_id: int | str | None = None
 
 
 class TabulatorSorter(BaseModel):

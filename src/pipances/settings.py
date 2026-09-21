@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.db_path}"
 
+    # --- Inbox (Tabulator) ---
+    inbox_default_page_size: int = 25
+    inbox_page_size_options: list[int] = [25, 50, 100]
+
     # --- ML hyperparameters ---
     ml_similarity_floor: float = 0.4
     ml_agreement_threshold: float = 0.6
