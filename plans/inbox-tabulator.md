@@ -1,10 +1,28 @@
-# Inbox Tabulator — Implementation Plan
+# Inbox Tabulator — Implementation Plan & Handoff
 
 A second, Tabulator-based inbox that lives alongside the existing HTMX inbox.
 It is intended to **eventually replace** the original, so it is deliberately
 self-contained: no shared modal template, no shared row template, no
 abstraction layer between the two inboxes. Only genuinely neutral helpers
 (query functions, `set_txn_*`, categories/external resolution) are reused.
+
+## Status
+
+Branch: `ui-redesign`. Work is committed; nothing is pushed.
+
+| Phase | State | Commit |
+|---|---|---|
+| 0 — Scaffolding | ✅ Done | `d5f8896` |
+| 1 — Read-only table | ✅ Done | `d5f8896` |
+| 2 — Inline editing + clear | ✅ Done | `d5f8896` |
+| 3 — Approve + commit | ✅ Done | `1ad3621` |
+| 4 — Range clipboard | ⬜ Not started | — |
+| 5 — Modal + splits | ⬜ Not started | — |
+| 6 — Retrain + styling | ⬜ Not started | — |
+| 7 — Hardening | ⬜ Not started | — |
+
+`d5f8896` = "Add Tabulator inbox page with inline editing (phases 0-2)".
+`1ad3621` = "Add approve and commit flow to Tabulator inbox (phase 3)".
 
 ## Goals
 
@@ -21,8 +39,8 @@ abstraction layer between the two inboxes. Only genuinely neutral helpers
 
 | # | Decision |
 |---|---|
-| 1 | One new navbar entry with its own route. Proposed: `/inbox-tabulator`, label "Inbox Tabulator" (rename freely). |
-| 2 | Range paste uses a custom `clipboardPasteAction` (built-in range parser kept), plus a batch PATCH. |
+| 1 | One new navbar entry, route `/inbox-tabulator`, label "Inbox Tabulator", `active_page="inbox_tabulator"`. |
+| 2 | Range paste uses a custom `clipboardPasteAction` (built-in `"range"` parser kept), plus a batch PATCH. |
 | 3 | Inline editing **and** the modal. Splits stay in the modal. |
 | 4 | New modal template for the new page. Old modal untouched. |
 | 5 | Commit summary/commit are JSON endpoints. |
@@ -34,6 +52,7 @@ abstraction layer between the two inboxes. Only genuinely neutral helpers
 | 11 | Retrain included. |
 | 12 | New table constants go in `Settings()` and are passed to JS via data attributes. |
 | 13 | UI tests use real clipboard permissions with an API-level fallback. |
+| 14 | Deferred: the 36 pre-existing UI-test failures are out of scope for this feature. |
 
 ## Key technical finding driving the design
 
@@ -55,15 +74,22 @@ one batch PATCH.
 
 ## Architecture
 
+Implemented:
+
 ```
 Browser (inbox-tabulator.js)
-  POST /api/inbox/table                     <- remote sort/pagination
-  PATCH /api/inbox/transactions/{id}        <- inline cell edit / approve toggle
+  POST  /api/inbox/table                    <- remote sort/pagination
+  PATCH /api/inbox/transactions/{id}        <- inline edit / approve toggle
+  GET   /api/inbox/commit-summary           <- commit dialog data
+  POST  /api/inbox/commit                   <- commit marked rows
+```
+
+Planned:
+
+```
   PATCH /api/inbox/transactions/batch       <- range paste (all-or-nothing)
-  GET  /api/inbox/commit-summary            <- commit dialog data
-  POST /api/inbox/commit                    <- commit marked rows
-  POST /api/inbox/retrain                   <- retrain, returns updated count
-  GET  /inbox-tabulator/transactions/{id}/edit-modal  <- new modal HTML
+  POST  /api/inbox/retrain                  <- retrain, returns updated count
+  GET   /inbox-tabulator/transactions/{id}/edit-modal  <- new modal HTML
 ```
 
 The existing `/inbox`, `/inbox/commit`, `/inbox/retrain`, `/transactions/*`
@@ -71,48 +97,53 @@ routes and templates are left exactly as they are.
 
 ## Files
 
-New:
+Created:
 
-- `src/pipances/routes/inbox_tabulator.py` — page + modal HTML routes.
-- `src/pipances/templates/pages/inbox_tabulator.jinja2` — page, toolbar, dialog markup.
+- `src/pipances/routes/inbox_tabulator.py` — page route (modal route TODO).
+- `src/pipances/templates/pages/inbox_tabulator.jinja2` — page, toolbar, commit dialog.
+- `static/js/pages/inbox-tabulator.js` — table, editors, approve, commit.
+- `tests/test_inbox_tabulator_api.py` — 30 unit/API tests.
+
+Planned:
+
 - `src/pipances/templates/inbox/_inbox_tabulator_modal.jinja2` — new modal.
-- `static/js/pages/inbox-tabulator.js` — table.
 - `static/js/pages/inbox-tabulator-modal.js` — modal wiring.
-- `tests/test_inbox_tabulator_api.py` — unit/API tests.
-- `tests/ui/test_inbox_tabulator.py` — UI tests.
+- `tests/ui/test_inbox_tabulator.py` — browser tests for the new page.
 
 Modified:
 
 - `src/pipances/routes/api/inbox.py` — new JSON endpoints.
 - `src/pipances/routes/api/schemas.py` — request/response models.
 - `src/pipances/routes/api/queries.py` — inbox row serializer fields.
-- `src/pipances/db/transactions.py` — shared commit / retrain / summary helpers.
+- `src/pipances/db/transactions.py` — `marked_txn_count`, `CommitSummary`,
+  `commit_summary`, `commit_marked_transactions`.
+- `src/pipances/routes/inbox.py` — old HTML routes now call the shared helpers.
 - `src/pipances/settings.py` — page size + options.
-- `src/pipances/main.py` — register the new router.
-- `src/pipances/templates/shared/_navbar.jinja2` — new entry.
-- `static/css/tabulator-daisy.css` — approved row + range accents.
+- `src/pipances/main.py` — router registration.
+- `src/pipances/templates/shared/_navbar.jinja2` — nav entry.
+- `static/css/tabulator-daisy.css` — `.txn-approved` row style.
+- `tests/ui/conftest.py` — fixture fix (see gotchas).
 
 ## Data shape
 
-Extend `transaction_to_dict` (used by the new table endpoint) with flat fields
-so Tabulator editors can bind to ids:
+`transaction_to_dict` (used by the new table endpoint) was extended with:
 
-- `category_id`, `external_id` — currently only nested objects are emitted.
-- `can_approve` — `bool(description and external_id)`.
+- `category_id`, `external_id` — emitted but not used by the editors (see gotchas).
+- `can_approve` — `bool(description and external_id)`; drives the approve gate.
 - `split_count` — number of splits when loaded (`fetch_page(splits=True)`).
 
-Keep the existing nested `category` / `external_account` / `internal_account` /
-`ml_confidence` objects for formatters.
+The nested `category` / `external_account` / `internal_account` /
+`ml_confidence` objects are still emitted and used by the formatters.
 
-## Proposed endpoints (contract)
+## Endpoint contract
 
-### `POST /api/inbox/table`
+### `POST /api/inbox/table` (done)
 
 Body: `TabulatorRequest`. Response: `{last_page, last_row, data: [...]}`.
 `fetch_page(statuses=(PENDING,), sorters=..., page=..., page_size=..., splits=True)`.
-Filters are accepted but unused for now, matching the repo pattern.
+Filters are accepted but unused for now.
 
-### `PATCH /api/inbox/transactions/{id}`
+### `PATCH /api/inbox/transactions/{id}` (done)
 
 Body (`InboxRowUpdate`), only provided fields applied:
 
@@ -127,42 +158,45 @@ Rules:
 - Field writes go through `set_txn_description` / `set_txn_category` /
   `set_txn_external`, which clear the ML confidence.
 - Setting `marked_for_approval: true` validates description + external and
-  returns 422 otherwise.
+  returns 422 otherwise. Validation runs after any field updates in the same
+  request, so `{description, external_id, marked_for_approval: true}` works.
 - Returns the same inbox row dict the table endpoint uses.
 
-### `PATCH /api/inbox/transactions/batch`
+### `PATCH /api/inbox/transactions/batch` (planned, Phase 4)
 
 Body: `{updates: [{id, description?, category_id?, external_id?}]}`.
 All-or-nothing in one transaction: any invalid row rolls the whole request back
 and returns 422. On success returns the updated rows. Deliberately excludes
 `marked_for_approval` and any non-editable field.
 
-### `GET /api/inbox/commit-summary`
+### `GET /api/inbox/commit-summary` (done)
 
-`{count, new_categories: [...], new_externals: [...]}`. Logic extracted from the
-existing `commit_summary` route into a shared function.
+`{count, new_categories: [...], new_externals: [...]}` via
+`db.transactions.commit_summary`.
 
-### `POST /api/inbox/commit`
+### `POST /api/inbox/commit` (done)
 
-Commits marked pending rows, prunes orphan external accounts, returns
-`{committed, remaining}`.
+`{committed, remaining}` via `db.transactions.commit_marked_transactions`,
+which also prunes orphaned external accounts.
 
-### `POST /api/inbox/retrain`
+### `POST /api/inbox/retrain` (planned, Phase 6)
 
 Trains on approved rows, updates pending suggestions, returns
-`{updated_count}`. Logic extracted from the existing `retrain_inbox` route.
+`{updated_count}`. Logic still lives in the old `routes/inbox.py::retrain_inbox`
+and should be extracted into a shared helper.
 
-### `GET /inbox-tabulator/transactions/{id}/edit-modal`
+### `GET /inbox-tabulator/transactions/{id}/edit-modal` (planned, Phase 5)
 
 Returns the new modal partial. Reuses the existing category/external/description
 loading helper (data only, not markup).
 
-## Table configuration
+## Table configuration (as built)
 
 ```
 height: "70vh"
 layout: "fitColumns"
 index: "id"
+selectableRows: false
 ajaxURL: "/api/inbox/table", ajaxConfig: "POST", ajaxContentType: "json"
 pagination: true, paginationMode: "remote"
 paginationSize: settings.inbox_default_page_size
@@ -170,40 +204,37 @@ paginationSizeSelector: settings.inbox_page_size_options
 paginationCounter: "rows"
 sortMode: "remote"
 initialSort: [{column: "date", dir: "asc"}]
-selectableRange: true
+editTriggerEvent: "dblclick"
+selectableRange: 1
 selectableRangeColumns: false
 selectableRangeRows: false
 selectableRangeClearCells: true
 selectableRangeClearCellsValue: ""
-clipboard: true
-clipboardCopyRowRange: "range"
-clipboardPasteParser: "range"
-clipboardPasteAction: <custom function>
-clipboardCopyStyled: false
-clipboardCopyConfig: {columnHeaders: false, rowHeaders: false}
-editTriggerEvent: "dblclick"
 ```
 
-Columns: Date, Account, Amount, Raw Description, Description, Category,
-External, Status/Actions.
+Phase 4 adds: `clipboard: true`, `clipboardCopyRowRange: "range"`,
+`clipboardPasteParser: "range"`, `clipboardPasteAction: <custom>`,
+`clipboardCopyStyled: false`,
+`clipboardCopyConfig: {columnHeaders: false, rowHeaders: false}`.
 
-- Description formatter: value or muted "no description", plus ML confidence dot.
-- Category formatter: nested name or muted "no category", ML dot, and an
-  `N splits` badge when `split_count > 0`.
-- External formatter: nested name or muted "no external account", ML dot.
-- Actions formatter: `Approve` / `Approved` button (disabled unless
-  `can_approve` or already marked) and an `Edit` button that opens the modal.
+Columns: Date, Account, Amount, Raw Description, Description, Category,
+External, Actions.
+
+- Description/Category/External formatters show the value (or muted fallback)
+  plus an ML confidence dot.
+- Category formatter appends an `N splits` badge when `split_count > 0`.
+- Actions formatter renders `Approve` / `Approved` / disabled `Approve`.
 
 `rowFormatter` toggles a `txn-approved` class from `marked_for_approval`.
 
-## Range paste (custom action)
+## Range paste (planned, Phase 4)
 
 1. The built-in `"range"` parser produces row objects keyed by the visible
    fields under the selected range.
-2. Our action replicates the range/row targeting logic (active rows, start/end
-   bounds, modulo cycling), then:
+2. The custom action replicates the range/row targeting logic (active rows,
+   start/end bounds, modulo cycling), then:
    - filters to the allowlist `description`, `category_id`, `external_id`
-     (ignores date/amount/raw/internal even if the range covers them);
+     (ignores date/amount/raw/internal/`_actions` even if the range covers them);
    - applies `row.updateData(...)` inside `blockRedraw`/`restoreRedraw`;
    - collects `{id, field: value}` updates;
    - sends one `PATCH /api/inbox/transactions/batch`;
@@ -215,7 +246,10 @@ External, Status/Actions.
 Inline edits and clear-cells need no special casing: they fire `cellEdited`,
 which reuses `PipancesEditors.saveCell` against the single-row endpoint.
 
-## Modal
+Note: the parser maps by column position, so the allowlist must be enforced in
+the action even though `_actions` has `clipboard: false`.
+
+## Modal (planned, Phase 5)
 
 New partial, independent of the old inbox modal:
 
@@ -228,17 +262,20 @@ New partial, independent of the old inbox modal:
 - Approve/unapprove button uses the JSON endpoint, updates the row, closes.
 - On close, refetch the row (`GET /api/transactions/{id}`) and
   `table.updateRow(id, data)` so `split_count` and categories refresh.
+- Add an `Edit` button to the actions formatter that loads the modal into
+  `#edit-modal-container` (already present in the page template).
 
-## Approved + commit UX
+## Approved + commit UX (as built)
 
 - Clicking Approve optimistically flips `marked_for_approval` locally,
-  re-runs the row formatter for the immediate highlight, updates the marked
+  re-runs `row.reformat()` for the immediate highlight, updates the marked
   count, then PATCHes; on failure it reverts and toasts.
 - `Commit` sits in the top toolbar and shows the marked count (server-rendered
-  initial value, adjusted on toggles, refreshed after commit/retrain).
-- Clicking Commit fetches the JSON summary and populates the dialog; Confirm
-  POSTs `/api/inbox/commit`, then closes, toasts, updates `#inbox-badge`, and
-  `table.setData()`.
+  initial value via `data-marked-count`, adjusted on toggles, reset to 0 after
+  commit).
+- Clicking Commit fetches the JSON summary and populates the inline
+  `<dialog id="commit-dialog">`; Confirm POSTs `/api/inbox/commit`, then closes,
+  toasts, updates `#inbox-badge`, and `table.setData()`.
 
 ## Settings additions
 
@@ -249,107 +286,192 @@ inbox_page_size_options: list[int] = [25, 50, 100]
 
 Passed to the template and onto `#inbox-tabulator-root` as data attributes.
 
+## As-built notes, deviations and gotchas
+
+These are the important things to know before touching the code again.
+
+1. **Actions cell does not auto-refresh.** `row.update(data)` only re-renders
+   cells whose column `field` changed. `marked_for_approval`, `can_approve`,
+   and `split_count` are not column fields, so the Actions/other formatters
+   go stale. **Always call `row.reformat()` after a `row.update` that should
+   change a formatter.** This was a real bug for the Approve gate after an
+   inline edit; `refreshRow(row, data)` and the `saveCell(...).then(...)`
+   wrapper already do this.
+
+2. **Editors bind to names, not ids.** Category/External columns are
+   `field: "category.name"` / `"external_account.name"`, and the Tom Select
+   options use `{value: name, text: name}`. This keeps nested `row.update`
+   working and lets the server resolve id-or-name. The serializer still emits
+   `category_id` / `external_id` but nothing reads them yet.
+
+3. **Clear-cells touches read-only cells.** The range module clears every cell
+   in the range. Non-editable columns are protected by a guarded restore
+   (`restoreReadonlyCell`) that sets the value back to `getOldValue()`; the
+   `restoringReadonly` flag prevents an oscillation loop. Keep this in place.
+
+4. **`row.updateData` does not fire `cellEdited`.** Do not try to persist range
+   paste via `cellEdited`; use the custom paste action.
+
+5. **`JSON.stringify` drops `undefined`.** Clear-cells uses `""` and the
+   endpoint normalizes `""` to `None`. Do not switch the clear value to
+   `undefined`/`null` without updating `saveCell`.
+
+6. **`table-editors.js` is shared with `/data/*`.** Prefer not to change its
+   contract; the inbox relies on `saveCell`, `tomSelect`, `showToast`.
+
+7. **Tabulator range constraints.** Do not add `frozen` columns, row selection,
+   or `selectableRangeColumns/Rows` without re-reading Tabulator's warnings;
+   the range module conflicts with them. `selectableRows: false` is required.
+
+8. **`selectableRange` was enabled in Phase 2**, not Phase 4, because
+   `selectableRangeClearCells` needs it. Phase 4 only adds clipboard config.
+
+9. **Testing Tom Select with agent-browser.** Clicking the dropdown option via
+   a ref/synthetic event is flaky. `document.querySelector('.tabulator-cell.tabulator-editing select').tomselect.setValue('Netflix')`
+   triggers the same `change` path and works reliably. Real Playwright clicks
+   have worked for categories.
+
 ## Phases
 
-### Phase 0 — Scaffolding
+### Phase 0 — Scaffolding ✅
 
-- Add settings fields.
-- Add `routes/inbox_tabulator.py` with `GET /inbox-tabulator` rendering an empty
-  page (extend `base.jinja2`), registered in `main.py`.
-- Add navbar entry and `active_page="inbox_tabulator"`.
+Done. Route, navbar entry, settings, empty page.
 
-Acceptance: route renders, nav item highlights, old inbox unaffected.
+### Phase 1 — Read-only table ✅
 
-### Phase 1 — Read-only table
+Done. `POST /api/inbox/table`, serializer fields, columns/formatters,
+`rowFormatter`.
 
-- Add `POST /api/inbox/table` + serializer fields (`category_id`,
-  `external_id`, `can_approve`, `split_count`).
-- Build `inbox-tabulator.js` with columns, remote sort/pagination, formatters,
-  `rowFormatter` (marked state visible even before approve is wired).
-- Page markup: toolbar, root data attributes, containers.
+### Phase 2 — Inline editing + clear ✅
 
-Acceptance: table loads pending rows, sorts and paginates; unit tests for the
-envelope, pending-only status, sort, pagination, and new fields.
+Done. Single-row PATCH, `input` / `tomSelect` editors, `cellEdited` →
+`saveCell` → `row.reformat()`, clear-cells with read-only restore.
 
-### Phase 2 — Inline editing + clear
+### Phase 3 — Approve + commit ✅
 
-- Add single-row `PATCH /api/inbox/transactions/{id}`.
-- Wire description `input`, category/external `tomSelect` (options fetched from
-  `/api/categories` and `/api/external-accounts`, `create: true`), `cellEdited`
-  to `saveCell`.
-- Enable `selectableRangeClearCells` with `""` clear value.
-- Unit tests: each field, clear, name-or-id resolution, ML confidence reset,
-  approve validation.
+Done. Actions cell + optimistic toggle, JSON summary/commit, shared commit
+helpers, commit dialog, badge + marked count.
 
-Acceptance: edits and clears persist across reload; invalid values revert + toast.
+### Phase 4 — Range clipboard ⬜
 
-### Phase 3 — Approve + commit
-
-- Actions cell with approve formatter + `cellClick` optimistic toggle.
-- `GET /api/inbox/commit-summary`, `POST /api/inbox/commit` (JSON), dialog
-  markup, badge update, marked count.
-- Extract commit/summary logic into shared helpers and keep the old HTML routes
-  calling them.
-- Unit tests: summary counts, new-entity warnings, commit flips status, orphan
-  pruning, `remaining`; approve toggle + 422.
-
-Acceptance: approve highlights immediately and survives reload; commit dialog →
-confirm removes rows, decrements badge, toasts.
-
-### Phase 4 — Range clipboard
-
-- Custom `clipboardPasteAction` + `PATCH /api/inbox/transactions/batch`.
-- Allowlist filtering, blockRedraw, reconcile/reload behavior.
-- Unit tests: batch success, all-or-nothing rollback, allowlist.
+- Add `PATCH /api/inbox/transactions/batch` (all-or-nothing).
+- Add `clipboard` config and a custom `clipboardPasteAction`. Keep
+  `clipboardPasteParser: "range"`.
+- Allowlist filtering, `blockRedraw`, reconcile/reload behavior.
+- Unit tests: batch success, rollback, allowlist, empty clears.
 - UI test: clipboard permissions + paste single value across a range; fall back
-  to an API-level assertion if the browser path proves flaky.
+  to an API-level assertion if the browser path is flaky.
 
 Acceptance: selecting a multi-row range and pasting one value updates and
 persists every row; pasting a rectangle fills by cycling; failures revert.
 
-### Phase 5 — Modal + splits
+### Phase 5 — Modal + splits ⬜
 
 - New modal partial and `GET /inbox-tabulator/transactions/{id}/edit-modal`.
 - `inbox-tabulator-modal.js` wiring scalar fields to JSON PATCH and row refresh.
 - Reuse `_splits_section.jinja2`; on close refresh the row so `split_count`
   and the splits badge update.
+- Add the `Edit` button to the actions formatter.
 
 Acceptance: modal opens from Edit, scalar edits reflect in the table, splits
 add/edit/delete still work, old modal untouched.
 
-### Phase 6 — Retrain + styling
+### Phase 6 — Retrain + styling ⬜
 
-- `POST /api/inbox/retrain` JSON + toolbar button (disabled while running).
-- `tabulator-daisy.css`: `.txn-approved` row style (specificity must beat
-  `.tabulator-row-even`), range selection accents, compact action cells.
+- Extract retrain logic into a shared helper; add `POST /api/inbox/retrain`
+  JSON + toolbar button (disabled while running).
+- `tabulator-daisy.css`: range selection accents, compact action cells; refine
+  `.txn-approved` if needed.
 - daisyUI classes for buttons/badges; consult the daisyUI skill.
 
 Acceptance: retrain reports updated count and refreshes suggestions; approved
 rows are unmistakable; no visual regressions to `/data` tables.
 
-### Phase 7 — Hardening
+### Phase 7 — Hardening ⬜
 
 - `just lint` clean.
-- Full unit + UI suite.
+- Full unit suite; triage UI suite (see below).
 - Manual browser pass via `nix develop -c agent-browser`.
 - Verify Nix build copies the new JS (`static/js/pages` is copied wholesale).
+- Optionally fix the pre-existing UI-test failures (deferred decision).
+
+## Handoff notes for the next agent
+
+### Where things stand
+
+The page is fully usable for the core loop: view → inline edit → approve →
+commit. It is unauthenticated single-user, same as the rest of the app.
+Nothing is pushed; `ui-redesign` is 11 commits ahead of `origin/ui-redesign`.
+
+### Commands
+
+```bash
+just lint          # prek, all files (run this, not individual linters)
+just test          # unit/API tests, ignores tests/ui
+nix develop -c just test-ui   # browser tests (needs chromium from the devshell)
+just serve-hot     # dev server on :8098 using .env + ./pipances.db
+```
+
+Manual testing against a throwaway seed (do not mutate the dev DB):
+
+```bash
+rm -f /tmp/pipances.db
+PIPANCES_DB_PATH=/tmp/pipances.db PIPANCES_STATIC_DIR=./static \
+  PIPANCES_IMPORTERS_DIR=./importers PIPANCES_TEMP_DIR=/tmp/pipances_imports \
+  uv run python scripts/seed.py
+PIPANCES_DB_PATH=/tmp/pipances.db PIPANCES_STATIC_DIR=./static \
+  PIPANCES_IMPORTERS_DIR=./importers PIPANCES_TEMP_DIR=/tmp/pipances_imports \
+  uv run uvicorn pipances.main:app --port 8097
+nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
+```
+
+### Test status to be aware of
+
+- `just test`: 195 passing.
+- `just test-ui`: 44 passing, 36 failing. **All 36 failures are pre-existing on
+  this branch** and unrelated to the inbox Tabulator work (verified by running
+  representative failures at the base commit). They are:
+  - `test_table_sorting` (11): stale locators from the `/data` migration.
+  - `test_combobox_popover` / `test_inbox_modal_edit` /
+    `test_inbox_transaction_modal_edit` / `test_transaction_splits` (22): the
+    old modal's Tom Select input is "outside of the viewport" at the test
+    viewport size.
+  - `test_oob_regressions` (1) and 2 `test_commit_flow` pagination tests:
+    locators expect a `<span>` but `_pagination.jinja2` renders a `<button>`.
+- Phase 3 did fix one real cluster: `tests/ui/conftest.py` fixtures
+  `approvable_txn`, `approvable_txn_with_new_category`, and `bulk_pending_txns`
+  previously set only `description`, but both inboxes require description +
+  external to enable Approve, so `do_approve` always timed out. They now attach
+  an external that is already referenced by an approved transaction.
+  `test_commit_flow.py` went from 1/13 to 11/13 passing.
+- There is no `tests/ui/test_inbox_tabulator.py` yet; Phase 4–6 should add one
+  once the surface is stable.
+
+### Highest-value next work
+
+Phase 4 (range clipboard) is the differentiating feature and the reason the
+custom paste action exists. Phase 5 (modal) is the other chunk needed before
+this can replace `/inbox`. Phase 6 is polish plus retrain.
 
 ## Edge cases / risks
 
 - **Remote pagination scope:** ranges and paste only span the loaded page. Accepted.
 - **`cellEdited` vs `row.updateData`:** server reconciliation must use
-  `row.update`, which does not re-fire `cellEdited`; no persistence loop.
+  `row.update` (+ `row.reformat()`), which does not re-fire `cellEdited`; no
+  persistence loop.
 - **Undefined vs empty:** `JSON.stringify({field: undefined})` drops the key, so
   clear-cells uses `""`, which the endpoint normalizes to `None`.
 - **Range + editing conflicts:** `editTriggerEvent: "dblclick"` avoids
-  entering edit on selection; do not use frozen columns or row selection
-  (Tabulator warns about both with `selectableRange`).
+  entering edit on selection; do not use frozen columns or row selection.
 - **Optimistic approve:** must revert cleanly on 422 (missing description or
   external) and keep the marked count correct.
 - **Batch failure:** reload from server rather than trying to reconcile partial
   local state.
 - **Column allowlist:** the range parser maps by position, so non-editable
   columns must be explicitly filtered out, not just left un-editable.
+- **Marked count is best-effort across pages:** it is server-rendered on load
+  and adjusted locally for toggles on the loaded page. The commit dialog's
+  summary remains authoritative.
 
 ## Out of scope
 
@@ -357,3 +479,4 @@ rows are unmistakable; no visual regressions to `/data` tables.
 - Editing date, amount, internal account.
 - Persisting the old inbox's stacked-value presentation.
 - Any change to the existing `/inbox` page or the old modal.
+- Fixing the 36 pre-existing UI-test failures (deferred decision).
