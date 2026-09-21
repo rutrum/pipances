@@ -16,16 +16,16 @@ Branch: `ui-redesign`. Work is committed; nothing is pushed.
 | 1 — Read-only table | ✅ Done | `d5f8896` |
 | 2 — Inline editing + clear | ✅ Done | `d5f8896` |
 | 3 — Approve + commit | ✅ Done | `1ad3621` |
-| 4 — Range clipboard | ✅ Done | uncommitted |
-| 5 — Modal + splits | ⬜ Not started | — |
+| 4 — Range clipboard | ✅ Done | `84d6205` |
+| 5 — Modal + splits | ✅ Done | `2fe240e` |
 | 6 — Retrain + styling | ⬜ Not started | — |
 | 7 — Hardening | ⬜ Not started | — |
 
 `d5f8896` = "Add Tabulator inbox page with inline editing (phases 0-2)".
 `1ad3621` = "Add approve and commit flow to Tabulator inbox (phase 3)".
-Phase 4 is implemented and tested on the working tree but **not committed** (the
-project convention is to leave commits to the user); see the diff for
-`api/inbox.py`, `schemas.py`, `inbox-tabulator.js`, and the two test files.
+`84d6205` = "Add range clipboard paste to Tabulator inbox (phase 4)".
+`2fe240e` = "Add edit modal and splits to Tabulator inbox (phase 5)".
+Nothing is pushed; the branch is 13 commits ahead of `origin/ui-redesign`.
 
 ## Goals
 
@@ -84,6 +84,7 @@ Browser (inbox-tabulator.js)
   POST  /api/inbox/table                    <- remote sort/pagination
   PATCH /api/inbox/transactions/{id}        <- inline edit / approve toggle
   PATCH /api/inbox/transactions/batch       <- range paste (all-or-nothing)
+  GET   /inbox-tabulator/transactions/{id}/edit-modal  <- new modal HTML
   GET   /api/inbox/commit-summary           <- commit dialog data
   POST  /api/inbox/commit                   <- commit marked rows
 ```
@@ -92,7 +93,6 @@ Planned:
 
 ```
   POST  /api/inbox/retrain                  <- retrain, returns updated count
-  GET   /inbox-tabulator/transactions/{id}/edit-modal  <- new modal HTML
 ```
 
 The existing `/inbox`, `/inbox/commit`, `/inbox/retrain`, `/transactions/*`
@@ -102,19 +102,13 @@ routes and templates are left exactly as they are.
 
 Created:
 
-- `src/pipances/routes/inbox_tabulator.py` — page route (modal route TODO).
+- `src/pipances/routes/inbox_tabulator.py` — page route + modal route.
 - `src/pipances/templates/pages/inbox_tabulator.jinja2` — page, toolbar, commit dialog.
-- `static/js/pages/inbox-tabulator.js` — table, editors, approve, commit.
-- `tests/test_inbox_tabulator_api.py` — 30 unit/API tests.
-
-Planned:
-
 - `src/pipances/templates/inbox/_inbox_tabulator_modal.jinja2` — new modal.
+- `static/js/pages/inbox-tabulator.js` — table, editors, approve, commit, range paste.
 - `static/js/pages/inbox-tabulator-modal.js` — modal wiring.
-
-Created in Phase 4:
-
-- `tests/ui/test_inbox_tabulator.py` — browser test for the range paste.
+- `tests/test_inbox_tabulator_api.py` — 42 unit/API tests.
+- `tests/ui/test_inbox_tabulator.py` — 3 browser tests (paste + modal).
 
 Modified:
 
@@ -122,8 +116,10 @@ Modified:
 - `src/pipances/routes/api/schemas.py` — request/response models.
 - `src/pipances/routes/api/queries.py` — inbox row serializer fields.
 - `src/pipances/db/transactions.py` — `marked_txn_count`, `CommitSummary`,
-  `commit_summary`, `commit_marked_transactions`.
+  `commit_summary`, `commit_marked_transactions`, `distinct_descriptions`.
 - `src/pipances/routes/inbox.py` — old HTML routes now call the shared helpers.
+- `src/pipances/routes/transactions.py` — old modal route uses
+  `distinct_descriptions` (data-only refactor).
 - `src/pipances/settings.py` — page size + options.
 - `src/pipances/main.py` — router registration.
 - `src/pipances/templates/shared/_navbar.jinja2` — nav entry.
@@ -199,10 +195,34 @@ Trains on approved rows, updates pending suggestions, returns
 `{updated_count}`. Logic still lives in the old `routes/inbox.py::retrain_inbox`
 and should be extracted into a shared helper.
 
-### `GET /inbox-tabulator/transactions/{id}/edit-modal` (planned, Phase 5)
+### `GET /inbox-tabulator/transactions/{id}/edit-modal` (done, Phase 5)
 
-Returns the new modal partial. Reuses the existing category/external/description
-loading helper (data only, not markup).
+Returns the new modal partial. Loads the row (`splits=True`), all external
+accounts, all categories (as ORM objects and as `[{id, name}]` for the splits
+section) and the distinct descriptions via the new shared
+`db.transactions.distinct_descriptions` helper (the old
+`/transactions/{id}/edit-modal` route now uses the same helper). 404 for an
+unknown id.
+
+## Modal (done, Phase 5)
+
+The modal is fully independent of the old HTMX modal:
+
+- `inbox/_inbox_tabulator_modal.jinja2` renders a `<dialog>` with the read-only
+  context (date, amount, account, raw description), three scalar comboboxes,
+  the reused `{% include "shared/_splits_section.jinja2" %}`, and a single
+  Approve/Unapprove button (`data-modal-approve`).
+- The scalar selects carry `class="ts-json-select"` (deliberately **not**
+  `ts-select`) and are initialized by `inbox-tabulator-modal.js`. Each change
+  PATCHes `/api/inbox/transactions/{id}` and refreshes the Tabulator row.
+- `inbox-tabulator.js` adds the `Edit` button to the actions formatter (hidden
+  for marked rows) and opens the modal through
+  `window.PipancesInboxModal.open(id)`.
+- On close the modal refetches `GET /api/transactions/{id}` and updates the row
+  so `split_count` and the split badge stay in sync, then destroys the Tom
+  Select instances and empties `#edit-modal-container`.
+- The Approve button label/state is updated in place after scalar edits based
+  on the returned `can_approve` / `marked_for_approval`.
 
 ## Table configuration (as built)
 
@@ -267,22 +287,6 @@ which reuses `PipancesEditors.saveCell` against the single-row endpoint.
 
 Note: the parser maps by column position, so the allowlist must be enforced in
 the action even though `_actions` has `clipboard: false`.
-
-## Modal (planned, Phase 5)
-
-New partial, independent of the old inbox modal:
-
-- `<dialog>` with the read-only context (date, amount, account, raw description).
-- Description / category / external as Tom Select controls wired by
-  `inbox-tabulator-modal.js` to JSON PATCH, then `table.updateRow(id, response)`.
-- `{% include "shared/_splits_section.jinja2" %}` reused as-is: it is
-  self-contained (Alpine + Tom Select + HTMX against the existing splits
-  endpoints) and does not couple to the old table.
-- Approve/unapprove button uses the JSON endpoint, updates the row, closes.
-- On close, refetch the row (`GET /api/transactions/{id}`) and
-  `table.updateRow(id, data)` so `split_count` and categories refresh.
-- Add an `Edit` button to the actions formatter that loads the modal into
-  `#edit-modal-container` (already present in the page template).
 
 ## Approved + commit UX (as built)
 
@@ -365,6 +369,24 @@ These are the important things to know before touching the code again.
     dispatching the paste event, or the parser sees the default one-cell range
     at the top-left cell.
 
+12. **Fetch-injected HTML is not processed by HTMX or Alpine.** The modal is
+    loaded with `fetch` (not `hx-get`), so `inbox-tabulator-modal.js` must call
+    `htmx.process(container)` and `Alpine.initTree(container)` after injecting,
+    and `initTomSelects(container)` for the reused splits section. HTMX then
+    handles the splits section's own `hx-*` requests via its normal
+    `htmx:afterSwap` handler.
+
+13. **Modal scalar selects are `ts-json-select`, not `ts-select`.** The global
+    `initTomSelects` bootstrap in `base.jinja2` fires HTMX PATCHes expecting an
+    HTML swap; the modal needs JSON PATCH + row refresh instead, so it has its
+    own initializer. Do not rename the class back.
+
+14. **The modal's Approve button is stateful.** It is rendered once (possibly
+    disabled) and is turned on/off in place after each scalar edit from the
+    `can_approve` / `marked_for_approval` fields of the PATCH response. Tom
+    Select instances are destroyed before the container is emptied on close,
+    otherwise their `dropdownParent: "body"` dropdowns leak into the DOM.
+
 ## Phases
 
 ### Phase 0 — Scaffolding ✅
@@ -397,16 +419,20 @@ rollback, allowlist, dedupe, empty) and a browser test
 Note: built-in `clipboardCopyRowRange` is `"range"`, `clipboardCopyStyled` is
 false, and copy config suppresses headers/row headers.
 
-### Phase 5 — Modal + splits ⬜
+### Phase 5 — Modal + splits ✅
 
-- New modal partial and `GET /inbox-tabulator/transactions/{id}/edit-modal`.
-- `inbox-tabulator-modal.js` wiring scalar fields to JSON PATCH and row refresh.
-- Reuse `_splits_section.jinja2`; on close refresh the row so `split_count`
-  and the splits badge update.
-- Add the `Edit` button to the actions formatter.
+Done. New `inbox/_inbox_tabulator_modal.jinja2` + modal route, JSON-PATCH scalar
+comboboxes (`ts-json-select`), reused splits section, live Approve-button state,
+`Edit` button in the actions formatter, and row refetch on close so
+`split_count` and category refresh. `distinct_descriptions` extracted into
+`db/transactions.py` and shared with the old modal route.
 
-Acceptance: modal opens from Edit, scalar edits reflect in the table, splits
-add/edit/delete still work, old modal untouched.
+Unit tests: modal render, current scalar values selected, 404, script include,
+old modal route. Browser tests: scalar edit persists, adding a split refreshes
+the badge.
+
+Acceptance met: modal opens from Edit, scalar edits reflect in the table, splits
+add/edit/delete work (verified manually + browser test), old modal untouched.
 
 ### Phase 6 — Retrain + styling ⬜
 
@@ -432,10 +458,9 @@ rows are unmistakable; no visual regressions to `/data` tables.
 ### Where things stand
 
 The page is fully usable for the core loop: view → inline edit → range paste →
-approve → commit. It is unauthenticated single-user, same as the rest of the
-app. Nothing is pushed and nothing is committed on top of `1ad3621`;
-`ui-redesign` is 11 commits ahead of `origin/ui-redesign` plus the uncommitted
-Phase 4 change set.
+modal edit → splits → approve → commit. It is unauthenticated single-user, same
+as the rest of the app. Phases 4 and 5 are committed (`84d6205`, `2fe240e`);
+nothing is pushed and the working tree is clean.
 
 ### Commands
 
@@ -461,11 +486,12 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
 
 ### Test status to be aware of
 
-- `just test`: 203 passing (was 195 before Phase 4's 8 batch tests).
-- `just test-ui`: 44 passing, 36 failing pre-existing on this branch, plus the
-  new `tests/ui/test_inbox_tabulator.py` (1 passing). **All 36 failures are
-  pre-existing** and unrelated to the inbox Tabulator work (verified by running
-  representative failures at the base commit). They are:
+- `just test`: 208 passing (193 at phase 3; +8 phase 4 batch, +4 phase 5 modal,
+  +1 old-modal guard, +2 elsewhere).
+- `tests/ui/test_inbox_tabulator.py`: 3 passing (range paste, modal scalar
+  edit, modal split badge).
+- `just test-ui`: 36 pre-existing failures remain on this branch and are
+  unrelated to the inbox Tabulator work. They are:
   - `test_table_sorting` (11): stale locators from the `/data` migration.
   - `test_combobox_popover` / `test_inbox_modal_edit` /
     `test_inbox_transaction_modal_edit` / `test_transaction_splits` (22): the
@@ -479,17 +505,19 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
   external to enable Approve, so `do_approve` always timed out. They now attach
   an external that is already referenced by an approved transaction.
   `test_commit_flow.py` went from 1/13 to 11/13 passing.
-- There is a new `tests/ui/test_inbox_tabulator.py` covering range paste. It
-  needs `nix develop -c uv run pytest tests/ui/test_inbox_tabulator.py -v`
+- `tests/ui/test_inbox_tabulator.py` covers range paste and the modal. Run it
+  with `nix develop -c uv run pytest tests/ui/test_inbox_tabulator.py -v`
   (the session fixture seeds a throwaway DB and starts uvicorn on :8099).
 
 ### Highest-value next work
 
-Phase 5 (the new self-contained modal + splits) is the other chunk needed before
-this can replace `/inbox`. Phase 6 is polish plus retrain.
+Phase 6 (retrain + styling) is all that is left before this can replace
+`/inbox`. Phases 4 and 5 are complete — do not re-add `clipboardPasteAction`
+plumbing or a second modal bootstrap.
 
-Phase 4 is complete — do not re-add `clipboardPasteAction` plumbing. Note the
-range module ordering caveat above if the batch route is ever moved.
+When adding retrain, extract the logic from `routes/inbox.py::retrain_inbox`
+into a shared helper and expose `POST /api/inbox/retrain` returning
+`{updated_count}`; then wire a toolbar button (disabled while running).
 
 ## Edge cases / risks
 
@@ -510,6 +538,12 @@ range module ordering caveat above if the batch route is ever moved.
 - **Marked count is best-effort across pages:** it is server-rendered on load
   and adjusted locally for toggles on the loaded page. The commit dialog's
   summary remains authoritative.
+- **Modal split badge refresh:** the table row's `split_count` only refreshes
+  when the modal closes (it refetches `GET /api/transactions/{id}`). The splits
+  section itself updates immediately inside the modal.
+- **Modal lifecycle:** `#edit-modal-container` is emptied on close and its Tom
+  Select instances are destroyed first, because their dropdowns are parented to
+  `body`.
 
 ## Out of scope
 

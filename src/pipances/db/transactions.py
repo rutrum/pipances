@@ -205,6 +205,18 @@ def txn_options(
     return options
 
 
+async def distinct_descriptions(session: AsyncSession) -> Sequence[str]:
+    """Distinct non-empty descriptions, ordered, for the edit modal combobox."""
+    result = await session.execute(
+        select(Transaction.description)
+        .where(Transaction.description.isnot(None))
+        .where(Transaction.description != "")
+        .distinct()
+        .order_by(Transaction.description)
+    )
+    return [row[0] for row in result.fetchall() if row[0]]
+
+
 async def get_txn(
     session: AsyncSession,
     txn_id: int,

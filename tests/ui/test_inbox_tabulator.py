@@ -18,8 +18,8 @@ DESCRIPTION_CELL = '.tabulator-cell[tabulator-field="description"]'
 def pending_txn_ids(ui_db):
     """The first three pending transactions in the table's date-asc order.
 
-    Yields their ids and clears the descriptions again afterwards so later
-    tests see a pristine inbox.
+    Yields their ids and clears the descriptions and splits added by the tests
+    afterwards so later tests see a pristine inbox.
     """
     conn = sqlite3.connect(str(ui_db))
     rows = conn.execute(
@@ -33,6 +33,10 @@ def pending_txn_ids(ui_db):
     yield ids
 
     conn = sqlite3.connect(str(ui_db))
+    placeholders = ",".join("?" for _ in ids)
+    conn.execute(
+        f"DELETE FROM transaction_splits WHERE transaction_id IN ({placeholders})", ids
+    )
     conn.executemany(
         "UPDATE transactions SET description=NULL WHERE id=?", [(i,) for i in ids]
     )
@@ -104,3 +108,73 @@ def test_range_paste_persists_across_rows(
     page.reload()
     page.wait_for_load_state("networkidle")
     expect(page.locator(DESCRIPTION_CELL).first).to_contain_text("UI RANGE PASTE")
+
+
+def _open_first_row_modal(page: Page):
+    """Click Edit on the first table row and wait for the modal."""
+    page.locator('#inbox-tabulator button:text-is("Edit")').first.click()
+    dialog = page.locator("#edit-modal-container dialog")
+    expect(dialog).to_be_visible()
+    return dialog
+
+
+def test_modal_scalar_edit_updates_row_and_persists(
+    page: Page, goto, live_server, ui_db, pending_txn_ids
+):
+    goto("/inbox-tabulator")
+    expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
+    _open_first_row_modal(page)
+
+    with page.expect_response("**/api/inbox/transactions/*") as info:
+        page.evaluate(
+            """() => {
+                const el = document.querySelector(
+                    '#edit-modal-container select.ts-json-select[data-field="description"]'
+                );
+                el.tomselect.addOption({value: 'UI MODAL EDIT', text: 'UI MODAL EDIT'});
+                el.tomselect.setValue('UI MODAL EDIT');
+            }"""
+        )
+    assert info.value.ok
+
+    expect(page.locator(DESCRIPTION_CELL).first).to_contain_text("UI MODAL EDIT")
+
+    page.keyboard.press("Escape")
+    expect(page.locator("#edit-modal-container")).to_be_empty(timeout=3000)
+
+    conn = sqlite3.connect(str(ui_db))
+    rows = conn.execute(
+        f"SELECT id FROM transactions WHERE id IN ({','.join('?' for _ in pending_txn_ids)})"
+        " AND description = 'UI MODAL EDIT'",
+        pending_txn_ids,
+    ).fetchall()
+    conn.close()
+    assert len(rows) == 1
+
+
+def test_modal_add_split_refreshes_table_badge(
+    page: Page, goto, live_server, pending_txn_ids
+):
+    goto("/inbox-tabulator")
+    expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
+    _open_first_row_modal(page)
+
+    # The add-split row id embeds the transaction id, which we do not need to
+    # know: match on the stable prefix.
+    amount = page.locator(
+        '#edit-modal-container [id^="add-split-"] input[name="amount_dollars"]'
+    ).first
+    amount.fill("1.00")
+
+    with page.expect_response("**/transactions/*/splits") as info:
+        page.locator('#edit-modal-container button:text-is("Add Split")').first.click()
+    assert info.value.ok
+
+    # The section re-renders with one split row.
+    expect(page.locator('[id^="splits-section-"] [data-split-row]')).to_have_count(1)
+
+    page.keyboard.press("Escape")
+    expect(page.locator("#edit-modal-container")).to_be_empty(timeout=3000)
+
+    # Closing refetches the row, so the category badge shows the split count.
+    expect(page.locator('#inbox-tabulator .badge:text-is("1 split")')).to_be_visible()

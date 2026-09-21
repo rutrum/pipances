@@ -556,3 +556,44 @@ async def test_batch_dedupes_repeated_ids(client, seed_pending):
     rows = resp.json()["data"]
     assert len(rows) == 1
     assert rows[0]["description"] == "Second"
+
+
+# === Phase 5: edit modal ===
+
+
+async def test_edit_modal_renders_transaction_context(client, seed_pending):
+    txn_id = seed_pending["split"].id
+    resp = await client.get(f"/inbox-tabulator/transactions/{txn_id}/edit-modal")
+    assert resp.status_code == 200
+    assert 'id="inbox-tabulator-edit-modal"' in resp.text
+    assert f'data-txn-id="{txn_id}"' in resp.text
+    assert "KROGER STORE #2" in resp.text
+    assert "ts-json-select" in resp.text
+    assert f'id="splits-section-{txn_id}"' in resp.text
+
+
+async def test_edit_modal_shows_current_scalar_values(client, seed_pending):
+    txn_id = seed_pending["categorized"].id
+    resp = await client.get(f"/inbox-tabulator/transactions/{txn_id}/edit-modal")
+    assert '<option value="Groceries run" selected>' in resp.text
+    assert '<option value="Groceries" selected>' in resp.text
+    assert '<option value="Kroger" selected>' in resp.text
+
+
+async def test_edit_modal_unknown_transaction_is_404(client, seed_pending):
+    resp = await client.get("/inbox-tabulator/transactions/999999/edit-modal")
+    assert resp.status_code == 404
+
+
+async def test_page_includes_modal_script(client, seed_pending):
+    resp = await client.get("/inbox-tabulator")
+    assert "inbox-tabulator-modal.js" in resp.text
+
+
+async def test_old_modal_route_uses_shared_description_helper(client, seed_pending):
+    """The shared distinct_descriptions helper must not break the old modal."""
+    txn_id = seed_pending["categorized"].id
+    resp = await client.get(f"/transactions/{txn_id}/edit-modal")
+    assert resp.status_code == 200
+    assert f'id="transaction-edit-modal-{txn_id}"' in resp.text
+    assert '<option value="Groceries run" selected>' in resp.text

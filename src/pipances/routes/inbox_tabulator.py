@@ -9,7 +9,9 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 
 from pipances.db import DatabaseDep
-from pipances.db.transactions import marked_txn_count
+from pipances.db.accounts import get_external_accounts
+from pipances.db.categories import get_categories
+from pipances.db.transactions import distinct_descriptions, get_txn, marked_txn_count
 from pipances.routes._utils import shared_context, static_version, templates
 from pipances.settings import settings
 
@@ -30,6 +32,40 @@ async def inbox_tabulator_page(
         "page_size_options": settings.inbox_page_size_options,
         "marked_count": marked_count,
         "js_version": static_version("js", "pages", "inbox-tabulator.js"),
+        "modal_js_version": static_version("js", "pages", "inbox-tabulator-modal.js"),
         **shared,
     }
     return templates.TemplateResponse(request, "pages/inbox_tabulator.jinja2", ctx)
+
+
+@router.get(
+    "/inbox-tabulator/transactions/{txn_id}/edit-modal",
+    response_class=HTMLResponse,
+)
+async def inbox_tabulator_edit_modal(
+    txn_id: int,
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    """Load the Tabulator inbox edit modal (scalars + splits) for one row."""
+    async with database.session() as session:
+        txn = await get_txn(session, txn_id, splits=True)
+        if txn is None:
+            return HTMLResponse("Not found", status_code=404)
+
+        external_accounts = await get_external_accounts(session)
+        categories = await get_categories(session)
+        categories_data = [{"id": c.id, "name": c.name} for c in categories]
+        descriptions = await distinct_descriptions(session)
+
+    return templates.TemplateResponse(
+        request,
+        "inbox/_inbox_tabulator_modal.jinja2",
+        {
+            "txn": txn,
+            "external_accounts": external_accounts,
+            "categories": categories,
+            "categories_data": categories_data,
+            "descriptions": descriptions,
+        },
+    )

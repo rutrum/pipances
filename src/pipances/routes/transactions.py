@@ -9,6 +9,7 @@ from pipances.db.accounts import (
 )
 from pipances.db.categories import get_categories, get_or_create_category
 from pipances.db.transactions import (
+    distinct_descriptions,
     get_txn,
     remaining_split_capacity,
     set_txn_category,
@@ -194,14 +195,7 @@ async def edit_modal(
         categories_data = [{"id": c.id, "name": c.name} for c in categories]
 
         # Load all distinct descriptions for dropdown
-        desc_result = await session.execute(
-            select(Transaction.description)
-            .where(Transaction.description.isnot(None))
-            .where(Transaction.description != "")
-            .distinct()
-            .order_by(Transaction.description)
-        )
-        descriptions = [r[0] for r in desc_result.fetchall() if r[0]]
+        descriptions = await distinct_descriptions(session)
 
         return templates.TemplateResponse(
             request,

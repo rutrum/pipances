@@ -254,19 +254,29 @@
 
   function actionsFormatter(cell) {
     var rowData = cell.getRow().getData();
+    var edit = rowData.marked_for_approval
+      ? ""
+      : '<button type="button" data-action="edit" ' +
+        'class="btn btn-ghost btn-xs">Edit</button>';
+    var approve;
     if (rowData.marked_for_approval) {
-      return (
+      approve =
         '<button type="button" data-action="approve" ' +
-        'class="btn btn-success btn-xs">Approved</button>'
-      );
-    }
-    if (rowData.can_approve) {
-      return (
+        'class="btn btn-success btn-xs">Approved</button>';
+    } else if (rowData.can_approve) {
+      approve =
         '<button type="button" data-action="approve" ' +
-        'class="btn btn-outline btn-xs">Approve</button>'
-      );
+        'class="btn btn-outline btn-xs">Approve</button>';
+    } else {
+      approve =
+        '<button type="button" class="btn btn-ghost btn-xs" disabled>Approve</button>';
     }
-    return '<button type="button" class="btn btn-ghost btn-xs" disabled>Approve</button>';
+    return (
+      '<div class="flex items-center justify-center gap-1">' +
+      edit +
+      approve +
+      "</div>"
+    );
   }
 
   // Clear-cells applies to every cell in a range, including read-only columns.
@@ -450,7 +460,7 @@
       {
         title: "",
         field: "_actions",
-        width: 120,
+        width: 170,
         hozAlign: "center",
         headerSort: false,
         clipboard: false,
@@ -485,9 +495,16 @@
 
   table.on("cellClick", function (event, cell) {
     if (cell.getField() !== "_actions") return;
+    var row = cell.getRow();
+    if (event.target.closest("[data-action='edit']")) {
+      if (window.PipancesInboxModal) {
+        window.PipancesInboxModal.open(row.getData().id);
+      }
+      return;
+    }
     var button = event.target.closest("[data-action='approve']");
     if (!button) return;
-    toggleApprove(cell.getRow());
+    toggleApprove(row);
   });
 
   table.on("renderComplete", function () {
@@ -611,6 +628,17 @@
 
   renderMarkedCount();
 
-  // Exposed for later phases (clipboard) on the same page.
+  // Shared surface for the modal script (and tests).
   window.PipancesInboxTable = table;
+  window.PipancesInbox = {
+    table: table,
+    refreshRowById: function (id, data) {
+      var row = table.getRow(id);
+      if (row) refreshRow(row, data);
+    },
+    adjustMarkedCount: function (delta) {
+      markedCount += delta;
+      renderMarkedCount();
+    },
+  };
 })();
