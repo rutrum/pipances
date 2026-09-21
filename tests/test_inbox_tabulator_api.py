@@ -401,3 +401,158 @@ async def test_page_shows_marked_count(client, seed_pending):
     resp = await client.get("/inbox-tabulator")
     assert resp.status_code == 200
     assert 'data-marked-count="1"' in resp.text
+
+
+# === Phase 4: range-paste batch endpoint ===
+
+
+async def _batch(client, updates):
+    return await client.patch(
+        "/api/inbox/transactions/batch", json={"updates": updates}
+    )
+
+
+async def test_batch_updates_several_rows(client, seed_pending, seed_categories):
+    categorized = seed_pending["categorized"].id
+    bare = seed_pending["bare"].id
+    resp = await _batch(
+        client,
+        [
+            {"id": categorized, "description": "One"},
+            {
+                "id": bare,
+                "description": "Pasted",
+                "category_id": "Dining",
+                "external_id": "Pasted Merchant",
+            },
+        ],
+    )
+    assert resp.status_code == 200
+    rows = resp.json()["data"]
+    assert [row["id"] for row in rows] == [categorized, bare]
+    by_id = {row["id"]: row for row in rows}
+    assert by_id[categorized]["description"] == "One"
+    assert by_id[bare]["category"]["name"] == "Dining"
+    assert by_id[bare]["external_account"]["name"] == "Pasted Merchant"
+    assert by_id[bare]["can_approve"] is True
+
+
+async def test_batch_creates_new_category_and_external(client, seed_pending):
+    bare = seed_pending["bare"].id
+    resp = await _batch(
+        client,
+        [
+            {
+                "id": bare,
+                "category_id": "Pasted Category",
+                "external_id": "Pasted External",
+            }
+        ],
+    )
+    assert resp.status_code == 200
+    row = resp.json()["data"][0]
+    assert row["category"]["name"] == "Pasted Category"
+    assert row["external_account"]["name"] == "Pasted External"
+
+
+async def test_batch_empty_strings_clear_fields(client, seed_pending):
+    categorized = seed_pending["categorized"].id
+    resp = await _batch(
+        client,
+        [
+            {
+                "id": categorized,
+                "description": "",
+                "category_id": "",
+                "external_id": "",
+            }
+        ],
+    )
+    assert resp.status_code == 200
+    row = resp.json()["data"][0]
+    assert row["description"] is None
+    assert row["category"] is None
+    assert row["external_account"] is None
+    assert row["can_approve"] is False
+
+
+async def test_batch_unknown_row_rolls_everything_back(client, seed_pending):
+    categorized = seed_pending["categorized"].id
+    original = seed_pending["categorized"].description
+    resp = await _batch(
+        client,
+        [
+            {"id": categorized, "description": "Should not stick"},
+            {"id": 999999, "description": "Nope"},
+        ],
+    )
+    assert resp.status_code == 422
+    assert "999999" in resp.json()["detail"]
+
+    table = await _post_table(client)
+    by_id = {row["id"]: row for row in table.json()["data"]}
+    assert by_id[categorized]["description"] == original
+
+
+async def test_batch_not_found_rolls_back_created_category(client, seed_pending):
+    categorized = seed_pending["categorized"].id
+    resp = await _batch(
+        client,
+        [
+            {"id": categorized, "category_id": "Rollback Category"},
+            {"id": 999999, "description": "Nope"},
+        ],
+    )
+    assert resp.status_code == 422
+    assert (
+        await client.get("/api/categories", params={"q": "Rollback Category"})
+    ).json() == []
+
+
+async def test_batch_empty_updates_returns_empty(client, seed_pending):
+    resp = await _batch(client, [])
+    assert resp.status_code == 200
+    assert resp.json() == {"data": []}
+
+
+async def test_batch_ignores_non_editable_fields(client, seed_pending):
+    categorized = seed_pending["categorized"].id
+    await client.patch(
+        f"/api/inbox/transactions/{categorized}",
+        json={"marked_for_approval": True},
+    )
+    # marked_for_approval and date are outside the batch schema and must be
+    # ignored rather than applied.
+    resp = await client.patch(
+        "/api/inbox/transactions/batch",
+        json={
+            "updates": [
+                {
+                    "id": categorized,
+                    "description": "Edited",
+                    "marked_for_approval": False,
+                    "date": "1999-01-01",
+                }
+            ]
+        },
+    )
+    assert resp.status_code == 200
+    row = resp.json()["data"][0]
+    assert row["description"] == "Edited"
+    assert row["marked_for_approval"] is True
+    assert row["date"] == "2026-09-01"
+
+
+async def test_batch_dedupes_repeated_ids(client, seed_pending):
+    categorized = seed_pending["categorized"].id
+    resp = await _batch(
+        client,
+        [
+            {"id": categorized, "description": "First"},
+            {"id": categorized, "description": "Second"},
+        ],
+    )
+    assert resp.status_code == 200
+    rows = resp.json()["data"]
+    assert len(rows) == 1
+    assert rows[0]["description"] == "Second"

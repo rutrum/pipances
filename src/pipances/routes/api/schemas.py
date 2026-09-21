@@ -69,6 +69,31 @@ class InboxRowUpdate(BaseModel):
     marked_for_approval: bool | None = None
 
 
+class InboxRowBatchUpdate(BaseModel):
+    """One row within a range-paste batch.
+
+    Only the fields the clipboard allowlist permits are accepted; the endpoint
+    is deliberately narrower than ``InboxRowUpdate`` (no approval toggling).
+    """
+
+    id: int
+    description: str | None = None
+    category_id: int | str | None = None
+    external_id: int | str | None = None
+
+
+class InboxBatchUpdate(BaseModel):
+    """All-or-nothing range paste across several inbox rows."""
+
+    updates: list[InboxRowBatchUpdate] = Field(default_factory=list)
+
+
+class InboxBatchResponse(BaseModel):
+    """Updated rows after a successful range paste."""
+
+    data: list[TransactionResponse]
+
+
 class CommitSummaryResponse(BaseModel):
     """Preview of a pending inbox commit."""
 

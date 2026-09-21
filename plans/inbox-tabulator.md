@@ -16,13 +16,16 @@ Branch: `ui-redesign`. Work is committed; nothing is pushed.
 | 1 — Read-only table | ✅ Done | `d5f8896` |
 | 2 — Inline editing + clear | ✅ Done | `d5f8896` |
 | 3 — Approve + commit | ✅ Done | `1ad3621` |
-| 4 — Range clipboard | ⬜ Not started | — |
+| 4 — Range clipboard | ✅ Done | uncommitted |
 | 5 — Modal + splits | ⬜ Not started | — |
 | 6 — Retrain + styling | ⬜ Not started | — |
 | 7 — Hardening | ⬜ Not started | — |
 
 `d5f8896` = "Add Tabulator inbox page with inline editing (phases 0-2)".
 `1ad3621` = "Add approve and commit flow to Tabulator inbox (phase 3)".
+Phase 4 is implemented and tested on the working tree but **not committed** (the
+project convention is to leave commits to the user); see the diff for
+`api/inbox.py`, `schemas.py`, `inbox-tabulator.js`, and the two test files.
 
 ## Goals
 
@@ -80,6 +83,7 @@ Implemented:
 Browser (inbox-tabulator.js)
   POST  /api/inbox/table                    <- remote sort/pagination
   PATCH /api/inbox/transactions/{id}        <- inline edit / approve toggle
+  PATCH /api/inbox/transactions/batch       <- range paste (all-or-nothing)
   GET   /api/inbox/commit-summary           <- commit dialog data
   POST  /api/inbox/commit                   <- commit marked rows
 ```
@@ -87,7 +91,6 @@ Browser (inbox-tabulator.js)
 Planned:
 
 ```
-  PATCH /api/inbox/transactions/batch       <- range paste (all-or-nothing)
   POST  /api/inbox/retrain                  <- retrain, returns updated count
   GET   /inbox-tabulator/transactions/{id}/edit-modal  <- new modal HTML
 ```
@@ -108,7 +111,10 @@ Planned:
 
 - `src/pipances/templates/inbox/_inbox_tabulator_modal.jinja2` — new modal.
 - `static/js/pages/inbox-tabulator-modal.js` — modal wiring.
-- `tests/ui/test_inbox_tabulator.py` — browser tests for the new page.
+
+Created in Phase 4:
+
+- `tests/ui/test_inbox_tabulator.py` — browser test for the range paste.
 
 Modified:
 
@@ -162,12 +168,20 @@ Rules:
   request, so `{description, external_id, marked_for_approval: true}` works.
 - Returns the same inbox row dict the table endpoint uses.
 
-### `PATCH /api/inbox/transactions/batch` (planned, Phase 4)
+### `PATCH /api/inbox/transactions/batch` (done, Phase 4)
 
 Body: `{updates: [{id, description?, category_id?, external_id?}]}`.
-All-or-nothing in one transaction: any invalid row rolls the whole request back
-and returns 422. On success returns the updated rows. Deliberately excludes
-`marked_for_approval` and any non-editable field.
+All-or-nothing: every update is applied to one session and a single
+`commit()` runs at the end, so an unknown `id` raises 422 and the whole batch
+(including categories/externals already flushed by `get_or_create_*`) rolls
+back. Only the three editable fields are accepted; Pydantic ignores extras such
+as `marked_for_approval` or `date`. Duplicate ids collapse to the last update.
+Returns `{data: [row, ...]}` in first-seen order.
+
+**Route ordering matters:** `PATCH /inbox/transactions/batch` must be declared
+*before* `PATCH /inbox/transactions/{txn_id}`. FastAPI/Starlette matches the
+`{txn_id}` route for the literal `batch` string and then fails int validation
+with 422, so the batch route would be unreachable if declared after.
 
 ### `GET /api/inbox/commit-summary` (done)
 
@@ -212,8 +226,8 @@ selectableRangeClearCells: true
 selectableRangeClearCellsValue: ""
 ```
 
-Phase 4 adds: `clipboard: true`, `clipboardCopyRowRange: "range"`,
-`clipboardPasteParser: "range"`, `clipboardPasteAction: <custom>`,
+Phase 4 added: `clipboard: true`, `clipboardCopyRowRange: "range"`,
+`clipboardPasteParser: "range"`, `clipboardPasteAction: rangePasteAction`,
 `clipboardCopyStyled: false`,
 `clipboardCopyConfig: {columnHeaders: false, rowHeaders: false}`.
 
@@ -227,19 +241,24 @@ External, Actions.
 
 `rowFormatter` toggles a `txn-approved` class from `marked_for_approval`.
 
-## Range paste (planned, Phase 4)
+## Range paste (done, Phase 4)
 
 1. The built-in `"range"` parser produces row objects keyed by the visible
    fields under the selected range.
-2. The custom action replicates the range/row targeting logic (active rows,
-   start/end bounds, modulo cycling), then:
-   - filters to the allowlist `description`, `category_id`, `external_id`
-     (ignores date/amount/raw/internal/`_actions` even if the range covers them);
-   - applies `row.updateData(...)` inside `blockRedraw`/`restoreRedraw`;
-   - collects `{id, field: value}` updates;
+2. `rangePasteAction` (in `inbox-tabulator.js`) replicates the range/row
+   targeting logic (active rows, start/end bounds, modulo cycling), then:
+   - filters to the allowlist `description`, `category.name`,
+     `external_account.name` (ignores date/amount/raw/internal/`_actions` even
+     if the range covers them);
+   - converts each flat field path into a **nested** object before calling
+     `row.updateData(...)` (see gotcha 10), inside `blockRedraw`/`restoreRedraw`;
+   - collects `{id, field: value}` updates mapped to the body field names
+     (`category.name` -> `category_id`, etc.);
    - sends one `PATCH /api/inbox/transactions/batch`;
-   - on success reconciles rows from the response;
+   - on success reconciles rows from the response with `refreshRow`;
    - on any failure reloads the table (`setData()`) and shows an error toast.
+   - if the pasted range contains no editable columns, it toasts a warning and
+     does nothing (no request).
 3. Values copied from the table are display strings (e.g. category name); the
    endpoint resolves id-or-name, so round-trips work unchanged.
 
@@ -331,6 +350,21 @@ These are the important things to know before touching the code again.
    triggers the same `change` path and works reliably. Real Playwright clicks
    have worked for categories.
 
+10. **Nested fields need a nested update object.** Tabulator's `row.updateData`
+    diffs through `column.getFieldValue()` (which reads dot paths from the row
+    object). Passing the flat key `"category.name"` updates a junk flat
+    property, not the nested category. `rangePasteAction` therefore builds a
+    nested object (`{category: {name: ...}}`) before applying locally; the
+    server response then restores the full `{id, name}` object via
+    `refreshRow`. The batch request body still uses the flat mapping in
+    `EDITABLE_FIELDS`.
+
+11. **`table.addRange` is asynchronous.** The range constructor sets its bounds
+    in a `setTimeout`. Anything testing range paste programmatically (including
+    the UI test's synthetic fallback) must wait a tick after `addRange` before
+    dispatching the paste event, or the parser sees the default one-cell range
+    at the top-left cell.
+
 ## Phases
 
 ### Phase 0 — Scaffolding ✅
@@ -352,18 +386,16 @@ Done. Single-row PATCH, `input` / `tomSelect` editors, `cellEdited` →
 Done. Actions cell + optimistic toggle, JSON summary/commit, shared commit
 helpers, commit dialog, badge + marked count.
 
-### Phase 4 — Range clipboard ⬜
+### Phase 4 — Range clipboard ✅
 
-- Add `PATCH /api/inbox/transactions/batch` (all-or-nothing).
-- Add `clipboard` config and a custom `clipboardPasteAction`. Keep
-  `clipboardPasteParser: "range"`.
-- Allowlist filtering, `blockRedraw`, reconcile/reload behavior.
-- Unit tests: batch success, rollback, allowlist, empty clears.
-- UI test: clipboard permissions + paste single value across a range; fall back
-  to an API-level assertion if the browser path is flaky.
+Done. Batch endpoint (all-or-nothing, route declared before `{txn_id}`), custom
+`rangePasteAction`, allowlist filtering, nested local apply, reconcile/reload.
+Unit tests in `test_inbox_tabulator_api.py` (batch success, creation, clear,
+rollback, allowlist, dedupe, empty) and a browser test
+`tests/ui/test_inbox_tabulator.py` (real clipboard with a synthetic fallback).
 
-Acceptance: selecting a multi-row range and pasting one value updates and
-persists every row; pasting a rectangle fills by cycling; failures revert.
+Note: built-in `clipboardCopyRowRange` is `"range"`, `clipboardCopyStyled` is
+false, and copy config suppresses headers/row headers.
 
 ### Phase 5 — Modal + splits ⬜
 
@@ -399,9 +431,11 @@ rows are unmistakable; no visual regressions to `/data` tables.
 
 ### Where things stand
 
-The page is fully usable for the core loop: view → inline edit → approve →
-commit. It is unauthenticated single-user, same as the rest of the app.
-Nothing is pushed; `ui-redesign` is 11 commits ahead of `origin/ui-redesign`.
+The page is fully usable for the core loop: view → inline edit → range paste →
+approve → commit. It is unauthenticated single-user, same as the rest of the
+app. Nothing is pushed and nothing is committed on top of `1ad3621`;
+`ui-redesign` is 11 commits ahead of `origin/ui-redesign` plus the uncommitted
+Phase 4 change set.
 
 ### Commands
 
@@ -427,9 +461,10 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
 
 ### Test status to be aware of
 
-- `just test`: 195 passing.
-- `just test-ui`: 44 passing, 36 failing. **All 36 failures are pre-existing on
-  this branch** and unrelated to the inbox Tabulator work (verified by running
+- `just test`: 203 passing (was 195 before Phase 4's 8 batch tests).
+- `just test-ui`: 44 passing, 36 failing pre-existing on this branch, plus the
+  new `tests/ui/test_inbox_tabulator.py` (1 passing). **All 36 failures are
+  pre-existing** and unrelated to the inbox Tabulator work (verified by running
   representative failures at the base commit). They are:
   - `test_table_sorting` (11): stale locators from the `/data` migration.
   - `test_combobox_popover` / `test_inbox_modal_edit` /
@@ -444,14 +479,17 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
   external to enable Approve, so `do_approve` always timed out. They now attach
   an external that is already referenced by an approved transaction.
   `test_commit_flow.py` went from 1/13 to 11/13 passing.
-- There is no `tests/ui/test_inbox_tabulator.py` yet; Phase 4–6 should add one
-  once the surface is stable.
+- There is a new `tests/ui/test_inbox_tabulator.py` covering range paste. It
+  needs `nix develop -c uv run pytest tests/ui/test_inbox_tabulator.py -v`
+  (the session fixture seeds a throwaway DB and starts uvicorn on :8099).
 
 ### Highest-value next work
 
-Phase 4 (range clipboard) is the differentiating feature and the reason the
-custom paste action exists. Phase 5 (modal) is the other chunk needed before
+Phase 5 (the new self-contained modal + splits) is the other chunk needed before
 this can replace `/inbox`. Phase 6 is polish plus retrain.
+
+Phase 4 is complete — do not re-add `clipboardPasteAction` plumbing. Note the
+range module ordering caveat above if the batch route is ever moved.
 
 ## Edge cases / risks
 

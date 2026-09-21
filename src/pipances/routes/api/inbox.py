@@ -16,7 +16,7 @@ from pipances.db.transactions import (
     set_txn_description,
     set_txn_external,
 )
-from pipances.models import Account, Category, TransactionStatus
+from pipances.models import Account, Category, Transaction, TransactionStatus
 from pipances.routes.api.queries import (
     tabulator_page_to_dict,
     transaction_to_dict,
@@ -25,6 +25,8 @@ from pipances.routes.api.queries import (
 from pipances.routes.api.schemas import (
     CommitResult,
     CommitSummaryResponse,
+    InboxBatchResponse,
+    InboxBatchUpdate,
     InboxRowUpdate,
     PaginatedTransactions,
     TabulatorRequest,
@@ -138,6 +140,53 @@ async def inbox_table(
             splits=True,
         )
     return tabulator_page_to_dict(page)
+
+
+@router.patch(
+    "/inbox/transactions/batch",
+    response_model=InboxBatchResponse,
+    summary="Batch-update pending inbox transactions (range paste)",
+    description=(
+        "Apply inline edits across several pending transactions in one request."
+        " All-or-nothing: any unknown transaction rolls the whole batch back and"
+        " returns 422. Only description, category and external account are"
+        " accepted. Empty values clear the field."
+    ),
+)
+async def batch_update_inbox_transactions(
+    payload: InboxBatchUpdate,
+    database: DatabaseDep,
+):
+    if not payload.updates:
+        return {"data": []}
+
+    async with database.session() as session:
+        updated: dict[int, Transaction] = {}
+        for update in payload.updates:
+            txn = await get_txn(session, update.id, splits=True)
+            if txn is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Transaction {update.id} not found",
+                )
+            if "description" in update.model_fields_set:
+                description = (update.description or "").strip()
+                set_txn_description(txn, description or None)
+            if "category_id" in update.model_fields_set:
+                set_txn_category(
+                    txn, await _resolve_category(session, update.category_id)
+                )
+            if "external_id" in update.model_fields_set:
+                set_txn_external(
+                    txn, await _resolve_external(session, update.external_id)
+                )
+            updated[update.id] = txn
+
+        await session.commit()
+        for txn in updated.values():
+            await session.refresh(txn, ["internal", "external", "category", "splits"])
+
+    return {"data": [transaction_to_dict(txn) for txn in updated.values()]}
 
 
 @router.patch(

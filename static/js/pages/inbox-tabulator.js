@@ -1,9 +1,10 @@
 // Inbox Tabulator — a second inbox implementation built on Tabulator.
 //
-// Phase 3: read-only remote table, inline editing, per-row approve, and the
-// top-level commit flow. Range clipboard and the edit modal arrive later.
-// Data comes from POST /api/inbox/table; edits and approval PATCH
-// /api/inbox/transactions/{id}; commit uses /api/inbox/commit*.
+// Phase 4: read-only remote table, inline editing, per-row approve, the
+// top-level commit flow, and range clipboard paste. The edit modal arrives
+// later. Data comes from POST /api/inbox/table; inline edits and approval
+// PATCH /api/inbox/transactions/{id}; range paste PATCHes the batch endpoint;
+// commit uses /api/inbox/commit*.
 (function () {
   "use strict";
 
@@ -28,6 +29,157 @@
   // pushing into the same array is enough.
   var categoryOptions = [];
   var externalOptions = [];
+
+  // Build a nested update object from a flat Tabulator field path so that
+  // row.updateData can diff it against the existing nested row data. Passing
+  // a flat key straight through (as Tabulator's built-in range action does)
+  // leaves a junk property on the row instead of updating the nested object.
+  function nestedUpdate(field, value) {
+    var parts = field.split(".");
+    if (parts.length === 1) {
+      var flat = {};
+      flat[field] = value;
+      return flat;
+    }
+    var root = {};
+    var cursor = root;
+    for (var i = 0; i < parts.length; i++) {
+      if (i === parts.length - 1) cursor[parts[i]] = value;
+      else cursor = cursor[parts[i]] = {};
+    }
+    return root;
+  }
+
+  function mergeUpdate(target, source) {
+    Object.keys(source).forEach(function (key) {
+      var value = source[key];
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        target[key] = mergeUpdate(target[key] || {}, value);
+      } else {
+        target[key] = value;
+      }
+    });
+    return target;
+  }
+
+  // Custom clipboard paste action. Tabulator's built-in range action uses
+  // row.updateData with flat field keys and never fires cellEdited, so it
+  // cannot persist anything. This action mirrors the built-in range targeting
+  // (active rows, start/end bounds, modulo cycling), filters to the editable
+  // allowlist, applies the changes locally, then sends one all-or-nothing
+  // batch PATCH and reconciles from the response.
+  function rangePasteAction(parsedRows) {
+    var table = this.table;
+    var selectRange = table.modules.selectRange;
+    var activeRange = selectRange && selectRange.activeRange;
+    if (!activeRange || !parsedRows.length) return [];
+
+    var bounds = activeRange.getBounds();
+    var start = bounds.start;
+    if (!start) return [];
+
+    var allRows = table.rowManager.activeRows.slice();
+    var startIndex = allRows.indexOf(start.row);
+    if (startIndex < 0) return [];
+
+    // A single-cell range expands downward to fit the pasted rows; a larger
+    // range is filled by cycling the pasted rows with modulo.
+    var singleCell = bounds.start === bounds.end;
+    var rowCount = singleCell
+      ? parsedRows.length
+      : allRows.indexOf(bounds.end.row) - startIndex + 1;
+    var targets = allRows.slice(startIndex, startIndex + rowCount);
+    if (!targets.length) return [];
+
+    var flatUpdates = [];
+    var nestedUpdates = [];
+    parsedRows.forEach(function (parsed) {
+      var flat = {};
+      var nested = {};
+      Object.keys(parsed).forEach(function (field) {
+        if (!Object.prototype.hasOwnProperty.call(EDITABLE_FIELDS, field)) return;
+        var value = parsed[field];
+        flat[field] = value;
+        mergeUpdate(nested, nestedUpdate(field, value));
+      });
+      flatUpdates.push(flat);
+      nestedUpdates.push(nested);
+    });
+
+    var hasEditable = flatUpdates.some(function (flat) {
+      return Object.keys(flat).length > 0;
+    });
+    if (!hasEditable) {
+      editors.showToast("Nothing in the pasted range is editable.", "warning");
+      return [];
+    }
+
+    var batch = [];
+    var seen = {};
+    table.blockRedraw();
+    try {
+      targets.forEach(function (row, index) {
+        var flat = flatUpdates[index % flatUpdates.length];
+        if (!Object.keys(flat).length) return;
+        var rowId = row.getData().id;
+        row.updateData(nestedUpdates[index % nestedUpdates.length]);
+        if (seen[rowId]) return;
+        seen[rowId] = true;
+        var body = { id: rowId };
+        Object.keys(flat).forEach(function (field) {
+          var value = flat[field];
+          body[EDITABLE_FIELDS[field]] =
+            value === undefined || value === null ? "" : value;
+        });
+        batch.push(body);
+      });
+    } finally {
+      table.restoreRedraw();
+    }
+
+    if (!batch.length) return targets;
+
+    fetch("/api/inbox/transactions/batch", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ updates: batch }),
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          return response.json().then(
+            function (body) {
+              throw new Error(body.detail || "Paste failed");
+            },
+            function () {
+              throw new Error("Paste failed");
+            }
+          );
+        }
+        return response.json();
+      })
+      .then(function (result) {
+        var byId = {};
+        table.getRows().forEach(function (row) {
+          byId[row.getData().id] = row;
+        });
+        result.data.forEach(function (updated) {
+          var row = byId[updated.id];
+          if (row) refreshRow(row, updated);
+        });
+        editors.showToast(
+          "Pasted " +
+            batch.length +
+            (batch.length === 1 ? " row." : " rows."),
+          "success"
+        );
+      })
+      .catch(function (error) {
+        table.setData();
+        editors.showToast(error.message || "Paste failed", "error");
+      });
+
+    return targets;
+  }
 
   function escapeHtml(value) {
     return String(value)
@@ -226,6 +378,12 @@
     selectableRangeRows: false,
     selectableRangeClearCells: true,
     selectableRangeClearCellsValue: "",
+    clipboard: true,
+    clipboardCopyStyled: false,
+    clipboardCopyConfig: { columnHeaders: false, rowHeaders: false },
+    clipboardCopyRowRange: "range",
+    clipboardPasteParser: "range",
+    clipboardPasteAction: rangePasteAction,
     columns: [
       {
         title: "Date",
