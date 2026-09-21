@@ -1,0 +1,11 @@
+id: html-htmx-url
+language: Html
+severity: info
+message: "url=$VAL"
+rule:
+  kind: attribute
+  all:
+    - has:
+        kind: attribute_name
+        regex: "^(hx-get|hx-post|hx-put|hx-patch|hx-delete)$"
+    - has: { stopBy: end, kind: attribute_value, pattern: $VAL }

@@ -1,0 +1,10 @@
+# Any string literal that looks like an app path. Deliberately not tied to
+# fetch()/ajaxURL/url: so that new request shapes are picked up for free.
+id: js-url
+language: JavaScript
+severity: info
+message: "url string"
+rule:
+  kind: string
+  regex: >-
+    ^["'`]/

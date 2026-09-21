@@ -32,6 +32,13 @@ setup: sync css
 lint:
     prek run --all-files
 
+# Report dead code: unused templates, broken HTMX wiring, dead routes, dead Python
+# The ast-grep half lives in scripts/deadcode and is deliberately NOT part of
+# the prek hooks, so it never runs during `just lint`.
+deadcode:
+    uv run python scripts/deadcode/run.py
+    -uv run vulture
+
 # Reset the database and seed with test data; will trigger server hot-reload
 seed:
     rm -f pipances.db

@@ -1,0 +1,11 @@
+# Documented anti-pattern: htmx cannot resolve `none` as a CSS selector and
+# aborts the request before it is sent.
+id: html-hx-target-none
+language: Html
+severity: error
+message: 'hx-target="none" is not a CSS selector -- htmx aborts the request'
+rule:
+  kind: attribute
+  all:
+    - has: { kind: attribute_name, regex: "^hx-target$" }
+    - has: { stopBy: end, kind: attribute_value, regex: "^none$" }

@@ -1,0 +1,11 @@
+id: html-htmx-selector
+language: Html
+severity: info
+message: "selector=$VAL"
+rule:
+  kind: attribute
+  all:
+    - has:
+        kind: attribute_name
+        regex: "^(hx-target|hx-include|hx-indicator|hx-select|hx-disabled-elt)$"
+    - has: { stopBy: end, kind: attribute_value, pattern: $VAL }

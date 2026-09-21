@@ -1,0 +1,8 @@
+id: js-dom-id-assign
+language: JavaScript
+severity: info
+message: "dom id assigned"
+rule:
+  any:
+    - pattern: $EL.id = $ID
+    - pattern: $EL.setAttribute("id", $ID)

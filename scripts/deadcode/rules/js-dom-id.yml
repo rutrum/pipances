@@ -1,0 +1,9 @@
+id: js-dom-id
+language: JavaScript
+severity: info
+message: "dom id lookup"
+rule:
+  any:
+    - pattern: document.getElementById($ID)
+    - pattern: document.querySelector($ID)
+    - pattern: document.querySelectorAll($ID)

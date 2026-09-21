@@ -35,6 +35,7 @@ dev = [
   "ruff>=0.15.7",
   "tombi>=1.4.1",
   "ty>=0.0.73",
+  "vulture>=2.16",
 ]
 
 [build-system]
@@ -85,3 +86,44 @@ ignore = [
 "importers/*" = ["S"]
 "scripts/*" = ["S"]
 "tests/*" = ["S"]
+
+[tool.vulture]
+paths = ["src", "scripts"]
+min_confidence = 60
+sort_by_size = true
+ignore_decorators = [
+  "@app.get",
+  "@app.post",
+  "@app.put",
+  "@app.patch",
+  "@app.delete",
+  "@router.get",
+  "@router.post",
+  "@router.put",
+  "@router.patch",
+  "@router.delete",
+  "@field_validator",
+  "@model_validator",
+  "@computed_field",
+]
+# Names that are used but unreachable statically. Vulture matches by bare name,
+# so a false positive here is silenced everywhere -- fix the code when a
+# finding turns out to be real.
+#
+# - connection_record: SQLAlchemy "connect" event callback arg
+# - the rest: Pydantic fields populated via model_dump(), dict kwargs or
+#   constructor keywords, which vulture cannot trace
+ignore_names = [
+  "connection_record",
+  "ml_confidence",
+  "external_account",
+  "charts",
+  "top",
+  "dir",
+  "type",
+  "last_page",
+  "last_row",
+  "model_config",
+  "variants",
+  "approved_amounts",
+]

@@ -1,0 +1,9 @@
+id: html-link
+language: Html
+severity: info
+message: "link=$VAL"
+rule:
+  kind: attribute
+  all:
+    - has: { kind: attribute_name, regex: "^(href|action|src)$" }
+    - has: { stopBy: end, kind: attribute_value, pattern: $VAL }

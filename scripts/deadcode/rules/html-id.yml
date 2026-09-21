@@ -1,0 +1,16 @@
+# HTML facts, extracted from the Jinja-stripped mirror. All rules here are
+# severity `info`: they are facts, not findings. run.py decides what is dead by
+# cross-referencing them.
+#
+# Note: `has` inspects direct children only by default, so any rule reaching for
+# `attribute_value` (a grandchild of `attribute`) needs `stopBy: end`.
+
+id: html-id
+language: Html
+severity: info
+message: "id=$VAL"
+rule:
+  kind: attribute
+  all:
+    - has: { kind: attribute_name, regex: "^id$" }
+    - has: { stopBy: end, kind: attribute_value, pattern: $VAL }

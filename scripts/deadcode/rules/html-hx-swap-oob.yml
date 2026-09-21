@@ -1,0 +1,9 @@
+id: html-hx-swap-oob
+language: Html
+severity: info
+message: "oob=$VAL"
+rule:
+  kind: attribute
+  all:
+    - has: { kind: attribute_name, regex: "^hx-swap-oob$" }
+    - has: { stopBy: end, kind: attribute_value, pattern: $VAL }
