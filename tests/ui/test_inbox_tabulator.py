@@ -188,6 +188,54 @@ def test_modal_combobox_dropdown_renders_above_dialog(
     )
 
 
+def test_modal_combobox_dropdown_escapes_scroll_container(
+    page: Page, goto, live_server, pending_txn_ids
+):
+    """.modal-box is an overflow-y:auto scroll container that would clip a
+    dropdown for the lower (splits) combobox on a short viewport. The dropdown
+    is portaled into the dialog with position:fixed, so it must stay on screen."""
+    page.set_viewport_size({"width": 800, "height": 460})
+    goto("/inbox-tabulator")
+    expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
+    _open_first_row_modal(page)
+
+    # Put the splits combobox right at the bottom edge of the modal box.
+    page.evaluate(
+        "document.querySelector('#edit-modal-container .modal-box').scrollTop = 99999"
+    )
+    page.evaluate(
+        """() => {
+            const el = document.querySelector(
+                '#edit-modal-container [id^="add-split-"] select.ts-select'
+            );
+            el.tomselect.open();
+        }"""
+    )
+
+    option = page.locator("#edit-modal-container .ts-dropdown .option").first
+    expect(option).to_be_visible()
+    assert page.evaluate(
+        """() => {
+            const dd = document.querySelector('#edit-modal-container .ts-dropdown');
+            const rect = dd.getBoundingClientRect();
+            return rect.top >= 0 && rect.bottom <= window.innerHeight + 1;
+        }"""
+    )
+    assert page.evaluate(
+        """() => {
+            const option = document.querySelector(
+                '#edit-modal-container .ts-dropdown .option'
+            );
+            const rect = option.getBoundingClientRect();
+            const hit = document.elementFromPoint(
+                rect.x + rect.width / 2,
+                rect.y + rect.height / 2
+            );
+            return hit === option || option.contains(hit);
+        }"""
+    )
+
+
 def test_modal_add_split_refreshes_table_badge(
     page: Page, goto, live_server, pending_txn_ids
 ):

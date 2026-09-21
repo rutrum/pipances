@@ -108,7 +108,8 @@ Created:
 - `static/js/pages/inbox-tabulator.js` — table, editors, approve, commit, range paste.
 - `static/js/pages/inbox-tabulator-modal.js` — modal wiring.
 - `tests/test_inbox_tabulator_api.py` — 42 unit/API tests.
-- `tests/ui/test_inbox_tabulator.py` — 3 browser tests (paste + modal).
+- `tests/ui/test_inbox_tabulator.py` — 5 browser tests (paste + modal +
+  dropdown stacking + dropdown clipping).
 
 Modified:
 
@@ -223,6 +224,10 @@ The modal is fully independent of the old HTMX modal:
   Select instances and empties `#edit-modal-container`.
 - The Approve button label/state is updated in place after scalar edits based
   on the returned `can_approve` / `marked_for_approval`.
+- Every Tom Select dropdown inside the modal is portaled into the `<dialog>`
+  and positioned `fixed` so `.modal-box`'s `overflow-y: auto` cannot clip it
+  (see gotcha 16). This covers both the scalar `ts-json-select` comboboxes and
+  the splits `ts-select` comboboxes, including after splits HTMX swaps.
 
 ## Table configuration (as built)
 
@@ -397,6 +402,20 @@ These are the important things to know before touching the code again.
     Select instances are still destroyed before the container is emptied on
     close as good hygiene.
 
+16. **Tom Select dropdowns are clipped by `.modal-box`.** `.modal-box` is an
+    `overflow-y: auto` scroll container, and TomSelect positions its dropdown
+    with `position: absolute` inside the wrapper. For the lower fields (and on
+    short viewports) the option list is cut off and unreachable. Fix (in
+    `inbox-tabulator-modal.js`): `portalDropdown()` moves the dropdown into the
+    top-layer `<dialog>`, switches it to `position: fixed`, sizes it from the
+    control's `getBoundingClientRect()`, flips it above the control when it
+    would overflow the viewport, and repositions it via `dropdown_open`,
+    `type`, modal-box scroll, window resize and a `ResizeObserver` (the option
+    list is laid out asynchronously, so the first measurement is too small).
+    `portalTomSelects()` re-portals after the splits section's HTMX swaps via
+    an `htmx:afterSwap` listener. UI regression guard:
+    `test_modal_combobox_dropdown_escapes_scroll_container`.
+
 ## Phases
 
 ### Phase 0 — Scaffolding ✅
@@ -469,8 +488,23 @@ rows are unmistakable; no visual regressions to `/data` tables.
 
 The page is fully usable for the core loop: view → inline edit → range paste →
 modal edit → splits → approve → commit. It is unauthenticated single-user, same
-as the rest of the app. Phases 4 and 5 are committed (`84d6205`, `9db0fe4`);
-nothing is pushed and the working tree is clean.
+as the rest of the app. Phases 4 and 5 are committed (`84d6205`, `9db0fe4`) and
+so are the two modal dropdown fixes; nothing is pushed and the working tree is
+clean.
+
+### Recent modal fixes
+
+The edit modal's Tom Select comboboxes had two separate bugs that needed two
+separate fixes:
+
+1. `dropdownParent: "body"` put the dropdown outside the `<dialog>` top layer,
+   so it rendered behind the modal and was unclickable (fixed, gotcha 14).
+2. `.modal-box { overflow-y: auto }` clipped the absolutely-positioned
+   dropdown for lower fields / short viewports, so typed results never showed
+   (fixed by portaling to the dialog with `position: fixed`, gotcha 16).
+
+Both are guarded by `tests/ui/test_inbox_tabulator.py`
+(`..._renders_above_dialog` and `..._escapes_scroll_container`).
 
 ### Commands
 
@@ -498,8 +532,9 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
 
 - `just test`: 208 passing (193 at phase 3; +8 phase 4 batch, +4 phase 5 modal,
   +1 old-modal guard, +2 elsewhere).
-- `tests/ui/test_inbox_tabulator.py`: 3 passing (range paste, modal scalar
-  edit, modal split badge).
+- `tests/ui/test_inbox_tabulator.py`: 5 passing (range paste, modal scalar
+  edit, modal split badge, dropdown above the dialog, dropdown escapes the
+  scroll container).
 - `just test-ui`: 36 pre-existing failures remain on this branch and are
   unrelated to the inbox Tabulator work. They are:
   - `test_table_sorting` (11): stale locators from the `/data` migration.
@@ -552,8 +587,12 @@ into a shared helper and expose `POST /api/inbox/retrain` returning
   when the modal closes (it refetches `GET /api/transactions/{id}`). The splits
   section itself updates immediately inside the modal.
 - **Modal lifecycle:** `#edit-modal-container` is emptied on close and its Tom
-  Select instances are destroyed first, because their dropdowns are parented to
-  `body`.
+  Select instances are destroyed first, because their dropdowns are portaled
+  into the dialog (and, originally, to avoid orphaned body dropdowns).
+- **Modal dropdown positioning:** never set `dropdownParent: "body"` for a
+  combobox inside the native modal `<dialog>` (top-layer occlusion), and never
+  leave the dropdown inside `.modal-box` (overflow clipping). Use
+  `portalDropdown()` in `inbox-tabulator-modal.js`.
 
 ## Out of scope
 

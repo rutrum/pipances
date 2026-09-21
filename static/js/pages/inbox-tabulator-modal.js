@@ -71,6 +71,90 @@
     button.classList.toggle("btn-primary", !marked);
   }
 
+  // TomSelect renders its dropdown inside .modal-box, which is an
+  // `overflow-y: auto` scroll container. That clips the dropdown for fields
+  // near the bottom (and on short viewports), so the filtered results never
+  // appear. Move the dropdown into the top-layer <dialog> and position it with
+  // `position: fixed` from the control's viewport rect instead.
+  function portalDropdown(ts, dialog) {
+    if (!ts || !ts.dropdown || ts.__portaled) return;
+    ts.__portaled = true;
+    var dropdown = ts.dropdown;
+    var box = dialog.querySelector(".modal-box");
+
+    function reposition(tries) {
+      if (!ts.isOpen) return;
+      var control = ts.control;
+      if (!control) return;
+      var rect = control.getBoundingClientRect();
+      var height = dropdown.offsetHeight || 0;
+      if (!height) {
+        // TomSelect may fire dropdown_open before the option list is laid out.
+        // Retry a few frames rather than looping forever on an empty dropdown.
+        var attempt = tries || 0;
+        if (attempt < 10) {
+          window.requestAnimationFrame(function () {
+            reposition(attempt + 1);
+          });
+        }
+        return;
+      }
+      var top = rect.bottom + 4;
+      // Flip above the control when the dropdown would run past the viewport.
+      if (top + height > window.innerHeight) {
+        var above = rect.top - 4 - height;
+        if (above >= 0) top = above;
+      }
+      dropdown.style.position = "fixed";
+      dropdown.style.top = top + "px";
+      dropdown.style.left = rect.left + "px";
+      dropdown.style.width = rect.width + "px";
+      dropdown.style.marginTop = "0";
+      dropdown.style.zIndex = "9999";
+    }
+
+    dialog.appendChild(dropdown);
+    ts.on("dropdown_open", function () {
+      reposition();
+      window.requestAnimationFrame(function () {
+        reposition();
+      });
+    });
+    // The option list is regenerated as the user types; reposition after it
+    // changes height (e.g. when it flips above the control).
+    ts.on("type", function () {
+      window.requestAnimationFrame(function () {
+        reposition();
+      });
+    });
+    ts.on("dropdown_close", function () {
+      dropdown.style.position = "";
+      dropdown.style.top = "";
+      dropdown.style.left = "";
+      dropdown.style.width = "";
+      dropdown.style.marginTop = "";
+    });
+    if (box) box.addEventListener("scroll", reposition, { passive: true });
+    window.addEventListener("resize", reposition);
+    // The option list grows asynchronously after opening; reposition whenever
+    // the dropdown's own size changes so the flip decision sees the real
+    // height.
+    if (window.ResizeObserver) {
+      var observer = new ResizeObserver(function () {
+        reposition();
+      });
+      observer.observe(dropdown);
+    }
+  }
+
+  function portalTomSelects(container) {
+    var dialog = container.querySelector("dialog");
+    if (!dialog) return;
+    container.querySelectorAll("select").forEach(function (el) {
+      if (el.tomselect) portalDropdown(el.tomselect, dialog);
+    });
+  }
+
   // === Scalar comboboxes (JSON PATCH, not HTMX) ===
 
   function initJsonSelects(container) {
@@ -181,6 +265,7 @@
           window.Alpine.initTree(container);
         }
         initJsonSelects(container);
+        portalTomSelects(container);
         if (window.lucide) window.lucide.createIcons();
 
         var dialog = container.querySelector("dialog");
@@ -219,4 +304,18 @@
     },
     initJsonSelects: initJsonSelects,
   };
+
+  // The splits section re-renders itself via HTMX, which replaces its Tom
+  // Select elements. Re-init and re-portal them so the new dropdowns escape
+  // the modal-box too.
+  document.addEventListener("htmx:afterSwap", function (evt) {
+    var container = document.getElementById(CONTAINER_ID);
+    if (!container || !container.innerHTML) return;
+    var el = evt.detail && evt.detail.elt;
+    if (el && !container.contains(el) && el !== container) return;
+    if (typeof window.initTomSelects === "function") {
+      window.initTomSelects(container);
+    }
+    portalTomSelects(container);
+  });
 })();
