@@ -152,6 +152,42 @@ def test_modal_scalar_edit_updates_row_and_persists(
     assert len(rows) == 1
 
 
+def test_modal_combobox_dropdown_renders_above_dialog(
+    page: Page, goto, live_server, pending_txn_ids
+):
+    """A native modal <dialog> is in the top layer, so a dropdown parented to
+    body would be painted behind it (and be unclickable). Assert the dropdown
+    is actually the topmost element at the option's position."""
+    goto("/inbox-tabulator")
+    expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
+    _open_first_row_modal(page)
+
+    page.evaluate(
+        """() => {
+            const el = document.querySelector(
+                '#edit-modal-container select.ts-json-select[data-field="category_id"]'
+            );
+            el.tomselect.open();
+        }"""
+    )
+
+    option = page.locator("#edit-modal-container .ts-dropdown .option").first
+    expect(option).to_be_visible()
+    assert page.evaluate(
+        """() => {
+            const option = document.querySelector(
+                '#edit-modal-container .ts-dropdown .option'
+            );
+            const rect = option.getBoundingClientRect();
+            const hit = document.elementFromPoint(
+                rect.x + rect.width / 2,
+                rect.y + rect.height / 2
+            );
+            return hit === option || option.contains(hit);
+        }"""
+    )
+
+
 def test_modal_add_split_refreshes_table_badge(
     page: Page, goto, live_server, pending_txn_ids
 ):

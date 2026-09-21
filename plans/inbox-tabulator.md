@@ -381,11 +381,21 @@ These are the important things to know before touching the code again.
     HTML swap; the modal needs JSON PATCH + row refresh instead, so it has its
     own initializer. Do not rename the class back.
 
-14. **The modal's Approve button is stateful.** It is rendered once (possibly
+14. **Tom Select dropdowns must stay inside the `<dialog>`.** A native modal
+    `<dialog>` (shown with `showModal()`) lives in the browser's top layer,
+    which paints above *all* normal DOM regardless of `z-index`. Setting
+    `dropdownParent: "body"` therefore renders the dropdown behind the modal
+    and makes it unclickable. Leave `dropdownParent` unset so the dropdown is a
+    child of the `.ts-wrapper` (inside the dialog); if it is ever moved, the
+    dropdown must be appended inside the dialog. UI regression guard:
+    `test_modal_combobox_dropdown_renders_above_dialog` asserts the option is
+    the topmost element via `document.elementFromPoint`.
+
+15. **The modal's Approve button is stateful.** It is rendered once (possibly
     disabled) and is turned on/off in place after each scalar edit from the
     `can_approve` / `marked_for_approval` fields of the PATCH response. Tom
-    Select instances are destroyed before the container is emptied on close,
-    otherwise their `dropdownParent: "body"` dropdowns leak into the DOM.
+    Select instances are still destroyed before the container is emptied on
+    close as good hygiene.
 
 ## Phases
 

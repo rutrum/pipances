@@ -103,7 +103,6 @@
         maxOptions: 50,
         options: values,
         items: current ? [current] : [],
-        dropdownParent: "body",
         onChange: function (value) {
           var next = value || "";
           if (next === committed) return;
