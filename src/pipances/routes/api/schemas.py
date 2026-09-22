@@ -109,6 +109,16 @@ class CommitResult(BaseModel):
     remaining: int
 
 
+class RetrainResponse(BaseModel):
+    """Outcome of retraining the suggestion model.
+
+    ``updated_count`` counts individual field suggestions refreshed across the
+    pending transactions (a single transaction can contribute up to three).
+    """
+
+    updated_count: int
+
+
 class TabulatorSorter(BaseModel):
     field: str
     dir: str = "asc"

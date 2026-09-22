@@ -17,6 +17,7 @@ from pipances.db.transactions import (
     set_txn_external,
 )
 from pipances.models import Account, Category, Transaction, TransactionStatus
+from pipances.retrain import retrain_pending_suggestions
 from pipances.routes.api.queries import (
     tabulator_page_to_dict,
     transaction_to_dict,
@@ -29,6 +30,7 @@ from pipances.routes.api.schemas import (
     InboxBatchUpdate,
     InboxRowUpdate,
     PaginatedTransactions,
+    RetrainResponse,
     TabulatorRequest,
     TabulatorResponse,
     TransactionResponse,
@@ -276,3 +278,19 @@ async def inbox_commit(database: DatabaseDep):
         committed = await commit_marked_transactions(session)
         remaining = await pending_txn_count(session)
     return {"committed": committed, "remaining": remaining}
+
+
+@router.post(
+    "/inbox/retrain",
+    response_model=RetrainResponse,
+    summary="Retrain the suggestion model",
+    description=(
+        "Retrain the ML model on approved transactions and refresh pending"
+        " suggestions. Returns the number of individual field suggestions"
+        " updated (zero when there is nothing to train on or change)."
+    ),
+)
+async def inbox_retrain(database: DatabaseDep):
+    async with database.session() as session:
+        result = await retrain_pending_suggestions(session)
+    return {"updated_count": result.updated_count}

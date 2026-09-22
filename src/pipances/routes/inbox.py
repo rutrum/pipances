@@ -1,5 +1,4 @@
 from math import ceil
-from typing import cast
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
@@ -21,6 +20,7 @@ from pipances.models import (
     Transaction,
     TransactionStatus,
 )
+from pipances.retrain import retrain_pending_suggestions
 from pipances.routes._utils import shared_context, templates
 from pipances.utils import safe_date, safe_int
 
@@ -253,32 +253,21 @@ async def retrain_inbox(
 ) -> Response:
     # Extract sort parameters from filter bar
     form_data = await request.form()
-    sort_col = form_data.get("sort", "date")
-    sort_dir = form_data.get("dir", "asc")
+    sort_col = str(form_data.get("sort", "date"))
+    sort_dir = str(form_data.get("dir", "asc"))
 
     async with database.session() as session:
-        result = await session.execute(
-            select(Transaction)
-            .where(Transaction.status == TransactionStatus.PENDING)
-            .options(*txn_options(import_record=True))
-            .order_by(resolve_order(str(sort_col), str(sort_dir)))
+        result = await retrain_pending_suggestions(
+            session, sort_col=sort_col, sort_dir=sort_dir
         )
-        pending = result.scalars().all()
 
-        if not pending:
+        if not result.pending_count:
             toast = templates.get_template("shared/_toast.jinja2").render(
                 {"message": "No pending transactions to retrain.", "type": "warning"}
             )
             return HTMLResponse(toast)
 
-        result = await session.execute(
-            select(Transaction)
-            .where(Transaction.status == TransactionStatus.APPROVED)
-            .options(*txn_options(import_record=True))
-        )
-        approved = result.scalars().all()
-
-        if not approved:
+        if not result.approved_count:
             toast = templates.get_template("shared/_toast.jinja2").render(
                 {
                     "message": "No training data available. Approve some transactions first.",
@@ -287,92 +276,23 @@ async def retrain_inbox(
             )
             return HTMLResponse(toast)
 
-        from pipances.predict import TransactionPredictor
-
-        train_raw = [t.raw_description for t in approved]
-        train_amounts = [t.amount_cents for t in approved]
-        train_dow = [t.date.weekday() for t in approved]
-        train_dom = [t.date.day for t in approved]
-        train_internal = [str(t.internal_id) for t in approved]
-        train_institution = [t.import_record.institution for t in approved]
-        train_desc = [t.description for t in approved]
-        train_cat = [t.category_id for t in approved]
-        train_ext = [t.external_id for t in approved]
-
-        predictor = TransactionPredictor()
-        predictor.fit(
-            train_raw,
-            train_amounts,
-            train_dow,
-            train_dom,
-            train_internal,
-            train_institution,
-            train_desc,
-            train_cat,
-            [e for e in train_ext if e is not None],
+        # Re-query so the rendered rows carry the refreshed suggestions.
+        pending = (
+            (
+                await session.execute(
+                    select(Transaction)
+                    .where(Transaction.status == TransactionStatus.PENDING)
+                    .options(*txn_options(import_record=True))
+                    .order_by(resolve_order(sort_col, sort_dir))
+                )
+            )
+            .scalars()
+            .all()
         )
-
-        pred_raw = [t.raw_description for t in pending]
-        pred_amounts = [t.amount_cents for t in pending]
-        pred_dow = [t.date.weekday() for t in pending]
-        pred_dom = [t.date.day for t in pending]
-        pred_internal = [str(t.internal_id) for t in pending]
-        pred_institution = [t.import_record.institution for t in pending]
-
-        predictions = predictor.predict(
-            pred_raw,
-            pred_amounts,
-            pred_dow,
-            pred_dom,
-            pred_internal,
-            pred_institution,
-        )
-
-        updated_count = 0
-        for txn, pred in zip(pending, predictions, strict=True):
-            if (
-                pred.description
-                and pred.description.value is not None
-                and (
-                    txn.ml_confidence_description is None
-                    or pred.description.confidence > txn.ml_confidence_description
-                )
-            ):
-                txn.description = str(pred.description.value)
-                txn.ml_confidence_description = pred.description.confidence
-                updated_count += 1
-            if (
-                pred.category_id
-                and pred.category_id.value is not None
-                and (
-                    txn.ml_confidence_category is None
-                    or pred.category_id.confidence > txn.ml_confidence_category
-                )
-            ):
-                txn.category_id = cast(int, pred.category_id.value)
-                txn.ml_confidence_category = pred.category_id.confidence
-                updated_count += 1
-            if (
-                pred.external_id
-                and pred.external_id.value is not None
-                and (
-                    txn.ml_confidence_external is None
-                    or pred.external_id.confidence > txn.ml_confidence_external
-                )
-            ):
-                txn.external_id = cast(int, pred.external_id.value)
-                txn.ml_confidence_external = pred.external_id.confidence
-                updated_count += 1
-
-        await session.commit()
-
-        # Refresh relationships so template renders correct data
-        for txn in pending:
-            await session.refresh(txn, ["category", "external"])
 
     toast = templates.get_template("shared/_toast.jinja2").render(
         {
-            "message": f"Retrained model and updated {updated_count} suggestion{'s' if updated_count != 1 else ''}.",
+            "message": f"Retrained model and updated {result.updated_count} suggestion{'s' if result.updated_count != 1 else ''}.",
             "type": "success",
         }
     )

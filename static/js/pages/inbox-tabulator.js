@@ -460,6 +460,7 @@
       {
         title: "",
         field: "_actions",
+        cssClass: "txn-actions-cell",
         width: 170,
         hozAlign: "center",
         headerSort: false,
@@ -627,6 +628,47 @@
   }
 
   renderMarkedCount();
+
+  // === Retrain ===
+
+  var retrainBtn = document.getElementById("retrain-btn");
+  if (retrainBtn) {
+    var retrainIdleHtml = retrainBtn.innerHTML;
+    retrainBtn.addEventListener("click", function () {
+      retrainBtn.disabled = true;
+      retrainBtn.innerHTML =
+        '<span class="loading loading-spinner loading-sm"></span> Retraining...';
+      fetch("/api/inbox/retrain", { method: "POST" })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("Retrain failed");
+          }
+          return response.json();
+        })
+        .then(function (result) {
+          var count = result.updated_count || 0;
+          editors.showToast(
+            count
+              ? "Retrained model and updated " +
+                  count +
+                  (count === 1 ? " suggestion." : " suggestions.")
+              : "Retrained. No suggestions changed.",
+            count ? "success" : "info"
+          );
+          // Re-fetch the current page in place so the refreshed suggestions
+          // appear without losing the sort or pagination position.
+          table.replaceData();
+        })
+        .catch(function () {
+          editors.showToast("Retrain failed", "error");
+        })
+        .finally(function () {
+          retrainBtn.disabled = false;
+          retrainBtn.innerHTML = retrainIdleHtml;
+          if (window.lucide) window.lucide.createIcons();
+        });
+    });
+  }
 
   // Shared surface for the modal script (and tests).
   window.PipancesInboxTable = table;

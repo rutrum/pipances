@@ -597,3 +597,96 @@ async def test_old_modal_route_uses_shared_description_helper(client, seed_pendi
     assert resp.status_code == 200
     assert f'id="transaction-edit-modal-{txn_id}"' in resp.text
     assert '<option value="Groceries run" selected>' in resp.text
+
+
+# === Phase 6: retrain ===
+
+
+@pytest.fixture
+async def seed_retrain(session, seed_accounts, seed_import, seed_categories):
+    """Two approved KROGER rows (training data) and one bare matching pending row.
+
+    Identical raw descriptions and labels make the prediction deterministic:
+    the pending row gets the description, category and external from training.
+    """
+    checking = seed_accounts["Checking"]
+    external = Account(name="Kroger", kind="external")
+    session.add(external)
+    await session.commit()
+    await session.refresh(external)
+
+    for day in (1, 2):
+        session.add(
+            Transaction(
+                import_id=seed_import.id,
+                internal_id=checking.id,
+                external_id=external.id,
+                raw_description="KROGER STORE #7",
+                description="Groceries run",
+                category_id=seed_categories["Groceries"].id,
+                date=date(2026, 8, day),
+                amount_cents=-1200,
+                status="approved",
+            )
+        )
+    pending = Transaction(
+        import_id=seed_import.id,
+        internal_id=checking.id,
+        external_id=None,
+        raw_description="KROGER STORE #7",
+        description=None,
+        category_id=None,
+        date=date(2026, 9, 10),
+        amount_cents=-1200,
+        status="pending",
+    )
+    session.add(pending)
+    await session.commit()
+    await session.refresh(pending)
+    return {"pending": pending, "external": external}
+
+
+async def test_retrain_without_pending_is_zero(client):
+    resp = await client.post("/api/inbox/retrain")
+    assert resp.status_code == 200
+    assert resp.json() == {"updated_count": 0}
+
+
+async def test_retrain_without_training_data_is_zero(
+    client, session, seed_accounts, seed_import
+):
+    session.add(
+        Transaction(
+            import_id=seed_import.id,
+            internal_id=seed_accounts["Checking"].id,
+            raw_description="KROGER STORE #7",
+            date=date(2026, 9, 10),
+            amount_cents=-1200,
+            status="pending",
+        )
+    )
+    await session.commit()
+
+    resp = await client.post("/api/inbox/retrain")
+    assert resp.status_code == 200
+    assert resp.json() == {"updated_count": 0}
+
+
+async def test_retrain_updates_suggestions_and_reports_count(client, seed_retrain):
+    resp = await client.post("/api/inbox/retrain")
+    assert resp.status_code == 200
+    # Description + category + external are each refreshed.
+    assert resp.json() == {"updated_count": 3}
+
+    table = await _post_table(client)
+    row = table.json()["data"][0]
+    assert row["description"] == "Groceries run"
+    assert row["category"]["name"] == "Groceries"
+    assert row["external_account"]["name"] == "Kroger"
+    assert row["can_approve"] is True
+
+
+async def test_old_inbox_retrain_route_uses_shared_helper(client, seed_retrain):
+    resp = await client.post("/inbox/retrain", data={"sort": "date", "dir": "asc"})
+    assert resp.status_code == 200
+    assert "updated 3 suggestions" in resp.text

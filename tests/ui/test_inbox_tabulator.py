@@ -262,3 +262,42 @@ def test_modal_add_split_refreshes_table_badge(
 
     # Closing refetches the row, so the category badge shows the split count.
     expect(page.locator('#inbox-tabulator .badge:text-is("1 split")')).to_be_visible()
+
+
+def test_retrain_reports_count_and_refreshes_table(page: Page, goto, live_server):
+    """The toolbar Retrain button reports the backend count and re-fetches the
+    current page so refreshed suggestions appear.
+
+    The endpoint itself is covered by the API tests, so it is stubbed here to
+    keep the browser test deterministic and free of shared-DB mutation.
+    """
+    goto("/inbox-tabulator")
+    expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
+
+    table_calls = []
+    page.on(
+        "request",
+        lambda req: (
+            table_calls.append(req.url)
+            if req.url.endswith("/api/inbox/table")
+            else None
+        ),
+    )
+    page.route(
+        "**/api/inbox/retrain",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"updated_count": 2}',
+        ),
+    )
+
+    with page.expect_response("**/api/inbox/retrain") as info:
+        with page.expect_response("**/api/inbox/table") as table_info:
+            page.locator("#retrain-btn").click()
+    assert info.value.ok
+    assert table_info.value.ok
+
+    expect(page.locator("#toast-container .alert")).to_contain_text("2 suggestions")
+    expect(page.locator("#retrain-btn")).to_be_enabled()
+    assert table_calls

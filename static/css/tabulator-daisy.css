@@ -103,6 +103,51 @@
   );
 }
 
+/* Clipboard range selection. Tabulator's defaults are hardcoded blues, so map
+   the selection overlay and the selected/marquee cell backgrounds onto
+   daisyUI tokens. */
+
+.tabulator-row
+  .tabulator-cell.tabulator-range-selected:not(
+    .tabulator-range-only-cell-selected
+  ):not(.tabulator-range-row-header) {
+  background-color: color-mix(
+    in oklab,
+    var(--color-primary) 28%,
+    var(--color-base-100)
+  );
+  color: var(--color-base-content);
+}
+
+.tabulator-row.tabulator-range-highlight
+  .tabulator-cell.tabulator-range-row-header {
+  background-color: var(--color-base-300);
+  color: var(--color-base-content);
+}
+
+.tabulator .tabulator-header .tabulator-col.tabulator-range-highlight {
+  background-color: var(--color-base-300);
+  color: var(--color-base-content);
+}
+
+.tabulator .tabulator-tableholder .tabulator-range-overlay .tabulator-range {
+  border: 1px solid var(--color-primary);
+}
+
+.tabulator
+  .tabulator-tableholder
+  .tabulator-range-overlay
+  .tabulator-range-cell-active {
+  border: 2px solid var(--color-primary);
+}
+
+.tabulator
+  .tabulator-tableholder
+  .tabulator-range-overlay
+  .tabulator-range.tabulator-range-active:after {
+  background-color: var(--color-primary);
+}
+
 .tabulator .tabulator-tableholder .tabulator-placeholder .tabulator-placeholder-contents {
   color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 }
@@ -156,16 +201,29 @@
 }
 
 /* Approved (marked-for-approval) inbox rows. Needs to beat the even-row
-   background, hence the doubled class selector. */
+   background, hence the doubled class selector. The success wash plus a thick
+   leading bar makes an approved row unmistakable at a glance. */
 
 .tabulator-row.txn-approved,
 .tabulator-row.txn-approved.tabulator-row-even {
   background-color: color-mix(
     in oklab,
-    var(--color-success) 12%,
+    var(--color-success) 22%,
     var(--color-base-100)
   );
-  box-shadow: inset 3px 0 0 0 var(--color-success);
+  box-shadow: inset 4px 0 0 0 var(--color-success);
+}
+
+.tabulator-row.txn-approved .tabulator-cell {
+  color: var(--color-base-content);
+}
+
+/* Compact action cell. The Edit/Approve buttons are already `btn-xs`, so the
+   surrounding cell only needs reduced padding to keep a dense row height. */
+
+.tabulator-row .tabulator-cell.txn-actions-cell {
+  padding-block: 0.3rem;
+  padding-inline: 0.4rem;
 }
 
 /* Tom Select cell editors: keep the control on a single line inside narrow

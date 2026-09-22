@@ -6,11 +6,17 @@
   <div class="container mx-auto p-6">
     <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
       <h1 class="text-2xl font-bold">Inbox</h1>
-      <button type="button" id="commit-btn" class="btn btn-primary">
-        Commit
-        <span id="commit-count-badge"
-              class="badge badge-sm {% if not marked_count %}hidden{% endif %}">{{ marked_count }}</span>
-      </button>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="retrain-btn" class="btn btn-secondary">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          Retrain
+        </button>
+        <button type="button" id="commit-btn" class="btn btn-primary">
+          Commit
+          <span id="commit-count-badge"
+                class="badge badge-sm {% if not marked_count %}hidden{% endif %}">{{ marked_count }}</span>
+        </button>
+      </div>
     </div>
     <div id="inbox-tabulator-root"
          data-page-size="{{ page_size }}"
