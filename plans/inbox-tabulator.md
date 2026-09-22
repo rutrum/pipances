@@ -18,14 +18,15 @@ Branch: `ui-redesign`. Work is committed; nothing is pushed.
 | 3 — Approve + commit | ✅ Done | `1ad3621` |
 | 4 — Range clipboard | ✅ Done | `84d6205` |
 | 5 — Modal + splits | ✅ Done | `9db0fe4` |
-| 6 — Retrain + styling | ⬜ Not started | — |
+| 6 — Retrain + styling | ✅ Done | `a357f5a` |
 | 7 — Hardening | ⬜ Not started | — |
 
 `d5f8896` = "Add Tabulator inbox page with inline editing (phases 0-2)".
 `1ad3621` = "Add approve and commit flow to Tabulator inbox (phase 3)".
 `84d6205` = "Add range clipboard paste to Tabulator inbox (phase 4)".
 `9db0fe4` = "Add edit modal and splits to Tabulator inbox (phase 5)".
-Nothing is pushed; the branch is 13 commits ahead of `origin/ui-redesign`.
+`a357f5a` = "Add retrain and inbox styling to Tabulator inbox (phase 6)".
+Nothing is pushed; the branch is 19 commits ahead of `origin/ui-redesign`.
 
 ## Goals
 
@@ -87,11 +88,6 @@ Browser (inbox-tabulator.js)
   GET   /inbox-tabulator/transactions/{id}/edit-modal  <- new modal HTML
   GET   /api/inbox/commit-summary           <- commit dialog data
   POST  /api/inbox/commit                   <- commit marked rows
-```
-
-Planned:
-
-```
   POST  /api/inbox/retrain                  <- retrain, returns updated count
 ```
 
@@ -102,6 +98,7 @@ routes and templates are left exactly as they are.
 
 Created:
 
+- `src/pipances/retrain.py` — shared `retrain_pending_suggestions` helper.
 - `src/pipances/routes/inbox_tabulator.py` — page route + modal route.
 - `src/pipances/templates/pages/inbox_tabulator.jinja2` — page, toolbar, commit dialog.
 - `src/pipances/templates/inbox/_inbox_tabulator_modal.jinja2` — new modal.
@@ -190,11 +187,15 @@ with 422, so the batch route would be unreachable if declared after.
 `{committed, remaining}` via `db.transactions.commit_marked_transactions`,
 which also prunes orphaned external accounts.
 
-### `POST /api/inbox/retrain` (planned, Phase 6)
+### `POST /api/inbox/retrain` (done, Phase 6)
 
 Trains on approved rows, updates pending suggestions, returns
-`{updated_count}`. Logic still lives in the old `routes/inbox.py::retrain_inbox`
-and should be extracted into a shared helper.
+`{updated_count}` (individual field suggestions refreshed; a transaction can
+contribute up to three). Zero when there is nothing to train on or change. The
+HTMX route and this endpoint both call
+`pipances.retrain.retrain_pending_suggestions`, which returns a
+`RetrainResult(updated_count, pending_count, approved_count)` and commits the
+session itself.
 
 ### `GET /inbox-tabulator/transactions/{id}/edit-modal` (done, Phase 5)
 
@@ -416,6 +417,18 @@ These are the important things to know before touching the code again.
     an `htmx:afterSwap` listener. UI regression guard:
     `test_modal_combobox_dropdown_escapes_scroll_container`.
 
+17. **Retrain commits the caller's session.** `retrain_pending_suggestions`
+    applies the predictions and calls `await session.commit()` itself (matching
+    `commit_marked_transactions`), so the session is left clean on return. The
+    legacy route re-queries the pending rows afterwards rather than rendering
+    the objects it mutated, because `expire_on_commit=True` would otherwise
+    force async lazy loads during template rendering.
+
+18. **`updated_count` counts fields, not rows.** Each pending transaction can
+    add up to three (description, category, external). This matches the legacy
+    toast wording ("updated N suggestions") and the API contract; do not change
+    it to a row count without updating both callers and the tests.
+
 ## Phases
 
 ### Phase 0 — Scaffolding ✅
@@ -463,16 +476,27 @@ the badge.
 Acceptance met: modal opens from Edit, scalar edits reflect in the table, splits
 add/edit/delete work (verified manually + browser test), old modal untouched.
 
-### Phase 6 — Retrain + styling ⬜
+### Phase 6 — Retrain + styling ✅
 
-- Extract retrain logic into a shared helper; add `POST /api/inbox/retrain`
-  JSON + toolbar button (disabled while running).
-- `tabulator-daisy.css`: range selection accents, compact action cells; refine
-  `.txn-approved` if needed.
-- daisyUI classes for buttons/badges; consult the daisyUI skill.
+Done. `pipances/retrain.py` holds the shared `retrain_pending_suggestions`
+helper; `routes/inbox.py::retrain_inbox` delegates to it and re-queries the
+pending rows for rendering. `POST /api/inbox/retrain` returns
+`{updated_count}`. The toolbar `#retrain-btn` is disabled with a
+`loading loading-spinner` while running, toasts the count, and calls
+`table.replaceData()` so the clipboard/sort/page state survives the refresh.
+`tabulator-daisy.css` now maps range-selection chrome (`tabulator-range*`)
+onto `primary`, deepens `.txn-approved` (22% success + 4px left bar), and adds
+`.txn-actions-cell` for compact action cells. No `/data` selectors were
+touched, and the `/data/accounts` page was screenshot-checked.
 
-Acceptance: retrain reports updated count and refreshes suggestions; approved
-rows are unmistakable; no visual regressions to `/data` tables.
+Unit tests: no pending, no training data, a deterministic prediction run that
+asserts `updated_count == 3` plus refreshed row fields, and a guard that the
+legacy HTML route still reports the shared count. Browser test:
+`test_retrain_reports_count_and_refreshes_table` stubs the endpoint and asserts
+the count toast plus a follow-up `POST /api/inbox/table`.
+
+Acceptance met: retrain reports an updated count and refreshes suggestions;
+approved rows are unmistakable; no visual regressions to `/data` tables.
 
 ### Phase 7 — Hardening ⬜
 
@@ -487,10 +511,10 @@ rows are unmistakable; no visual regressions to `/data` tables.
 ### Where things stand
 
 The page is fully usable for the core loop: view → inline edit → range paste →
-modal edit → splits → approve → commit. It is unauthenticated single-user, same
-as the rest of the app. Phases 4 and 5 are committed (`84d6205`, `9db0fe4`) and
-so are the two modal dropdown fixes; nothing is pushed and the working tree is
-clean.
+modal edit → splits → approve → commit → retrain. It is unauthenticated
+single-user, same as the rest of the app. Phases 4, 5 and 6 are committed
+(`84d6205`, `9db0fe4`, `a357f5a`) and so are the two modal dropdown fixes;
+nothing is pushed and the working tree is clean.
 
 ### Recent modal fixes
 
@@ -530,11 +554,11 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
 
 ### Test status to be aware of
 
-- `just test`: 208 passing (193 at phase 3; +8 phase 4 batch, +4 phase 5 modal,
-  +1 old-modal guard, +2 elsewhere).
-- `tests/ui/test_inbox_tabulator.py`: 5 passing (range paste, modal scalar
+- `just test`: 212 passing (193 at phase 3; +8 phase 4 batch, +4 phase 5 modal,
+  +1 old-modal guard, +2 elsewhere, +4 phase 6 retrain).
+- `tests/ui/test_inbox_tabulator.py`: 6 passing (range paste, modal scalar
   edit, modal split badge, dropdown above the dialog, dropdown escapes the
-  scroll container).
+  scroll container, retrain button contract).
 - `just test-ui`: 36 pre-existing failures remain on this branch and are
   unrelated to the inbox Tabulator work. They are:
   - `test_table_sorting` (11): stale locators from the `/data` migration.
@@ -550,19 +574,22 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
   external to enable Approve, so `do_approve` always timed out. They now attach
   an external that is already referenced by an approved transaction.
   `test_commit_flow.py` went from 1/13 to 11/13 passing.
-- `tests/ui/test_inbox_tabulator.py` covers range paste and the modal. Run it
-  with `nix develop -c uv run pytest tests/ui/test_inbox_tabulator.py -v`
+- `tests/ui/test_inbox_tabulator.py` covers range paste, the modal and the
+  retrain button. Run it with
+  `nix develop -c uv run pytest tests/ui/test_inbox_tabulator.py -v`
   (the session fixture seeds a throwaway DB and starts uvicorn on :8099).
 
 ### Highest-value next work
 
-Phase 6 (retrain + styling) is all that is left before this can replace
-`/inbox`. Phases 4 and 5 are complete — do not re-add `clipboardPasteAction`
-plumbing or a second modal bootstrap.
+Phase 7 (hardening) is all that is left before this can replace `/inbox`:
+confirm the Nix build copies `static/js/pages` (it is copied wholesale), run the
+full UI suite and triage, and do a final manual browser pass. Phases 4-6 are
+complete — do not re-add `clipboardPasteAction` plumbing, a second modal
+bootstrap, or a second retrain code path.
 
-When adding retrain, extract the logic from `routes/inbox.py::retrain_inbox`
-into a shared helper and expose `POST /api/inbox/retrain` returning
-`{updated_count}`; then wire a toolbar button (disabled while running).
+Phase 6 shipped the retrain helper (`pipances/retrain.py`), the JSON endpoint,
+the toolbar button, and the CSS pass. Any follow-up styling should keep using
+daisyUI tokens in `tabulator-daisy.css` and must not touch `/data` selectors.
 
 ## Edge cases / risks
 
