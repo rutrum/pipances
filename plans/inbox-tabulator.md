@@ -19,15 +19,17 @@ Branch: `ui-redesign`. Work is committed; nothing is pushed.
 | 4 — Range clipboard | ✅ Done | `84d6205` |
 | 5 — Modal + splits | ✅ Done | `9db0fe4` |
 | 6 — Retrain + styling | ✅ Done | `a357f5a` |
-| 7 — Hardening | ✅ Done | uncommitted |
+| 7 — Hardening | ✅ Done | `cd580dd` |
 
 `d5f8896` = "Add Tabulator inbox page with inline editing (phases 0-2)".
 `1ad3621` = "Add approve and commit flow to Tabulator inbox (phase 3)".
 `84d6205` = "Add range clipboard paste to Tabulator inbox (phase 4)".
 `9db0fe4` = "Add edit modal and splits to Tabulator inbox (phase 5)".
 `a357f5a` = "Add retrain and inbox styling to Tabulator inbox (phase 6)".
-Nothing is pushed; the branch is 20 commits ahead of `origin/ui-redesign`.
-Phase 7 (hardening) is complete but **uncommitted** — the agent does not commit.
+`cd580dd` = "Prune redundant UI tests and repair the suite (phase 7)".
+`df4ce23` = "Bump flake inputs (blueprint, nixpkgs, uv2nix)" (unrelated chore).
+Nothing is pushed; the branch is 23 commits ahead of `origin/ui-redesign`.
+Phase 7 is committed as `cd580dd`.
 
 ## Goals
 
@@ -675,9 +677,8 @@ consistent with `layout: "fitColumns"`; not a blocker for replacing `/inbox`.
 
 The page is fully usable for the core loop: view → inline edit → range paste →
 modal edit → splits → approve → commit → retrain. It is unauthenticated
-single-user, same as the rest of the app. Phase 7 (hardening) is complete but
-**uncommitted**; phases 0–6 are committed (`d5f8896` … `a357f5a`) and nothing is
-pushed.
+single-user, same as the rest of the app. Phases 0–7 are committed
+(`d5f8896` … `cd580dd`); nothing is pushed.
 
 ### Recent modal fixes
 
@@ -739,12 +740,11 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
 The feature is complete and hardened. What remains is a product decision, not a
 code task:
 
-1. Commit the phase-7 test cleanup (the agent does not commit).
-2. Decide when `/inbox-tabulator` replaces `/inbox`; at that point the old
+1. Decide when `/inbox-tabulator` replaces `/inbox`; at that point the old
    modal, its routes, `test_inbox_transaction_modal_edit.py`,
    `test_inbox_row_approve.py`, and the old inbox templates can be deleted and
    the navbar entry renamed.
-3. Only after that, revisit the deferred items in "Out of scope".
+2. Only after that, revisit the deferred items in "Out of scope".
 
 Do not re-add `clipboardPasteAction` plumbing, a second modal bootstrap, or a
 second retrain code path — phases 4-6 are complete. Any follow-up styling keeps
