@@ -25,8 +25,8 @@ def approved_btn(page: Page):
 
 
 def inbox_page_label(page: Page, n: int):
-    """'Page N of ...' span inside the inbox pagination."""
-    return page.locator(f"#inbox-pagination span:has-text('Page {n} of')")
+    """'Page N of ...' button inside the inbox pagination."""
+    return page.locator(f"#inbox-pagination button:has-text('Page {n} of')")
 
 
 def badge_count(page: Page) -> int:

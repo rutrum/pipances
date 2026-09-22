@@ -19,14 +19,15 @@ Branch: `ui-redesign`. Work is committed; nothing is pushed.
 | 4 — Range clipboard | ✅ Done | `84d6205` |
 | 5 — Modal + splits | ✅ Done | `9db0fe4` |
 | 6 — Retrain + styling | ✅ Done | `a357f5a` |
-| 7 — Hardening | ⬜ Not started | — |
+| 7 — Hardening | ✅ Done | uncommitted |
 
 `d5f8896` = "Add Tabulator inbox page with inline editing (phases 0-2)".
 `1ad3621` = "Add approve and commit flow to Tabulator inbox (phase 3)".
 `84d6205` = "Add range clipboard paste to Tabulator inbox (phase 4)".
 `9db0fe4` = "Add edit modal and splits to Tabulator inbox (phase 5)".
 `a357f5a` = "Add retrain and inbox styling to Tabulator inbox (phase 6)".
-Nothing is pushed; the branch is 19 commits ahead of `origin/ui-redesign`.
+Nothing is pushed; the branch is 20 commits ahead of `origin/ui-redesign`.
+Phase 7 (hardening) is complete but **uncommitted** — the agent does not commit.
 
 ## Goals
 
@@ -498,13 +499,175 @@ the count toast plus a follow-up `POST /api/inbox/table`.
 Acceptance met: retrain reports an updated count and refreshes suggestions;
 approved rows are unmistakable; no visual regressions to `/data` tables.
 
-### Phase 7 — Hardening ⬜
+### Phase 7 — Hardening ✅
 
-- `just lint` clean.
-- Full unit suite; triage UI suite (see below).
-- Manual browser pass via `nix develop -c agent-browser`.
-- Verify Nix build copies the new JS (`static/js/pages` is copied wholesale).
-- Optionally fix the pre-existing UI-test failures (deferred decision).
+**Goal:** ship-quality confidence with no behavioral change to the Tabulator
+inbox: green lint/unit/build, a *triaged* UI suite, and a recorded manual pass.
+
+#### 7.1 Verification (baseline already captured)
+
+Branch `ui-redesign` @ `3a1dc58`. Working tree dirty only for `flake.lock`
+(blueprint bump, unrelated to this feature — decide whether to keep it separate).
+
+| Check | Command | Result |
+|---|---|---|
+| Lint/format | `just lint` | ✅ all 14 prek hooks pass |
+| Unit/API | `just test` | ✅ 212 passed in 6.03s |
+| Nix package | `nix build .#pipances` | ✅ builds; `pipances-static` store contains `inbox-tabulator.js`, `inbox-tabulator-modal.js`, `tabulator-daisy.css` |
+| Feature UI tests | `nix develop -c uv run pytest tests/ui/test_inbox_tabulator.py` | ✅ 6 passed (not in the failure list of the full run) |
+| Full UI suite | `nix develop -c just test-ui` | ⚠️ 36 failed / 50 passed / 735s |
+
+The Nix task from the old bullet list is therefore **done**: `nix/packages/pipances.nix:71`
+copies `static/js/pages/.` wholesale and the built store path confirms both new
+scripts are present. 7.1 only needs to be re-run and recorded at the end.
+
+#### 7.2 UI suite — prune first, then fix
+
+The 36 failures are **not** inbox-Tabulator regressions (the six
+`test_inbox_tabulator.py` tests pass). They live in tests written for the
+hand-rolled tables and the third-party wrappers. Guiding rule: **do not test
+behaviour that Tabulator or Tom Select provides out of the box — keep only tests
+that exercise our own wiring/config.** That means deleting redundant tests
+rather than repairing their stale locators.
+
+**Delete outright (redundant or stale):**
+
+| File / test | Tests | Why |
+|---|---|---|
+| `tests/ui/test_combobox_popover.py` | 5 | Pure Tom Select behaviour (type→dropdown, arrow keys, enter/click select, create-new). Third-party library, not our code. |
+| `tests/ui/test_inbox_modal_edit.py` | 14 | Stale: helper `fill_combo()` targets `.combo-box`, removed when Tom Select landed; module docstring lists BUG-A/BUG-B that are fixed. Superseded by `test_inbox_transaction_modal_edit.py` (current `.ts-wrapper` selectors) and `test_inbox_tabulator.py`. |
+| `test_oob_regressions.py::test_inbox_thead_oob_swap_updates_sort_arrow` | 1 | Guards the hand-rolled `#inbox-thead` OOB swap that Tabulator makes unnecessary. |
+| `test_table_sorting.py` (12 of 15) | 12 | All 5 `test_explore_*`, all 5 `test_inbox_*` sort tests, `test_data_transactions_sort_toggles_direction`, `test_html_pages_have_working_sort`. They assert Tabulator/macro arrow text and hand-rolled toggling — out-of-box or retired. |
+
+**Keep and repair — `test_table_sorting.py` becomes `test_transactions_table.py`
+with 3 Tabulator wiring tests:**
+
+- `test_data_transactions_table_renders` — smoke: grid mounts with the expected
+  columns. Fix `#transactions-table .tabulator` → `#transactions-table.tabulator`
+  (Tabulator puts the class **on** the container, so the descendant selector
+  matches nothing — confirmed `element(s) not found`).
+- `test_data_transactions_default_sort_is_date_descending` — our `initialSort`
+  config matches the API default. Already green.
+- `test_data_transactions_date_preset_reloads_table` — our date-preset wiring
+  (`btn-active`, grid stays mounted). Fix the same `.tabulator` selector.
+
+Sort/arrow *toggling* and persistence-across-pagination are Tabulator
+guarantees; the server side is covered by `tests/test_tabulator_table.py`. No UI
+test needed for either.
+
+**Keep and repair (our logic, green apart from locators/viewport):**
+
+- `test_commit_flow.py::test_confirm_pagination_*` (2) — pagination reset/total
+  after a commit is our logic. `_pagination.jinja2` renders `<button>`, so fix
+  `#inbox-pagination span:has-text('Page …')` → `#inbox-pagination
+  button:has-text('Page …')`.
+- `test_inbox_transaction_modal_edit.py` (3 of 14 failing) — old-modal wiring on
+  current selectors.
+- `test_transaction_splits.py` (3) — shared splits section.
+
+Both viewport failures share one cause; see 7.3.
+
+#### 7.3 Old-modal viewport root cause (6 failures after 7.2)
+
+The click targets the *nth* `.ts-wrapper` input, but `test_combobox_popover.py`'s
+`get_ts_input()` scrolls only the **first** `.ts-wrapper` into view, so
+Playwright reports `element is outside of the viewport` for the Category field.
+`test_inbox_modal_edit.py` additionally targets a removed `.combo-box` selector.
+Confirm before fixing:
+1. Reproduce one remaining failure at `origin/ui-redesign` (pre-feature base) to
+   prove it is pre-existing, not caused by phases 3–6.
+2. Fix the shared helper to scroll the *target* wrapper into view (or set a
+   taller viewport). If it still fails, inspect the old `.modal-box` scroll
+   container for a real layout regression and record the exact cause.
+
+#### 7.4 Decision needed
+
+Confirm the prune list in 7.2. After it, the suite loses **32 tests** (5 + 14 +
+1 + 12, of which 28 were failing) and the remaining **8 failures** are repaired
+(2 `test_commit_flow`, 3 `test_inbox_transaction_modal_edit`, 3
+`test_transaction_splits`). If you would rather keep any of the deleted files
+(e.g. the old-modal field-persistence tests until `/inbox` is retired), say so
+and I will repair instead of delete.
+
+#### 7.5 Manual browser pass
+
+Throwaway DB + uvicorn on :8097 (commands in the Handoff notes), driven with
+`nix develop -c agent-browser`, screenshots to `/tmp/agent-browser`:
+load page → remote sort → pagination → inline description/category/external
+edit → clear-cells → range copy/paste → approve one row + highlight → commit
+(dialog + badge + count) → retrain (spinner + count toast) → open modal → scalar
+edit → add/edit/delete a split → close modal (badge refreshes) → confirm no
+console errors. Then spot-check `/data/transactions`, `/data/accounts`,
+`/data/categories` for CSS regressions from `tabulator-daisy.css`.
+
+#### 7.6 Wrap-up
+
+- Re-run `just lint`, `just test`, the feature UI tests, and `nix build`.
+- Mark Phase 7 ✅ in the status table, replace “Highest-value next work” with a
+  post-hardening note, and record the final UI-suite numbers + cluster outcome.
+- Commit the phase (user pushes; nothing is committed by the agent unless
+  asked). Keep the `flake.lock` bump in its own commit or drop it.
+
+#### 7.7 Acceptance criteria
+
+- `just lint` and `just test` green; `nix build .#pipances` succeeds with both
+  new scripts in the static store.
+- `tests/ui/test_inbox_tabulator.py` green; every remaining `tests/ui` failure
+  is either fixed or listed with a confirmed non-feature cause.
+- Manual pass completes with no console errors and no `/data` visual
+  regressions.
+- Plan doc reflects reality (counts, commit hashes, final decision).
+
+#### 7.8 Outcome (executed)
+
+**Suite pruning (7.2–7.4) — done.** 32 tests deleted, the remaining failures
+repaired:
+
+- Deleted `tests/ui/test_combobox_popover.py` (5) and
+  `tests/ui/test_inbox_modal_edit.py` (14 — stale `.combo-box` selectors plus a
+  docstring of already-fixed bugs), `test_oob_regressions.py`'s thead-OOB test
+  (1), and 12 of the 15 tests in `test_table_sorting.py`.
+- `test_table_sorting.py` → `tests/ui/test_transactions_table.py` with 3
+  Tabulator wiring tests.
+- `tests/ui/helpers.py`: `inbox_page_label` `span` → `button` (same fix in the
+  two `test_commit_flow.py` pagination tests).
+- `test_inbox_transaction_modal_edit.py`: dropped the wrong-premise
+  `test_edit_description_and_blur_persists` (Tom Select does not keep typed text
+  on blur without selecting) and the copy-pasted garbage in `test_clear_category`;
+  replaced the broken x-button test with a real close assertion.
+- `test_transaction_splits.py`: the delete control is `button[hx-delete]`
+  (renders `✕`, not `x`); split category is driven through
+  `tomselect.setValue()` because the native `<select>` is hidden; wait for
+  Alpine after each HTMX swap.
+- Removed the now-unused `full_txn` and `txn_with_existing_split` fixtures from
+  `tests/ui/conftest.py` and fixed its stale `reset_db` docstring.
+
+The "old-modal viewport" cluster from 7.2 was a misdiagnosis: after deleting the
+two stale files only 6 failures remained, and they had other causes (wrong test
+premise, copy-paste garbage, stale Tom Select selectors, Alpine timing). **No
+application code changed in this phase** — only tests and docs.
+
+**Final gates:**
+
+- `just lint` — ✅ clean (14 hooks).
+- `just test` — ✅ 212 passed.
+- `nix develop -c just test-ui` — ✅ **53 passed, 0 failed** in 57.5s.
+- `nix build .#pipances` — ✅ builds; `inbox-tabulator.js`,
+  `inbox-tabulator-modal.js`, and `tabulator-daisy.css` all present in the
+  `pipances-static` store.
+
+**Manual pass** (`nix develop -c agent-browser`, throwaway seed on :8097; no
+console errors): load → inline description edit (persisted across reload) →
+modal scalar edits (external + category persisted to the row) → Approve (green
+`txn-approved` highlight, Commit count 1) → Commit dialog → confirm (badge
+20→19, toast, table reload) → Retrain (toast "updated 54 suggestions", ML dots)
+→ modal split add (row badge "1 split" after close) → `/data/transactions` +
+`/data/accounts` spot-check. Range paste is covered by
+`tests/ui/test_inbox_tabulator.py`.
+
+Minor observation left as-is: at a 1280px viewport the inbox's Actions column
+sits at the right edge and needs the table's horizontal scroll. Functional and
+consistent with `layout: "fitColumns"`; not a blocker for replacing `/inbox`.
 
 ## Handoff notes for the next agent
 
@@ -512,9 +675,9 @@ approved rows are unmistakable; no visual regressions to `/data` tables.
 
 The page is fully usable for the core loop: view → inline edit → range paste →
 modal edit → splits → approve → commit → retrain. It is unauthenticated
-single-user, same as the rest of the app. Phases 4, 5 and 6 are committed
-(`84d6205`, `9db0fe4`, `a357f5a`) and so are the two modal dropdown fixes;
-nothing is pushed and the working tree is clean.
+single-user, same as the rest of the app. Phase 7 (hardening) is complete but
+**uncommitted**; phases 0–6 are committed (`d5f8896` … `a357f5a`) and nothing is
+pushed.
 
 ### Recent modal fixes
 
@@ -554,42 +717,38 @@ nix develop -c agent-browser open http://localhost:8097/inbox-tabulator
 
 ### Test status to be aware of
 
-- `just test`: 212 passing (193 at phase 3; +8 phase 4 batch, +4 phase 5 modal,
-  +1 old-modal guard, +2 elsewhere, +4 phase 6 retrain).
-- `tests/ui/test_inbox_tabulator.py`: 6 passing (range paste, modal scalar
-  edit, modal split badge, dropdown above the dialog, dropdown escapes the
-  scroll container, retrain button contract).
-- `just test-ui`: 36 pre-existing failures remain on this branch and are
-  unrelated to the inbox Tabulator work. They are:
-  - `test_table_sorting` (11): stale locators from the `/data` migration.
-  - `test_combobox_popover` / `test_inbox_modal_edit` /
-    `test_inbox_transaction_modal_edit` / `test_transaction_splits` (22): the
-    old modal's Tom Select input is "outside of the viewport" at the test
-    viewport size.
-  - `test_oob_regressions` (1) and 2 `test_commit_flow` pagination tests:
-    locators expect a `<span>` but `_pagination.jinja2` renders a `<button>`.
-- Phase 3 did fix one real cluster: `tests/ui/conftest.py` fixtures
-  `approvable_txn`, `approvable_txn_with_new_category`, and `bulk_pending_txns`
-  previously set only `description`, but both inboxes require description +
-  external to enable Approve, so `do_approve` always timed out. They now attach
-  an external that is already referenced by an approved transaction.
-  `test_commit_flow.py` went from 1/13 to 11/13 passing.
-- `tests/ui/test_inbox_tabulator.py` covers range paste, the modal and the
-  retrain button. Run it with
+- `just test`: 212 passing (unchanged by phase 7).
+- `tests/ui/` after phase 7's prune: **53 passing, 0 failing** in ~58s (was 50
+  passing / 36 failing). 32 redundant tests were removed; see Phase 7.8.
+- UI tests now cover only our own wiring: 3 Tabulator table tests
+  (`test_transactions_table.py`), the 6 inbox-Tabulator tests, commit flow, row
+  approve, old-modal wiring (`test_inbox_transaction_modal_edit.py`), and the
+  splits stories. Out-of-the-box Tabulator/Tom Select behaviour is deliberately
+  not tested.
+- `tests/ui/test_inbox_tabulator.py` covers range paste, the modal dropdowns
+  and retrain. Run it with
   `nix develop -c uv run pytest tests/ui/test_inbox_tabulator.py -v`
   (the session fixture seeds a throwaway DB and starts uvicorn on :8099).
+- Phase 3 fixed the `conftest.py` fixtures (`approvable_txn`,
+  `approvable_txn_with_new_category`, `bulk_pending_txns`) to attach an external
+  account; phase 7 removed the now-unused `full_txn` and
+  `txn_with_existing_split`.
 
 ### Highest-value next work
 
-Phase 7 (hardening) is all that is left before this can replace `/inbox`:
-confirm the Nix build copies `static/js/pages` (it is copied wholesale), run the
-full UI suite and triage, and do a final manual browser pass. Phases 4-6 are
-complete — do not re-add `clipboardPasteAction` plumbing, a second modal
-bootstrap, or a second retrain code path.
+The feature is complete and hardened. What remains is a product decision, not a
+code task:
 
-Phase 6 shipped the retrain helper (`pipances/retrain.py`), the JSON endpoint,
-the toolbar button, and the CSS pass. Any follow-up styling should keep using
-daisyUI tokens in `tabulator-daisy.css` and must not touch `/data` selectors.
+1. Commit the phase-7 test cleanup (the agent does not commit).
+2. Decide when `/inbox-tabulator` replaces `/inbox`; at that point the old
+   modal, its routes, `test_inbox_transaction_modal_edit.py`,
+   `test_inbox_row_approve.py`, and the old inbox templates can be deleted and
+   the navbar entry renamed.
+3. Only after that, revisit the deferred items in "Out of scope".
+
+Do not re-add `clipboardPasteAction` plumbing, a second modal bootstrap, or a
+second retrain code path — phases 4-6 are complete. Any follow-up styling keeps
+daisyUI tokens inside `tabulator-daisy.css` and leaves `/data` selectors alone.
 
 ## Edge cases / risks
 
@@ -626,5 +785,5 @@ daisyUI tokens in `tabulator-daisy.css` and must not touch `/data` selectors.
 - Filters/header filters, checkboxes, selection toolbar.
 - Editing date, amount, internal account.
 - Persisting the old inbox's stacked-value presentation.
-- Any change to the existing `/inbox` page or the old modal.
-- Fixing the 36 pre-existing UI-test failures (deferred decision).
+- Any change to the existing `/inbox` page or the old modal (until it is
+  retired; see "Highest-value next work").

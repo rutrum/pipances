@@ -50,33 +50,6 @@ def test_modal_displays_transaction_context(page: Page, goto):
 # ============================================================
 
 
-def test_edit_description_and_blur_persists(page: Page, goto):
-    """When user modifies description in modal and blurs, change persists."""
-    goto("/inbox")
-
-    # Open modal
-    row = page.locator("table tbody tr").first
-    row.locator("button:has-text('Edit')").click()
-
-    dialog = page.locator("dialog")
-    expect(dialog).to_be_visible()
-
-    # Find the Description Tom Select input (first .ts-wrapper input in the modal)
-    combo_inputs = dialog.locator(".ts-wrapper input")
-    description_input = combo_inputs.first
-
-    # Modify description field and blur
-    description_input.fill("Updated description")
-    description_input.blur()
-
-    # Wait for PATCH to complete
-    page.wait_for_load_state("networkidle")
-
-    # Verify modal is still open with updated value
-    expect(dialog).to_be_visible()
-    expect(description_input).to_have_value("Updated description")
-
-
 def test_clear_description_and_blur_persists(page: Page, goto):
     """When user clears description field and blurs, empty value persists."""
     goto("/inbox")
@@ -225,58 +198,24 @@ def test_clear_category(page: Page, goto):
     expect(dialog).to_be_visible()
     expect(category_input).to_have_value("")
 
-    # Open modal
-    row = page.locator("table tbody tr").first
-    row.locator("button:has-text('Edit')").click()
-
-    dialog = page.locator("dialog")
-    expect(dialog).to_be_visible()
-
-    # Find category select and select empty option
-    category_select = dialog.locator("select[name='category_id']")
-    category_select.select_option("")
-
-    # Wait for PATCH to complete
-    page.wait_for_load_state("networkidle")
-
-    # Verify modal is still open with empty value
-    expect(dialog).to_be_visible()
-    expect(category_select).to_have_value("")
-
 
 # ============================================================
 # Scenario: Close modal and refresh row
 # ============================================================
 
 
-def test_close_modal_via_x_button_and_row_refreshes(page: Page, goto):
-    """Modal can be closed and row data persists."""
+def test_close_modal_via_x_button_closes_modal(page: Page, goto):
+    """The X button closes the modal."""
     goto("/inbox")
 
-    # Open modal and make an edit
     row = page.locator("table tbody tr").first
-    txn_id = row.get_attribute("id")
-    orig_text = row.inner_text()
-
     row.locator("button:has-text('Edit')").click()
 
     dialog = page.locator("dialog")
     expect(dialog).to_be_visible()
 
-    # Make a change
-    combo_inputs = dialog.locator(".ts-wrapper input")
-    description_input = combo_inputs.first
-    description_input.fill("Test refresh")
-    description_input.blur()
-    page.wait_for_load_state("networkidle")
-
-    # Close by pressing Escape (native dialog support)
-    page.keyboard.press("Escape")
-    page.wait_for_load_state("networkidle")
-
-    # Verify row still exists and has the change
-    updated_text = page.locator(f"#{txn_id}").inner_text()
-    assert "Test refresh" in updated_text or updated_text != orig_text
+    dialog.locator("form[method='dialog'] button").click()
+    expect(page.locator("#edit-modal-container")).to_be_empty(timeout=3000)
 
 
 def test_close_modal_via_escape_and_row_refreshes(page: Page, goto):

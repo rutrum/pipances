@@ -40,6 +40,17 @@ def remainder_row(split_section):
     return split_section.locator("[data-remainder-row]")
 
 
+def set_split_category(page: Page, select_locator, name: str):
+    """Pick a split category through its Tom Select instance.
+
+    Tom Select hides the native <select>, so Playwright's select_option() cannot
+    drive it. setValue() fires the same onChange path (including the PATCH) as a
+    real selection.
+    """
+    select_locator.evaluate("(el, name) => el.tomselect.setValue(name)", name)
+    page.wait_for_load_state("networkidle")
+
+
 # ============================================================
 # Story A: "Add and remove a split"
 # ============================================================
@@ -76,10 +87,9 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
     # Split row + remainder row should appear
     expect(remainder_row(split_section)).to_be_visible()
 
-    # Set category on the split row to "Groceries" via select
-    split_select = split_section.locator("select[name='category_id']").first
-    split_select.select_option(label="Groceries")
-    page.wait_for_load_state("networkidle")
+    # Set category on the split row to "Groceries"
+    split_select = split_section.locator("[data-split-row] select").first
+    set_split_category(page, split_select, "Groceries")
 
     # --- Close and reopen modal to verify persistence ---
     close_modal(page, txn_id)
@@ -87,13 +97,11 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
     split_section = dialog.locator("#splits-section-" + str(txn_id))
     expect(remainder_row(split_section)).to_be_visible()
     # The select should show Groceries as the selected value
-    first_select = split_section.locator("select[name='category_id']").first
-    expect(first_select).to_have_value("1")
-    first_select.select_option(label="Groceries")
-    page.wait_for_load_state("networkidle")
+    first_select = split_section.locator("[data-split-row] select").first
+    expect(first_select).to_have_value("Groceries")
 
     # --- Delete the split ---
-    delete_btn = split_section.locator("button", has_text="x")
+    delete_btn = split_section.locator("button[hx-delete]")
     delete_btn.click()
     page.wait_for_load_state("networkidle")
 
@@ -128,9 +136,8 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
     expect(remainder_row(split_section)).to_be_visible()
 
     # Category select on the first existing split row
-    split_category = split_section.locator("select[name='category_id']").first
-    split_category.select_option(label="Entertainment")
-    page.wait_for_load_state("networkidle")
+    split_category = split_section.locator("[data-split-row] select").first
+    set_split_category(page, split_category, "Entertainment")
 
     # --- Attempt second split exceeding remainder -> Alpine gate disabled ---
     add_btn = add_split_btn(split_section)
@@ -182,18 +189,23 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     inp = new_amount_input(split_section, txn_id)
     add_btn = add_split_btn(split_section)
 
-    # --- Add $50.00 -> Utilities ---
+    # --- Add $50.00 ---
     inp.fill("50.00")
+    expect(add_btn).to_be_enabled()
     add_btn.click()
     page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(300)  # let Alpine re-initialise the swapped section
 
-    # --- Add $40.00 -> Shopping ---
+    # --- Add $40.00 ---
     inp.fill("40.00")
+    expect(add_btn).to_be_enabled()
     add_btn.click()
     page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(300)
 
-    # --- Add $20.00 -> Entertainment ---
+    # --- Add $20.00 ---
     inp.fill("20.00")
+    expect(add_btn).to_be_enabled()
     add_btn.click()
     page.wait_for_load_state("networkidle")
 
@@ -205,7 +217,7 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     expect(add_btn).to_be_disabled()
 
     # --- Delete the middle split (index 1) ---
-    delete_btns = split_section.locator("button", has_text="x")
+    delete_btns = split_section.locator("button[hx-delete]")
     expect(delete_btns).to_have_count(3)
     delete_btns.nth(1).click()
     page.wait_for_load_state("networkidle")

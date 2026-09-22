@@ -245,5 +245,5 @@ def test_confirm_pagination_total_reflects_remaining(
     remaining_after = remaining_before - 1
     pages = expected_pages(remaining_after, page_size=25)
     expect(
-        page.locator(f"#inbox-pagination span:has-text('Page 1 of {pages}')")
+        page.locator(f"#inbox-pagination button:has-text('Page 1 of {pages}')")
     ).to_be_visible()

@@ -2,8 +2,8 @@
 UI test fixtures: live uvicorn server + seeded database.
 
 The server runs on port 8099 against a temp DB file isolated from the dev DB.
-Each test session gets one seed; tests that mutate state should be marked
-with @pytest.mark.usefixtures("reset_db") or use their own transactions carefully.
+Each test session gets one seed; tests that mutate state use a fixture that
+restores the rows it touched (see `approvable_txn`, `txn_for_splitting`, ...).
 """
 
 import os
@@ -355,61 +355,6 @@ def description_and_external_txn(ui_db):
 
 
 @pytest.fixture
-def full_txn(ui_db):
-    """
-    Pending transaction with description, external, and category all set to known
-    starting values.  Also provides alternate values to change to in sequential tests.
-    Yields a dict with keys: id, description, ext_name, cat_name,
-                             alt_description, alt_ext_name, alt_cat_name.
-    """
-    conn = sqlite3.connect(str(ui_db))
-    exts = conn.execute(
-        "SELECT id, name FROM accounts WHERE kind='external' ORDER BY name LIMIT 2"
-    ).fetchall()
-    cats = conn.execute(
-        "SELECT id, name FROM categories ORDER BY name LIMIT 2"
-    ).fetchall()
-    if len(exts) < 2 or len(cats) < 2:
-        conn.close()
-        pytest.skip("Not enough external accounts or categories in DB")
-    ext1_id, ext1_name = exts[0]
-    ext2_id, ext2_name = exts[1]
-    cat1_id, cat1_name = cats[0]
-    cat2_id, cat2_name = cats[1]
-    row = conn.execute(
-        "SELECT id FROM transactions WHERE status='pending' LIMIT 1"
-    ).fetchone()
-    if row is None:
-        conn.close()
-        pytest.skip("No pending transactions available")
-    txn_id = row[0]
-    conn.execute(
-        "UPDATE transactions SET description='Full Test Transaction', external_id=?, category_id=? WHERE id=?",
-        (ext1_id, cat1_id, txn_id),
-    )
-    conn.commit()
-    conn.close()
-
-    yield {
-        "id": txn_id,
-        "description": "Full Test Transaction",
-        "ext_name": ext1_name,
-        "cat_name": cat1_name,
-        "alt_description": "Updated Full Description",
-        "alt_ext_name": ext2_name,
-        "alt_cat_name": cat2_name,
-    }
-
-    conn = sqlite3.connect(str(ui_db))
-    conn.execute(
-        "UPDATE transactions SET description=NULL, external_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
-        (txn_id,),
-    )
-    conn.commit()
-    conn.close()
-
-
-@pytest.fixture
 def txn_for_splitting(ui_db):
     """
     Pick the pending Target transaction (-$125.00, TGT #2847) and set
@@ -450,34 +395,5 @@ def txn_for_splitting(ui_db):
         "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
         (txn_id,),
     )
-    conn.commit()
-    conn.close()
-
-
-@pytest.fixture
-def txn_with_existing_split(ui_db, txn_for_splitting):
-    """
-    Like txn_for_splitting, but also pre-inserts one split ($30.00, Groceries).
-    Yields {txn_id, amount_cents, split_id, split_amount_cents}.
-    """
-    conn = sqlite3.connect(str(ui_db))
-    cat = conn.execute(
-        "SELECT id FROM categories WHERE name='Groceries' LIMIT 1"
-    ).fetchone()
-    cat_id = cat[0] if cat else None
-    txn_id = txn_for_splitting["txn_id"]
-
-    conn.execute(
-        "INSERT INTO transaction_splits (transaction_id, category_id, amount_cents) VALUES (?, ?, ?)",
-        (txn_id, cat_id, 3000),
-    )
-    conn.commit()
-    split_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-    conn.close()
-
-    yield {**txn_for_splitting, "split_id": split_id, "split_amount_cents": 3000}
-
-    conn = sqlite3.connect(str(ui_db))
-    conn.execute("DELETE FROM transaction_splits WHERE id=?", (split_id,))
     conn.commit()
     conn.close()
