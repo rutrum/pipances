@@ -10,18 +10,15 @@ from pipances.charts import (
     weekly_spending_chart,
 )
 from pipances.db import DatabaseDep
-from pipances.db.accounts import get_active_internal_accounts, get_external_accounts
-from pipances.db.categories import category_names_with_transactions
 from pipances.db.transactions import (
     VISIBLE_STATUSES,
     apply_filters,
-    fetch_page,
     statuses_where,
     txn_options,
 )
 from pipances.models import Transaction
-from pipances.routes._utils import shared_context, templates
-from pipances.utils import compute_date_range, safe_int
+from pipances.routes._utils import shared_context, static_version, templates
+from pipances.utils import compute_date_range
 
 router = APIRouter()
 
@@ -33,7 +30,9 @@ def _transactions_to_df(transactions) -> pl.DataFrame:
             "date": [t.date for t in transactions],
             "amount_cents": [t.amount_cents for t in transactions],
             "description": [t.description or t.raw_description for t in transactions],
-            "external_name": [t.external.name for t in transactions],
+            "external_name": [
+                t.external.name if t.external else "" for t in transactions
+            ],
             "internal_name": [t.internal.name for t in transactions],
             "category_name": [
                 t.category.name if t.category else "Uncategorized" for t in transactions
@@ -48,24 +47,54 @@ async def explore_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
+    """Server-render Explore: stats + charts for all matching transactions.
+
+    The transaction list is a client-side Tabulator remote table fed by
+    POST /api/transactions/table; date presets and the custom range do
+    full-page navigation so the server-rendered aggregates stay in sync.
+    Name filters (internal/external/category) come from the query string and
+    seed Tabulator's header filters.
+    """
     params = request.query_params
 
     preset = params.get("preset", "ytd")
-    date_from_str = params.get("date_from")
-    date_to_str = params.get("date_to")
-    sort_col = params.get("sort", "date")
-    sort_dir = params.get("dir", "desc")
     internal_filter = params.get("internal", "")
     external_filter = params.get("external", "")
     category_filter = params.get("category", "")
-    page = safe_int(params.get("page"), 1, min_val=1)
-    page_size = safe_int(params.get("page_size"), 25, min_val=1, max_val=100)
 
-    date_from, date_to = compute_date_range(preset, date_from_str, date_to_str)
+    date_from, date_to = compute_date_range(
+        preset, params.get("date_from"), params.get("date_to")
+    )
+
+    preset_ranges = []
+    for key, label in (
+        ("all", "All"),
+        ("ytd", "YTD"),
+        ("last_month", "Last 30 Days"),
+        ("last_3_months", "Last 90 Days"),
+        ("last_year", "Last 365 Days"),
+    ):
+        df, dt = compute_date_range(key, None, None)
+        preset_ranges.append(
+            {
+                "key": key,
+                "label": label,
+                "date_from": str(df) if df else "",
+                "date_to": str(dt) if dt else "",
+            }
+        )
+
+    initial_filter = {}
+    if internal_filter:
+        initial_filter["internal_account.name"] = internal_filter
+    if external_filter:
+        initial_filter["external_account.name"] = external_filter
+    if category_filter:
+        initial_filter["category.name"] = category_filter
 
     async with database.session() as session:
-        # All matching transactions feed the charts/stats (transfers excluded)
-        all_result = await session.execute(
+        # All matching transactions feed the charts/stats (transfers included)
+        result = await session.execute(
             apply_filters(
                 select(Transaction)
                 .where(statuses_where(VISIBLE_STATUSES))
@@ -75,39 +104,12 @@ async def explore_page(
                 internal_filter=internal_filter,
                 external_filter=external_filter,
                 category_filter=category_filter,
-                exclude_transfers=True,
             )
         )
-        all_transactions = all_result.scalars().all()
-
-        # Count + one sorted page for the table
-        txn_page = await fetch_page(
-            session,
-            date_from=date_from,
-            date_to=date_to,
-            internal_filter=internal_filter,
-            external_filter=external_filter,
-            category_filter=category_filter,
-            sort_col=sort_col,
-            sort_dir=sort_dir,
-            page=page,
-            page_size=page_size,
-        )
-        total_count = txn_page.total_count
-        total_pages = txn_page.total_pages
-        page = txn_page.page
-        page_transactions = txn_page.rows
-
-        # Filter dropdowns
-        internal_accounts = [
-            a.name for a in await get_active_internal_accounts(session)
-        ]
-        external_accounts = [a.name for a in await get_external_accounts(session)]
-        category_options = await category_names_with_transactions(session)
+        all_transactions = result.scalars().all()
 
         shared = await shared_context("explore", session)
 
-    # Build stats and charts from all matching transactions
     has_data = len(all_transactions) > 0
     stats = None
     monthly_chart = None
@@ -123,70 +125,18 @@ async def explore_page(
         weekly_chart = weekly_spending_chart(df)
 
     ctx = {
-        # Chart and stats data
         "has_data": has_data,
         "stats": stats,
         "monthly_chart": monthly_chart,
         "top_chart": top_chart,
         "weekly_chart": weekly_chart,
-        # Transaction table data
-        "transactions": page_transactions,
-        # Filters and sorting
         "preset": preset,
         "date_from": str(date_from) if date_from else "",
         "date_to": str(date_to) if date_to else "",
-        "sort": sort_col,
-        "dir": sort_dir,
-        "internal_filter": internal_filter,
-        "external_filter": external_filter,
-        "category_filter": category_filter,
-        "internal_accounts": internal_accounts,
-        "external_accounts": external_accounts,
-        "category_options": category_options,
-        # Pagination
-        "page": page,
-        "page_size": page_size,
-        "total_pages": total_pages,
-        "total_count": total_count,
-        # Table template parameters (for _transaction_table.html)
-        "endpoint": "/explore",
-        "target": "#explore-content",
-        "include_selector": "#explore-filters, #explore-pagination-page-size",
-        "filters_container_id": "explore-filters",
-        "pagination_id": "explore-pagination",
-    }
+        "preset_ranges": preset_ranges,
+        "has_name_filters": bool(initial_filter),
+        "initial_filter": initial_filter,
+        "table_js_version": static_version("js", "pages", "explore-table.js"),
+    } | shared
 
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        content_html = templates.get_template("explore/_explore_content.jinja2").render(
-            ctx
-        )
-        # OOB swap the date range buttons
-        date_range_oob = templates.get_template(
-            "explore/_explore_date_range.jinja2"
-        ).render(
-            {"preset": preset, "date_from": ctx["date_from"], "date_to": ctx["date_to"]}
-        )
-        # OOB swap the hidden filter inputs so they stay in sync
-        filters_oob = (
-            '<div id="explore-filters" hx-swap-oob="outerHTML:#explore-filters">'
-        )
-        filters_oob += f'<input type="hidden" name="sort" value="{sort_col}">'
-        filters_oob += f'<input type="hidden" name="dir" value="{sort_dir}">'
-        if internal_filter:
-            filters_oob += (
-                f'<input type="hidden" name="internal" value="{internal_filter}">'
-            )
-        if external_filter:
-            filters_oob += (
-                f'<input type="hidden" name="external" value="{external_filter}">'
-            )
-        if category_filter:
-            filters_oob += (
-                f'<input type="hidden" name="category" value="{category_filter}">'
-            )
-        filters_oob += "</div>"
-        return HTMLResponse(content_html + date_range_oob + filters_oob)
-
-    ctx |= shared
     return templates.TemplateResponse(request, "pages/explore.jinja2", ctx)

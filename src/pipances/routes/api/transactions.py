@@ -18,9 +18,9 @@ from pipances.routes.api.schemas import (
     AccountItem,
     NamedItem,
     PaginatedTransactions,
-    TabulatorRequest,
     TabulatorResponse,
     TransactionResponse,
+    TransactionsTableRequest,
 )
 from pipances.utils import compute_date_range, escape_like, safe_date, safe_int
 
@@ -73,11 +73,11 @@ async def list_transactions(
     description=(
         "Tabulator-native endpoint: accepts Tabulator's page/size/sorters/filters"
         " body and returns Tabulator's default remote envelope"
-        " (last_page/last_row/data). Used by /data/transactions."
+        " (last_page/last_row/data). Used by /data/transactions and /explore."
     ),
 )
 async def transactions_table(
-    payload: TabulatorRequest,
+    payload: TransactionsTableRequest,
     database: DatabaseDep,
 ):
     async with database.session() as session:
@@ -85,6 +85,9 @@ async def transactions_table(
             session,
             date_from=safe_date(payload.date_from),
             date_to=safe_date(payload.date_to),
+            internal_filter=payload.internal or None,
+            external_filter=payload.external or None,
+            category_filter=payload.category or None,
             sorters=[s.model_dump() for s in payload.sort],
             tabulator_filters=[f.model_dump() for f in payload.filter],
             page=max(payload.page, 1),

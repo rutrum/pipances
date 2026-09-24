@@ -371,16 +371,19 @@ def txn_for_splitting(ui_db):
     ext_id = ext[0] if ext else None
 
     row = conn.execute(
-        "SELECT id FROM transactions WHERE raw_description='TGT #2847' AND amount_cents=-12500 AND status='pending' LIMIT 1"
+        "SELECT id, date FROM transactions WHERE raw_description='TGT #2847' AND amount_cents=-12500 AND status='pending' LIMIT 1"
     ).fetchone()
     if row is None:
         conn.close()
         pytest.skip("No suitable Target transaction for split testing")
     txn_id = row[0]
+    orig_date = row[1]
 
-    # Set description + external so the modal is openable
+    # Set description + external so the modal is openable, and force its date
+    # to the epoch so it sorts first in the inbox table (initialSort date asc)
+    # -- the split tests open the modal on the first row.
     conn.execute(
-        "UPDATE transactions SET description='Target Shopping', external_id=? WHERE id=?",
+        "UPDATE transactions SET description='Target Shopping', external_id=?, date='2000-01-01' WHERE id=?",
         (ext_id, txn_id),
     )
     conn.commit()
@@ -392,8 +395,8 @@ def txn_for_splitting(ui_db):
     conn = sqlite3.connect(str(ui_db))
     conn.execute("DELETE FROM transaction_splits WHERE transaction_id=?", (txn_id,))
     conn.execute(
-        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
-        (txn_id,),
+        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending', date=? WHERE id=?",
+        (orig_date, txn_id),
     )
     conn.commit()
     conn.close()

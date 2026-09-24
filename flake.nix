@@ -34,15 +34,15 @@
       flake = false;
     };
     vega-js = {
-      url = "https://cdn.jsdelivr.net/npm/vega@5.33.1/build/vega.min.js";
+      url = "https://cdn.jsdelivr.net/npm/vega@6.4.0/build/vega.min.js";
       flake = false;
     };
     vega-lite-js = {
-      url = "https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js";
+      url = "https://cdn.jsdelivr.net/npm/vega-lite@6.4.3/build/vega-lite.min.js";
       flake = false;
     };
     vega-embed-js = {
-      url = "https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js";
+      url = "https://cdn.jsdelivr.net/npm/vega-embed@7.3.0/build/vega-embed.min.js";
       flake = false;
     };
     alpine-js = {

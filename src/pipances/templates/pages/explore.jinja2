@@ -5,20 +5,116 @@
 {% block content %}
   <div class="container mx-auto p-6">
     <h1 class="text-2xl font-bold mb-4">Explore</h1>
-    {% include "explore/_explore_date_range.jinja2" %}
-    {# Hidden inputs carrying current filter/sort state for HTMX includes #}
-    <div id="explore-filters">
-      <input type="hidden" name="sort" value="{{ sort }}" />
-      <input type="hidden" name="dir" value="{{ dir }}" />
-      {% if internal_filter %}<input type="hidden" name="internal" value="{{ internal_filter }}" />{% endif %}
-      {% if external_filter %}<input type="hidden" name="external" value="{{ external_filter }}" />{% endif %}
-      {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}" />{% endif %}
+    {# Date presets + custom range: full-page navigation keeps the
+       server-rendered stats/charts in sync with the table's date filter. #}
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <div class="join">
+        {% for range in preset_ranges %}
+          <a class="btn join-item {% if preset == range.key %}btn-active{% endif %}"
+             href="/explore?preset={{ range.key }}">{{ range.label }}</a>
+        {% endfor %}
+        <button type="button"
+                class="btn join-item {% if preset == 'custom' %}btn-active{% endif %}"
+                onclick="document.getElementById('explore-custom-range').classList.toggle('hidden')">Custom</button>
+      </div>
+      <form id="explore-custom-range"
+            method="get"
+            action="/explore"
+            class="{% if preset != 'custom' %}hidden{% endif %} flex items-center gap-2">
+        <input type="hidden" name="preset" value="custom" />
+        <input type="date"
+               name="date_from"
+               value="{{ date_from }}"
+               class="input input-sm" />
+        <span>to</span>
+        <input type="date"
+               name="date_to"
+               value="{{ date_to }}"
+               class="input input-sm" />
+        <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+      </form>
     </div>
-    {# Vega-Embed scripts #}
-    <script src="/static/js/external/vega.min.js"></script>
-    <script src="/static/js/external/vega-lite.min.js"></script>
-    <script src="/static/js/external/vega-embed.min.js"></script>
-    {# Main content area (stats + charts + table) #}
-    <div id="explore-content">{% include "explore/_explore_content.jinja2" %}</div>
+    {% if not has_data %}
+      <div class="alert alert-info">
+        <span>No transactions match the current filters.</span>
+        {% if preset == 'custom' %}
+          <a class="btn btn-ghost btn-sm"
+             href="/explore?preset=custom&date_from={{ date_from }}&date_to={{ date_to }}">Clear filters</a>
+        {% else %}
+          <a class="btn btn-ghost btn-sm" href="/explore?preset={{ preset }}">Clear filters</a>
+        {% endif %}
+      </div>
+    {% else %}
+      {# Stats Row #}
+      <div class="stats shadow w-full mb-6">
+        <div class="stat">
+          <div class="stat-title">Income</div>
+          <div class="stat-value text-success">${{ "%.2f"|format(stats.total_income / 100) }}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Expenses</div>
+          <div class="stat-value text-error">${{ "%.2f"|format(stats.total_expenses / 100) }}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Net</div>
+          <div class="stat-value {% if stats.net >= 0 %}text-success{% else %}text-error{% endif %}">
+            ${{ "%.2f"|format(stats.net / 100) }}
+          </div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Transactions</div>
+          <div class="stat-value">{{ stats.count }}</div>
+        </div>
+      </div>
+      {# Monthly Income vs Expenses — full width #}
+      <div class="card bg-base-100 shadow mb-6">
+        <div class="card-body">
+          <div id="monthly-chart" data-spec='{{ monthly_chart }}'></div>
+        </div>
+      </div>
+      {# Two-column grid: Top Expenses + Weekly Trend #}
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <div id="top-expenses-chart" data-spec='{{ top_chart }}'></div>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <div id="weekly-chart" data-spec='{{ weekly_chart }}'></div>
+          </div>
+        </div>
+      </div>
+      {# Vega-Embed scripts + chart rendering #}
+      <script src="/static/js/external/vega.min.js"></script>
+      <script src="/static/js/external/vega-lite.min.js"></script>
+      <script src="/static/js/external/vega-embed.min.js"></script>
+      <script>
+          (function() {
+              const embedOpts = {
+                  actions: false,
+                  renderer: "svg"
+              };
+              ["monthly-chart", "top-expenses-chart", "weekly-chart"].forEach(
+                  function(id) {
+                      const el = document.getElementById(id);
+                      if (el && el.dataset.spec) {
+                          vegaEmbed("#" + id, JSON.parse(el.dataset.spec), embedOpts);
+                      }
+                  }
+              );
+          })();
+      </script>
+    {% endif %}
+    {# Transactions table (Tabulator, fully remote mode) #}
+    <div id="transactions-table-root"
+         data-endpoint="/api/transactions/table"
+         data-date-from="{{ date_from }}"
+         data-date-to="{{ date_to }}"
+         data-initial-filter='{{ initial_filter | tojson }}'>
+      <div id="transactions-table"></div>
+    </div>
+    <script src="/static/js/tables.js?v={{ static_version('js', 'tables.js') }}"></script>
+    <script src="/static/js/pages/explore-table.js?v={{ table_js_version }}"></script>
   </div>
 {% endblock content %}

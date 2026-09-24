@@ -9,7 +9,6 @@ from fastapi.staticfiles import StaticFiles
 from pipances.db import Database
 from pipances.routes.api.accounts import router as api_accounts_router
 from pipances.routes.api.categories import router as api_categories_router
-from pipances.routes.api.explore import router as api_explore_router
 from pipances.routes.api.importers import router as api_importers_router
 from pipances.routes.api.imports import router as api_imports_router
 from pipances.routes.api.inbox import router as api_inbox_router
@@ -39,7 +38,6 @@ app.mount(
 )
 
 # JSON API routes (Phase 1: read-only)
-app.include_router(api_explore_router)
 app.include_router(api_accounts_router)
 app.include_router(api_categories_router)
 app.include_router(api_importers_router)

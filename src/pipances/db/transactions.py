@@ -21,7 +21,7 @@ from sqlalchemy import (
     select,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 from sqlalchemy.sql import Select
 
@@ -254,11 +254,17 @@ def apply_filters(
     if date_to is not None:
         query = query.where(Transaction.date <= date_to)
     if internal_filter:
-        query = query.join(Transaction.internal).where(Account.name == internal_filter)
+        _internal = aliased(Account)
+        query = query.join(_internal, Transaction.internal).where(
+            _internal.name == internal_filter
+        )
     if internal_id is not None:
         query = query.where(Transaction.internal_id == internal_id)
     if external_filter:
-        query = query.join(Transaction.external).where(Account.name == external_filter)
+        _external = aliased(Account)
+        query = query.join(_external, Transaction.external).where(
+            _external.name == external_filter
+        )
     if import_id is not None:
         query = query.where(Transaction.import_id == import_id)
     if category_filter == "__uncategorized__":
@@ -280,8 +286,9 @@ def apply_filters(
             Account.name.ilike(f"%{internal_name_filter}%")
         )
     if exclude_transfers:
-        query = query.join(Transaction.external).where(
-            Account.kind == AccountKind.EXTERNAL
+        _transfer_external = aliased(Account)
+        query = query.join(_transfer_external, Transaction.external).where(
+            _transfer_external.kind == AccountKind.EXTERNAL
         )
     return query
 

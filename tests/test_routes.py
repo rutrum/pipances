@@ -1,5 +1,7 @@
 from datetime import date
 
+import pytest
+
 from pipances.models import Account, Transaction
 
 # === Inbox ===
@@ -34,6 +36,49 @@ async def test_inbox_toast_imported_one(client, seed_accounts):
 # === Explore ===
 
 
+@pytest.fixture
+async def seed_explore_txns(session, seed_accounts, seed_categories, seed_import):
+    """Two regular txns plus a Checking<->Savings transfer pair."""
+    checking = seed_accounts["Checking"]
+    savings = seed_accounts["Savings"]
+    rows = [
+        Transaction(
+            import_id=seed_import.id,
+            internal_id=checking.id,
+            external_id=savings.id,
+            raw_description="CHECKING TO SAVINGS",
+            description="Transfer to savings",
+            date=date(2026, 3, 15),
+            amount_cents=50000,
+            status="approved",
+        ),
+        Transaction(
+            import_id=seed_import.id,
+            internal_id=savings.id,
+            external_id=checking.id,
+            raw_description="SAVINGS FROM CHECKING",
+            description="Transfer from checking",
+            date=date(2026, 3, 15),
+            amount_cents=-50000,
+            status="approved",
+        ),
+        Transaction(
+            import_id=seed_import.id,
+            internal_id=checking.id,
+            external_id=None,
+            raw_description="SQ *BLUE BOTTLE",
+            description="Blue Bottle Coffee",
+            date=date(2026, 4, 2),
+            amount_cents=-1234,
+            status="approved",
+            category_id=seed_categories["Dining"].id,
+        ),
+    ]
+    session.add_all(rows)
+    await session.commit()
+    return rows
+
+
 async def test_explore_get_200(client, seed_accounts):
     resp = await client.get("/explore")
     assert resp.status_code == 200
@@ -42,6 +87,69 @@ async def test_explore_get_200(client, seed_accounts):
 async def test_explore_invalid_page(client, seed_accounts):
     resp = await client.get("/explore?page=abc")
     assert resp.status_code == 200
+
+
+async def test_explore_old_api_explore_returns_404(client, seed_accounts):
+    """The deleted /api/explore endpoint must not exist."""
+    resp = await client.get("/api/explore")
+    assert resp.status_code == 404
+
+
+async def test_explore_renders_charts_and_table(client, seed_explore_txns):
+    """Full page renders stats, the Vega embed, and the Tabulator container."""
+    resp = await client.get("/explore?preset=all")
+    assert resp.status_code == 200
+    # Tabulator container with the remote endpoint
+    assert 'id="transactions-table-root"' in resp.text
+    assert 'data-endpoint="/api/transactions/table"' in resp.text
+    assert 'id="transactions-table"' in resp.text
+    assert "explore-table.js" in resp.text
+    # Stats + charts rendered server-side
+    assert "vegaEmbed" in resp.text
+    assert 'id="monthly-chart"' in resp.text
+    # Three matching txns (including the transfer pair) are counted
+    assert '<div class="stat-value">3</div>' in resp.text
+
+
+async def test_explore_no_data_alert(client, seed_accounts):
+    resp = await client.get("/explore")
+    assert "No transactions match the current filters." in resp.text
+
+
+async def test_explore_initial_filter_seed(client, seed_explore_txns):
+    """Query-string name filters seed the table's initialHeaderFilter."""
+    resp = await client.get(
+        "/explore?preset=all&internal=Checking&external=Savings&category=Dining"
+    )
+    assert resp.status_code == 200
+    assert '"internal_account.name": "Checking"' in resp.text
+    assert '"external_account.name": "Savings"' in resp.text
+    assert '"category.name": "Dining"' in resp.text
+
+
+async def test_explore_initial_filter_empty_by_default(client, seed_accounts):
+    resp = await client.get("/explore")
+    assert "data-initial-filter='{}'" in resp.text
+
+
+async def test_explore_transfers_counted_in_stats(client, seed_explore_txns):
+    """Decision 6: transfers are included in stats, not excluded."""
+    resp = await client.get("/explore?preset=all")
+    # Transfer pair contributes +$500.00 income; together with the coffee
+    # purchase, expenses total $-512.34.
+    assert "$500.00" in resp.text
+    assert "$-512.34" in resp.text
+
+
+async def test_explore_custom_range(client, seed_explore_txns):
+    resp = await client.get(
+        "/explore?preset=custom&date_from=2026-03-01&date_to=2026-03-31"
+    )
+    assert resp.status_code == 200
+    assert 'data-date-from="2026-03-01"' in resp.text
+    assert 'data-date-to="2026-03-31"' in resp.text
+    # Only the transfer pair falls inside the custom range
+    assert '<div class="stat-value">2</div>' in resp.text
 
 
 async def test_old_dashboard_returns_404(client, seed_accounts):

@@ -141,6 +141,19 @@ class TabulatorRequest(BaseModel):
     date_to: str | None = None
 
 
+class TransactionsTableRequest(TabulatorRequest):
+    """Body for /api/transactions/table; adds server-side name filters.
+
+    Optional exact-name filters (internal account, external account,
+    category) applied server-side, independent of Tabulator header filters.
+    Used to seed Explore from query params without bespoke dropdowns.
+    """
+
+    internal: str | None = None
+    external: str | None = None
+    category: str | None = None
+
+
 class AccountsTableRequest(TabulatorRequest):
     """Accounts table body; adds the show-closed toggle to the base request."""
 

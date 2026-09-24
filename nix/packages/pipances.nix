@@ -2,6 +2,15 @@
 let
   inherit (inputs) pyproject-nix uv2nix pyproject-build-systems;
 
+  # Vendor JS without dangling sourceMappingURL comments (the .map files are
+  # not bundled, so the comments only produce 404 noise in browser devtools).
+  stripSourcemap =
+    file:
+    pkgs.runCommand (builtins.baseNameOf file) { } ''
+      cp ${file} $out
+      sed -i '/sourceMappingURL/d' $out
+    '';
+
   # Parse uv.lock at evaluation time
   workspace = uv2nix.lib.workspace.loadWorkspace {
     workspaceRoot = ../../.;
@@ -52,16 +61,19 @@ let
       # Copy first-party CSS (tracked in git)
       cp static/css/tabulator-daisy.css $out/static/css/
 
+      # Copy favicon (tracked in git)
+      cp static/favicon.svg $out/static/
+
       # Copy vendor JS from flake inputs
       cp ${inputs.htmx-js} $out/static/js/external/htmx.min.js
       cp ${inputs.htmx-response-targets-js} $out/static/js/external/response-targets.js
-      cp ${inputs.lucide-js} $out/static/js/external/lucide.min.js
-      cp ${inputs.vega-js} $out/static/js/external/vega.min.js
-      cp ${inputs.vega-lite-js} $out/static/js/external/vega-lite.min.js
-      cp ${inputs.vega-embed-js} $out/static/js/external/vega-embed.min.js
+      cp ${stripSourcemap inputs.lucide-js} $out/static/js/external/lucide.min.js
+      cp ${stripSourcemap inputs.vega-js} $out/static/js/external/vega.min.js
+      cp ${stripSourcemap inputs.vega-lite-js} $out/static/js/external/vega-lite.min.js
+      cp ${stripSourcemap inputs.vega-embed-js} $out/static/js/external/vega-embed.min.js
       cp ${inputs.alpine-js} $out/static/js/external/alpine.min.js
-      cp ${inputs.tom-select-js} $out/static/js/external/tom-select.complete.min.js
-      cp ${inputs.tabulator-js} $out/static/js/external/tabulator.min.js
+      cp ${stripSourcemap inputs.tom-select-js} $out/static/js/external/tom-select.complete.min.js
+      cp ${stripSourcemap inputs.tabulator-js} $out/static/js/external/tabulator.min.js
 
       # Copy vendor CSS from flake inputs
       cp ${inputs.tom-select-css} $out/static/css/external/tom-select.min.css

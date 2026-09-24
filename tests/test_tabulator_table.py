@@ -200,3 +200,52 @@ async def test_table_size_capped_at_100(client, seed_txns):
 async def test_table_empty_filters_returns_everything(client, seed_txns):
     resp = await _post(client, filter=[], sort=[])
     assert resp.json()["last_row"] == 4
+
+
+# === Server-side name filters (internal/external/category) ===
+
+
+async def test_table_internal_name_filter(client, seed_txns):
+    resp = await _post(client, internal="Savings")
+    body = resp.json()
+    assert body["last_row"] == 1
+    assert body["data"][0]["internal_account"]["name"] == "Savings"
+
+
+async def test_table_external_name_filter(client, seed_txns):
+    resp = await _post(client, external="Blue Bottle")
+    body = resp.json()
+    assert body["last_row"] == 1
+    assert body["data"][0]["external_account"]["name"] == "Blue Bottle"
+
+
+async def test_table_category_name_filter(client, seed_txns):
+    resp = await _post(client, category="Transport")
+    body = resp.json()
+    assert body["last_row"] == 1
+    assert body["data"][0]["category"]["name"] == "Transport"
+
+
+async def test_table_name_filters_are_exact_matches(client, seed_txns):
+    """Unlike header-filter `like` entries, name filters match exactly."""
+    resp = await _post(client, external="Blue")
+    assert resp.json()["last_row"] == 0
+
+
+async def test_table_name_filters_combine_with_dates(client, seed_txns):
+    resp = await _post(client, external="Green Market", date_from="2026-02-01")
+    body = resp.json()
+    # Groceries (Feb 3) and bus fare (Mar 1), but not the Jan coffee purchase.
+    assert body["last_row"] == 2
+
+
+async def test_table_name_filters_are_anded(client, seed_txns):
+    resp = await _post(client, internal="Checking", category="Dining")
+    body = resp.json()
+    assert body["last_row"] == 1
+    assert body["data"][0]["description"] == "Blue Bottle Coffee"
+
+
+async def test_table_unknown_name_filter_matches_nothing(client, seed_txns):
+    resp = await _post(client, internal="Not An Account")
+    assert resp.json()["last_row"] == 0

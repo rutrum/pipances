@@ -267,37 +267,37 @@
     "vega-embed-js": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-rOzLkTwFpdItHJLjWIpVdH2voaANv+/Wm1ZBX0ZApcQ=",
+        "narHash": "sha256-dqwuHsPQ+l0rubGkrdk+zUIRngjkcNMTGZj4wNFlFcQ=",
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js"
+        "url": "https://cdn.jsdelivr.net/npm/vega-embed@7.3.0/build/vega-embed.min.js"
       },
       "original": {
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js"
+        "url": "https://cdn.jsdelivr.net/npm/vega-embed@7.3.0/build/vega-embed.min.js"
       }
     },
     "vega-js": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-AjCcAjVbblqPa2JjWutf+6TVf+74kyHnKhScwEXKEYI=",
+        "narHash": "sha256-HNvicpIfpr8FCeTCMFHIDSr/Xzd9H1hyvTbXweu2zaY=",
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/vega@5.33.1/build/vega.min.js"
+        "url": "https://cdn.jsdelivr.net/npm/vega@6.4.0/build/vega.min.js"
       },
       "original": {
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/vega@5.33.1/build/vega.min.js"
+        "url": "https://cdn.jsdelivr.net/npm/vega@6.4.0/build/vega.min.js"
       }
     },
     "vega-lite-js": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-kiBlWn//UFjjhubudlGYxiTagZ+WILsw6fd4J1uQdns=",
+        "narHash": "sha256-KYHpIpBrUsl6ueg2I4N5xRm/oLCwILfSq7a6X0s+VLQ=",
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js"
+        "url": "https://cdn.jsdelivr.net/npm/vega-lite@6.4.3/build/vega-lite.min.js"
       },
       "original": {
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js"
+        "url": "https://cdn.jsdelivr.net/npm/vega-lite@6.4.3/build/vega-lite.min.js"
       }
     }
   },
