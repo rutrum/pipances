@@ -48,7 +48,7 @@ Still hand-rolled:
 | 4 | Explore's column filtering is purely Tabulator header filters (Description, Category, External, Internal), the same as `/data/transactions`. No bespoke dropdowns. Query params seed the header filters. |
 | 5 | `POST /api/transactions/table` is extended with optional `internal` / `external` / `category` name filters (see note under Phase 2). |
 | 6 | Transfers are included everywhere. Remove `exclude_transfers=True` from Explore's stats/charts query. |
-| 7 | Import preview data is serialized server-side into a `<script type="application/json">` block; `import-preview-table.js` builds a client-mode Tabulator from it. Duplicate rows keep `line-through opacity-50` via `rowFormatter`. |
+| 7 | Import preview data is serialized server-side into a `data-rows` attribute on the table container; `import-preview-table.js` builds a client-mode Tabulator from it. The container carries no `id` (htmx attribute-settling would wipe Tabulator's classes on dedup re-render). Duplicate rows keep `line-through opacity-50` via `rowFormatter`. |
 
 ### Decision 6 consequence
 
@@ -266,62 +266,168 @@ definition:
 
 ## Phase 3 — Import preview table
 
-### Route
+Phase 1 and 2 are landed (`/inbox`, `/explore`). This phase migrates the last
+hand-rolled table — the CSV preview in the import page — to a client-mode
+Tabulator. It is the smallest phase: one route helper, one template, one new JS
+file, and test updates. The page keeps its HTMX wiring (upload → preview, tab
+switch, account-select → dedup, commit → redirect); only the rendered table
+changes.
 
-Both `import_preview` and `import_preview_dedup` build a JSON-serializable
-payload:
+Everything below lives in `routes/import_page.py`,
+`templates/import/_import_preview.jinja2`, and the new
+`static/js/pages/import-preview-table.js`. `_import_csv.jinja2`,
+`pages/import.jinja2`, and the other import handlers are untouched.
+
+### Route — `routes/import_page.py`
+
+Both `import_preview` and `import_preview_dedup` currently do
+`rows = df.to_dicts()`, mutate each row to add `amount_cents`, and pass raw
+Polars dicts plus a parallel `duplicate_flags` list to the template. Replace
+that with a single helper that builds JSON-safe records:
 
 ```python
-preview_rows = [
-    {
-        "date": str(row["date"]),
-        "amount_cents": row["amount_cents"],
-        "description": row["description"],
-        "duplicate": bool(duplicate_flags[i]) if duplicate_flags else False,
-    }
-    for i, row in enumerate(rows)
-]
+def _preview_rows(
+    rows: list[dict], duplicate_flags: list[bool] | None
+) -> list[dict]:
+    """JSON-safe preview payload: dates are strings, money is integer cents,
+    duplicates are an explicit bool. Polars dicts hold date/Decimal values that
+    tojson cannot serialize, so nothing may pass through untyped."""
+    return [
+        {
+            "date": str(row["date"]),
+            "amount_cents": int(row["amount_cents"]),
+            "description": str(row["description"]),
+            "duplicate": bool(duplicate_flags[i]) if duplicate_flags else False,
+        }
+        for i, row in enumerate(rows)
+    ]
 ```
 
-Pass `preview_rows` to `import/_import_preview.jinja2`. Keep `new_count`,
-`dupe_count`, the status line, the importer/account selects, and the existing
-HTMX wiring (the dedup re-render is the one HTMX surface this plan does not
-touch; converting it to `fetch` + `table.setData()` is a possible follow-up,
-see Out of scope).
+Notes:
 
-### Template
+- **Drop the `amount` key entirely.** `ImportedTransaction.amount` is a
+  `Decimal`; `tojson` only handles `date`/`datetime` via Jinja's default
+  encoder and raises `TypeError` on `Decimal`. Keep only `amount_cents`.
+- `rows` is still `None` when more than one importer matched in
+  `import_preview` (the user must pick an importer + account first). Preserve
+  that: pass `preview_rows=None` in that branch and do not emit the JSON block.
+- Feed the same helper from `import_preview_dedup`, where `duplicate_flags`
+  comes from `preview_dedup`.
 
-Replace the `<table>` with:
+In the template context, replace `rows` / `duplicate_flags` with the single
+`preview_rows` list. Keep `token`, `successes`, `failures`, `auto_importer`,
+`accounts`, `selected_account`, `new_count`, `dupe_count`, and the existing
+HTMX wiring unchanged.
+
+### Template — `templates/import/_import_preview.jinja2`
+
+Keep everything above and below the current `<table>` (importer badges, the
+importer/account selects, the `new/duplicate/total` status line, the
+`#commit-error` div, the Add-to-Inbox submit). Replace the
+`<div class="overflow-x-auto …"><table>…</table></div>` with:
 
 ```html
-<script type="application/json" id="import-preview-data">{{ preview_rows | tojson }}</script>
-<div id="import-preview-table"></div>
-<script src="/static/js/pages/import-preview-table.js?v={{ static_version('js', 'pages', 'import-preview-table.js') }}"></script>
+{% if preview_rows is not none %}
+  <div id="import-preview-summary" class="mb-2 text-sm text-base-content/70">
+    {{ new_count }} new{% if dupe_count %}, {{ dupe_count }} duplicate{% if dupe_count != 1 %}s{% endif %}{% endif %} — {{ preview_rows | length }} total rows
+  </div>
+  {# No id here: htmx attribute-settling restores class/style/width/height on
+     same-id elements after a swap, which wipes Tabulator's classes when the
+     dedup re-render replaces this fragment. A data hook avoids the match. #}
+  <div data-preview-table class="mb-4" data-rows='{{ preview_rows | tojson }}'></div>
+  <script src="/static/js/pages/import-preview-table.js?v={{ static_version('js', 'pages', 'import-preview-table.js') }}"></script>
+{% endif %}
 ```
 
-Dates are stringified in the route, so `tojson` only sees plain values. The
-script tag must stay inside the swapped fragment so it re-runs on each dedup
-re-render.
+- The JSON lives in the container's `data-rows` attribute, not an inline
+  `<script type="application/json">`. `format_js = true` in
+  `[tool.djlint]` mangles `{{ }}` inside `<script>` tags (the same reason the
+  Explore chart specs moved to `data-spec` in Phase 2). Attribute values are
+  left alone. `{{ preview_rows | tojson }}` escapes `'`, `<`, `>`, `&`, so a
+  single-quoted attribute is safe.
+- The container is selected by a **data hook, not an id**. On the dedup
+  re-render an element with the same id already exists, so htmx's
+  attribute-settling (`attributesToSettle: [class, style, width, height]`)
+  restores the new node's pre-script attributes ~20 ms after the swap,
+  stripping the `tabulator` class and Tabulator's inline widths — the table
+  renders briefly then jumps to unstyled text with missing headers. With no
+  id there is no same-id match and nothing is restored. (The first upload has
+  no prior node, which is why it always looked correct.)
+- The JS `<script>` must stay **inside** the `#csv-preview` fragment: HTMX
+  executes `<script>` elements in swapped content, so it re-runs on every
+  dedup re-render. Do not hoist it into `pages/import.jinja2` or it goes
+  stale after the first account change.
+- The dedup response replaces `#csv-preview` wholesale, so the old container
+  is destroyed with it — no `table.destroy()` bookkeeping needed. The script
+  still guards with `data-initialized` so a stray re-execution is a no-op.
+- `preview_rows` contains only str/int/bool, so `tojson` is safe.
 
-### JS
+`static_version` is already a Jinja global (`routes/_utils.py`) used the same
+way for `tables.js` / `explore-table.js`; no route context change is needed.
 
-`static/js/pages/import-preview-table.js`:
+### JS — `static/js/pages/import-preview-table.js`
 
-- Parse `#import-preview-data`; bail if the container or JSON is missing.
-- `new Tabulator(container, { data, layout: "fitColumns", height: "24rem",
-  placeholder: "No rows", columns: [Date, Amount (money formatter),
-  Description], rowFormatter: line-through/opacity for`duplicate`})`.
-- Local mode only (client sort/filter). Optionally add a `Duplicate` badge
-  column for clarity.
+New file, matching the IIFE style of `explore-table.js`:
+
+- `document.querySelector("[data-preview-table]")`; bail if missing or if
+  `data-initialized` is set.
+- `JSON.parse(container.dataset.rows || "[]")` inside a try/catch; bail if
+  the result is not an array.
+- Build a **client-mode** (no `ajaxURL`) Tabulator:
+  - `data: rows`, `layout: "fitColumns"`, `height: "24rem"`,
+    `placeholder: "No rows"`;
+  - columns: `Date` (`field: "date"`, width ~130), `Amount`
+    (`field: "amount_cents"`, `hozAlign: "right"`, width ~130, custom
+    formatter `sign + "$" + (abs(cents) / 100).toFixed(2)` — keeps integer
+    cents, no float in the payload), `Description` (`field: "description"`);
+  - `rowFormatter`: `row.getElement().classList.toggle("line-through",
+    row.getData().duplicate === true)` plus `opacity-50`, preserving the
+    current duplicate styling.
+- Local sort/filter only (default Tabulator modes); no pagination, no header
+  filters needed. Optionally add a small `Duplicate` badge column for clarity,
+  but the strike-through is the required behavior.
 
 ### Tests
 
-- `tests/test_import.py` / `tests/test_routes.py`: assert
-  `#import-preview-table` and `import-preview-table.js` appear in the preview
-  response, and that `import-preview-data` parses to the expected row count and
-  duplicate flags.
-- Optional UI test: upload a fixture CSV, assert rows render and duplicates get
-  the strike-through class.
+`tests/test_import.py`:
+
+- Add a module-level `_extract_preview_rows(resp)` helper that regexes
+  `data-rows='(.*?)'` and `json.loads` it.
+- `test_preview_valid_csv_returns_200` keeps passing (`Coffee`/`Refund` now
+  live in the data attribute) but tighten it: assert `data-preview-table` and
+  `import-preview-table.js` are present, then parse the payload and assert the
+  row count and that `amount_cents` is `1999` / `-4567` and `duplicate is
+  False`.
+- Rewrite `test_dedup_endpoint_shows_strikethrough` → e.g.
+  `test_dedup_endpoint_flags_duplicates`: `line-through` is now applied
+  client-side by `rowFormatter`, so the server response no longer contains that
+  string. Parse the payload from the dedup response and assert the matching
+  row has `duplicate is True`, `new_count == 0`, `dupe_count == 1`.
+- `test_preview_valid_csv_creates_temp_file` and the commit tests keep relying
+  on the hidden `name="token"` input, which stays.
+
+`tests/test_routes.py`:
+
+- `test_import_preview_missing_file` and
+  `test_import_preview_does_not_leak_internals` are unaffected (error paths do
+  not render the preview).
+- Add `test_import_preview_renders_tabulator`: a successful preview contains
+  `data-preview-table`, `data-rows='`, and `import-preview-table.js`.
+
+Optional UI test (`tests/ui/`): none exists for the import page today. If one
+is added, upload a fixture CSV, `expect` rows to render, and assert the
+strike-through class lands on the duplicate row — matching the `expect(...)`
+polling style used by the other UI tests, not `networkidle`.
+
+### Phase 3 exit criteria
+
+- `/import` CSV preview renders a client-side Tabulator with the same three
+  columns, the same new/duplicate summary, and strike-through duplicates.
+- Account-select dedup re-render still rebuilds the table correctly, and the
+  table stays styled (no htmx settle wipe).
+- Commit still redirects to `/inbox?toast=upload_success&…`.
+- `rg "_import_preview|import-preview" src tests static` shows only the new
+  data hook / JS filename; `just lint` and `just test` clean.
 
 ## Phase 4 — Sweep and dead-code removal
 
@@ -417,6 +523,13 @@ screenshots to `/tmp/agent-browser`:
 - **Script execution in swapped fragments.** HTMX executes `<script>` in swapped
   content, which re-inits the preview table on dedup. Do not hoist the script
   into the outer page or it goes stale after the first account change.
+- **htmx attribute-settling vs widget containers.** htmx restores
+  `class`/`style`/`width`/`height` on swapped nodes that share an `id` with the
+  pre-swap content (`attributesToSettle`). A widget that stamps classes or
+  inline sizes onto its container (Tabulator, Tom Select, charts) will be
+  stripped ~20 ms after any HTMX re-render of the same fragment. Use a `data-*`
+  hook instead of an `id` for containers that live inside re-swapped fragments,
+  or init in `htmx:afterSettle`.
 - **`_splits_section.jinja2` depends on the split routes.** Keep
   `transactions.py`'s split CRUD and `_render_splits_section`; only the
   row/modal/bulk routes are dead.

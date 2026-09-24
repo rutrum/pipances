@@ -70,6 +70,29 @@ async def _get_active_accounts(database: Database) -> Sequence[Account]:
         return await get_active_internal_accounts(session)
 
 
+def _preview_rows(
+    rows: list[dict] | None,
+    duplicate_flags: list[bool] | None,
+) -> list[dict] | None:
+    """Build a JSON-safe preview payload for the Tabulator table.
+
+    Dates become strings and money stays integer cents. Polars rows hold
+    ``date``/``Decimal`` values that ``tojson`` cannot serialize, so nothing may
+    pass through untyped.
+    """
+    if rows is None:
+        return None
+    return [
+        {
+            "date": str(row["date"]),
+            "amount_cents": int(row["amount_cents"]),
+            "description": str(row["description"]),
+            "duplicate": bool(duplicate_flags[i]) if duplicate_flags else False,
+        }
+        for i, row in enumerate(rows)
+    ]
+
+
 @router.get("/import", response_class=HTMLResponse)
 async def import_page(
     request: Request,
@@ -185,9 +208,8 @@ async def import_preview(
                 "successes": successes,
                 "failures": failures,
                 "auto_importer": auto_key,
-                "rows": rows,
+                "preview_rows": _preview_rows(rows, None),
                 "accounts": accounts,
-                "duplicate_flags": None,
                 "new_count": len(rows) if rows else 0,
                 "dupe_count": 0,
             },
@@ -252,10 +274,9 @@ async def import_preview_dedup(
                 "successes": {importer_key: {"name": importer_info.name}},
                 "failures": {},
                 "auto_importer": importer_key,
-                "rows": rows,
+                "preview_rows": _preview_rows(rows, duplicate_flags),
                 "accounts": accounts,
                 "selected_account": account_name,
-                "duplicate_flags": duplicate_flags,
                 "new_count": new_count,
                 "dupe_count": dupe_count,
             },

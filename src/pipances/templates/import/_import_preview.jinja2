@@ -3,7 +3,7 @@
   {% for key, info in successes.items() %}<div class="badge badge-success gap-1 mr-2">{{ info.name }}</div>{% endfor %}
   {% for key, info in failures.items() %}<div class="badge badge-ghost gap-1 mr-2">{{ info.name }}</div>{% endfor %}
 </div>
-{% if rows is not none %}
+{% if preview_rows is not none %}
   <form hx-post="/import/commit"
         hx-target="#commit-error"
         hx-target-422="#commit-error">
@@ -39,34 +39,21 @@
         {% endfor %}
       </select>
     </div>
-    <div class="mb-2 text-sm text-base-content/70">
+    <div id="import-preview-summary" class="mb-2 text-sm text-base-content/70">
       {{ new_count }} new
       {%- if dupe_count -%}
         , {{ dupe_count }} duplicate
         {%- if dupe_count != 1 -%}s{%- endif -%}
         {%- endif %}
-        — {{ rows | length }} total rows
+        — {{ preview_rows | length }} total rows
       </div>
-      <div class="overflow-x-auto mb-4 max-h-96 overflow-y-auto">
-        <table class="table table-zebra table-sm w-full">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in rows %}
-              <tr {% if duplicate_flags and duplicate_flags[loop.index0] %}class="line-through opacity-50"{% endif %}>
-                <td>{{ row.date }}</td>
-                <td>{{ "%.2f" | format(row.amount_cents / 100) }}</td>
-                <td>{{ row.description }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      {# No id here: htmx attribute-settling restores class/style/width/height on
+         same-id elements after a swap, which wipes Tabulator's classes when the
+         dedup re-render replaces this fragment. A data hook avoids the match. #}
+      <div data-preview-table
+           class="mb-4"
+           data-rows='{{ preview_rows | tojson }}'></div>
+      <script src="/static/js/pages/import-preview-table.js?v={{ static_version('js', 'pages', 'import-preview-table.js') }}"></script>
       <div id="commit-error" class="mb-4"></div>
       <button type="submit" class="btn btn-primary">Add to Inbox</button>
     </form>

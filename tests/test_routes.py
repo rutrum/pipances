@@ -175,6 +175,23 @@ async def test_import_preview_missing_file(client, seed_accounts):
     assert resp.status_code == 422
 
 
+async def test_import_preview_renders_tabulator(client, seed_accounts):
+    resp = await client.post(
+        "/import/preview",
+        files={
+            "file": (
+                "test.csv",
+                b"date,amount,description\n2026-01-15,19.99,Coffee\n",
+                "text/csv",
+            )
+        },
+    )
+    assert resp.status_code == 200
+    assert "data-preview-table" in resp.text
+    assert "data-rows='" in resp.text
+    assert "import-preview-table.js" in resp.text
+
+
 async def test_import_commit_unknown_importer(client, seed_accounts):
     resp = await client.post(
         "/import/commit",

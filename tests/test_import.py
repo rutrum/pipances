@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -15,6 +17,13 @@ from pipances.schemas import ImportedTransaction
 
 if TYPE_CHECKING:
     import patito as pt
+
+
+def _extract_preview_rows(resp) -> list[dict]:
+    """Pull the JSON payload out of the preview table's data attribute."""
+    match = re.search(r"data-rows='(.*?)'", resp.text, re.DOTALL)
+    assert match, "preview data attribute not found"
+    return json.loads(match.group(1))
 
 
 # === Helper ===
@@ -105,6 +114,19 @@ async def test_preview_valid_csv_returns_200(client, seed_accounts):
     assert "Coffee" in resp.text
     assert "Refund" in resp.text
     assert 'name="token"' in resp.text
+    assert "data-preview-table" in resp.text
+    assert "import-preview-table.js" in resp.text
+
+    rows = _extract_preview_rows(resp)
+    assert len(rows) == 2
+    assert rows[0] == {
+        "date": "2026-01-15",
+        "amount_cents": 1999,
+        "description": "Coffee",
+        "duplicate": False,
+    }
+    assert rows[1]["amount_cents"] == -4567
+    assert rows[1]["duplicate"] is False
 
 
 async def test_preview_valid_csv_creates_temp_file(client, seed_accounts):
@@ -115,7 +137,6 @@ async def test_preview_valid_csv_creates_temp_file(client, seed_accounts):
     assert resp.status_code == 200
 
     # Extract token and verify the temp file exists
-    import re
 
     from pipances.settings import settings
 
@@ -143,7 +164,6 @@ async def test_commit_valid_flow(client, session, seed_accounts):
     assert resp.status_code == 200
 
     # Extract token from response
-    import re
 
     token_match = re.search(r'name="token"\s+value="([^"]+)"', resp.text)
     assert token_match, "Token not found in preview response"
@@ -176,7 +196,6 @@ async def test_commit_nonexistent_account(client, seed_accounts):
         "/import/preview",
         files={"file": ("test.csv", VALID_CSV, "text/csv")},
     )
-    import re
 
     token_match = re.search(r'name="token"\s+value="([^"]+)"', resp.text)
     assert token_match
@@ -190,7 +209,7 @@ async def test_commit_nonexistent_account(client, seed_accounts):
     assert "not found" in resp.text.lower()
 
 
-async def test_dedup_endpoint_shows_strikethrough(
+async def test_dedup_endpoint_flags_duplicates(
     client, database, session, seed_accounts
 ):
     from pipances.ingest import ingest
@@ -207,7 +226,6 @@ async def test_dedup_endpoint_shows_strikethrough(
         "/import/preview",
         files={"file": ("test.csv", csv_data, "text/csv")},
     )
-    import re
 
     token_match = re.search(r'name="token"\s+value="([^"]+)"', resp.text)
     assert token_match
@@ -219,7 +237,14 @@ async def test_dedup_endpoint_shows_strikethrough(
         data={"token": token, "importer": "example", "account": "Checking"},
     )
     assert resp.status_code == 200
-    assert "line-through" in resp.text
+
+    # The strike-through is applied client-side by Tabulator's rowFormatter, so
+    # the server flags the duplicate in the JSON payload instead.
+    rows = _extract_preview_rows(resp)
+    assert len(rows) == 1
+    assert rows[0]["duplicate"] is True
+    assert "0 new" in resp.text
+    assert "1 duplicate" in resp.text
 
 
 # === 10. Integration Tests: Manual Entry ===
