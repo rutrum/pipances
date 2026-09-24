@@ -2,6 +2,9 @@
 let
   inherit (inputs) pyproject-nix uv2nix pyproject-build-systems;
 
+  # Single source of truth for the app version: pyproject.toml.
+  version = (builtins.fromTOML (builtins.readFile ../../pyproject.toml)).project.version;
+
   # Vendor JS without dangling sourceMappingURL comments (the .map files are
   # not bundled, so the comments only produce 404 noise in browser devtools).
   stripSourcemap =
@@ -41,7 +44,7 @@ let
   # Build static assets (JS from flake inputs + CSS from tailwind)
   staticAssets = pkgs.stdenvNoCC.mkDerivation {
     pname = "pipances-static";
-    version = "0.1.0";
+    inherit version;
     src = ../../.;
 
     nativeBuildInputs = [ pkgs.tailwindcss_4 ];
@@ -87,7 +90,7 @@ let
   # Copy importers directory
   importers = pkgs.stdenvNoCC.mkDerivation {
     pname = "pipances-importers";
-    version = "0.1.0";
+    inherit version;
     src = ../../importers;
 
     installPhase = ''
