@@ -1,25 +1,6 @@
 from datetime import date, timedelta
 
 
-def safe_int(
-    value: str | None,
-    default: int,
-    min_val: int | None = None,
-    max_val: int | None = None,
-) -> int:
-    if value is None:
-        return default
-    try:
-        result = int(value)
-    except (TypeError, ValueError):
-        return default
-    if min_val is not None:
-        result = max(result, min_val)
-    if max_val is not None:
-        result = min(result, max_val)
-    return result
-
-
 def safe_date(value: str | None) -> date | None:
     if not value:
         return None

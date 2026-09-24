@@ -14,13 +14,6 @@ from pipances.db import TablePage
 from pipances.models import Import
 from pipances.utils import escape_like
 
-
-async def get_imports(session: AsyncSession) -> Sequence[Import]:
-    """All import records, most recent first."""
-    result = await session.execute(select(Import).order_by(Import.imported_at.desc()))
-    return result.scalars().all()
-
-
 _IMPORT_SORTS: dict[str, Any] = {
     "institution": Import.institution,
     "filename": Import.filename,

@@ -77,6 +77,12 @@ METHOD_OF = {
     "action": "POST",
 }
 
+#: The opening tag of a form, across newlines.
+FORM_TAG = re.compile(r"<form\b[^>]*>", re.I | re.S)
+
+#: A `+`-joined gap between two string literals, e.g. ` + txnId + `.
+JS_CONCAT = re.compile(r"^\s*\+\s*[^+;]+\+\s*$")
+
 
 # --------------------------------------------------------------------------
 # Jinja -> HTML mirror
@@ -346,9 +352,73 @@ class Hit:
     rule: str
     attr: str
     value: str
+    col: int = 0
+    end: int = 0
 
     def where(self) -> str:
         return f"{self.source}:{self.line}"
+
+
+def merge_js_concatenations(hits: list[Hit], index: dict[str, Mirror]) -> list[Hit]:
+    """Join `"/a/" + x + "/b"` into a single wildcard URL.
+
+    ``js-url`` reports every string literal on its own, so a URL whose middle
+    segment is dynamic arrives as two hits (``"/inbox/transactions/"`` and
+    ``"/edit-modal"``). When only ``+ <expression> +`` separates consecutive
+    literals on a line, they are one URL and the gaps become ``@@``, which
+    ``route_matches`` already treats as a wildcard.
+    """
+    grouped: dict[tuple[str, int], list[Hit]] = defaultdict(list)
+    out: list[Hit] = []
+    for hit in hits:
+        if hit.rule == "js-url" and hit.source.endswith(".js"):
+            grouped[(hit.source, hit.line)].append(hit)
+        else:
+            out.append(hit)
+    if not grouped:
+        return hits
+
+    text_of: dict[str, str] = {}
+    for path, mirror in index.items():
+        if path.endswith(".js"):
+            text_of.setdefault(mirror.source, Path(path).read_text())
+
+    for (source, line), group in grouped.items():
+        group.sort(key=lambda h: h.col)
+        lines = text_of.get(source, "").splitlines()
+        text = lines[line - 1] if 0 < line <= len(lines) else ""
+        if (
+            len(group) > 1
+            and text
+            and all(
+                JS_CONCAT.fullmatch(text[left.end : right.col])
+                for left, right in zip(group, group[1:], strict=False)
+            )
+        ):
+            out.append(replace(group[0], value=DYNAMIC.join(h.value for h in group)))
+        else:
+            out.extend(group)
+    return sorted(out, key=lambda h: (h.source, h.line, h.rule, h.value))
+
+
+def declared_form_method(hit: Hit, sources: dict[str, str]) -> str | None:
+    """The ``method`` of the ``<form>`` that owns an ``action=`` hit, if any."""
+    text = sources.get(hit.source)
+    if text is None:
+        return None
+    offset = sum(len(line) + 1 for line in text.splitlines()[: hit.line - 1])
+    tag = next(
+        (
+            match
+            for match in FORM_TAG.finditer(text)
+            if match.start() <= offset <= match.end()
+        ),
+        None,
+    )
+    if tag is None:
+        return None
+    method = re.search(r"""\bmethod\s*=\s*["']?(\w+)""", tag.group(0), re.I)
+    return method.group(1).upper() if method else None
 
 
 def scan(mirror_dir: Path, index: dict[str, Mirror]) -> list[Hit]:
@@ -380,10 +450,13 @@ def scan(mirror_dir: Path, index: dict[str, Mirror]) -> list[Hit]:
                 rule=entry["ruleId"],
                 attr=attr,
                 value=value.strip("\"'`"),
+                col=entry["range"]["start"]["column"],
+                end=entry["range"]["end"]["column"],
             )
         )
     # The same partial is mirrored once per page, so collapse duplicates.
-    return sorted(set(hits), key=lambda h: (h.source, h.line, h.rule, h.value))
+    hits = sorted(set(hits), key=lambda h: (h.source, h.line, h.rule, h.value))
+    return merge_js_concatenations(hits, index)
 
 
 # --------------------------------------------------------------------------
@@ -556,6 +629,8 @@ def analyse(
             report.unmatched_urls.append((hit.value, hit))
             continue
         method = METHOD_OF.get(hit.attr)
+        if hit.attr == "action":
+            method = declared_form_method(hit, sources) or method
         if method and not any(method in r.methods for r in matched):
             report.method_mismatch.append((matched[0], hit))
 

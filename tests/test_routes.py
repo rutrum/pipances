@@ -248,12 +248,6 @@ async def test_data_transactions_get_200(client, seed_accounts):
     assert resp.status_code == 200
 
 
-async def test_data_tab_transactions_redirects(client, seed_accounts):
-    resp = await client.get("/data/tab_transactions", follow_redirects=False)
-    assert resp.status_code == 307
-    assert resp.headers["location"] == "/data/transactions"
-
-
 # === Root Redirect ===
 
 

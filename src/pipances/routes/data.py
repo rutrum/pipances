@@ -116,12 +116,6 @@ async def data_transactions_page(
     )
 
 
-@router.get("/data/tab_transactions")
-async def data_tab_transactions_redirect() -> RedirectResponse:
-    """Legacy path for the experimental Tabulator page, kept as a redirect."""
-    return RedirectResponse(url="/data/transactions")
-
-
 # === External Accounts ===
 
 

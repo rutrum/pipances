@@ -64,19 +64,6 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
     return result
 
 
-def txn_page_to_dict(page: TxnPage) -> dict[str, Any]:
-    """Shape a fetched page into the paginated API envelope."""
-    return {
-        "data": [transaction_to_dict(t) for t in page.rows],
-        "pagination": {
-            "page": page.page,
-            "page_size": page.page_size,
-            "total": page.total_count,
-            "total_pages": page.total_pages,
-        },
-    }
-
-
 def tabulator_page_to_dict(page: TxnPage) -> dict[str, Any]:
     """Shape a fetched page into Tabulator's default remote envelope."""
     return tabulator_envelope(

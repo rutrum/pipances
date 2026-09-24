@@ -11,8 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
 from pipances.db import TablePage
-from pipances.db.transactions import VISIBLE_STATUSES, statuses_where
-from pipances.models import Category, Transaction, TransactionStatus
+from pipances.models import Category, Transaction
 from pipances.utils import escape_like
 
 
@@ -33,21 +32,6 @@ async def get_or_create_category(session: AsyncSession, name: str) -> Category:
         session.add(category)
         await session.flush()
     return category
-
-
-async def category_names_with_transactions(
-    session: AsyncSession,
-    statuses: Sequence[TransactionStatus] = VISIBLE_STATUSES,
-) -> Sequence[str]:
-    """Names of categories referenced by at least one transaction with a given status."""
-    result = await session.execute(
-        select(Category.name)
-        .join(Transaction, Transaction.category_id == Category.id)
-        .where(statuses_where(statuses))
-        .distinct()
-        .order_by(Category.name)
-    )
-    return [row[0] for row in result]
 
 
 async def transaction_count_for_category(

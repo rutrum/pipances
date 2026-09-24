@@ -1,6 +1,6 @@
 """JSON API for transactions -- list, single lookup, categories, accounts."""
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
@@ -8,62 +8,21 @@ from pipances.db import DatabaseDep
 from pipances.db.accounts import get_active_internal_accounts, get_external_accounts
 from pipances.db.categories import get_categories
 from pipances.db.transactions import fetch_page, get_txn
-from pipances.models import Account, Category, Transaction
+from pipances.models import Account, Category
 from pipances.routes.api.queries import (
     tabulator_page_to_dict,
     transaction_to_dict,
-    txn_page_to_dict,
 )
 from pipances.routes.api.schemas import (
     AccountItem,
     NamedItem,
-    PaginatedTransactions,
     TabulatorResponse,
     TransactionResponse,
     TransactionsTableRequest,
 )
-from pipances.utils import compute_date_range, escape_like, safe_date, safe_int
+from pipances.utils import escape_like, safe_date
 
 router = APIRouter(prefix="/api", tags=["transactions"])
-
-
-@router.get(
-    "/transactions",
-    response_model=PaginatedTransactions,
-    summary="List all transactions",
-    description=(
-        "Return paginated, filterable, sortable transactions"
-        " (approved + pending). Used by the explore and data/transactions tables."
-    ),
-)
-async def list_transactions(
-    request: Request,
-    database: DatabaseDep,
-):
-    params = request.query_params
-    date_from, date_to = compute_date_range(
-        params.get("preset", "all"),
-        params.get("date_from"),
-        params.get("date_to"),
-    )
-    async with database.session() as session:
-        page = await fetch_page(
-            session,
-            date_from=date_from,
-            date_to=date_to,
-            internal_filter=params.get("internal") or None,
-            external_filter=params.get("external") or None,
-            category_filter=params.get("category") or None,
-            sort_col=params.get("sort", "date"),
-            sort_dir=params.get("dir", "desc"),
-            page=safe_int(params.get("page"), 1, min_val=1),
-            page_size=safe_int(params.get("page_size"), 25, min_val=1, max_val=100),
-            description_filter=params.get("description") or None,
-            category_name_filter=params.get("category_name") or None,
-            external_name_filter=params.get("external_name") or None,
-            internal_name_filter=params.get("internal_name") or None,
-        )
-    return txn_page_to_dict(page)
 
 
 @router.post(
@@ -183,26 +142,3 @@ async def list_external_accounts(
             {"id": a.id, "name": a.name, "kind": a.kind, "active": a.active}
             for a in await get_external_accounts(session)
         ]
-
-
-@router.get(
-    "/descriptions",
-    summary="Search transaction descriptions",
-    description="Return distinct transaction descriptions matching the query.",
-)
-async def search_descriptions(
-    database: DatabaseDep,
-    q: str = Query("", description="Search filter"),
-):
-    async with database.session() as session:
-        query = (
-            select(Transaction.description)
-            .where(Transaction.description.isnot(None))
-            .where(Transaction.description != "")
-            .distinct()
-            .order_by(Transaction.description)
-        )
-        if q:
-            query = query.where(Transaction.description.ilike(f"%{escape_like(q)}%"))
-        result = await session.execute(query.limit(50))
-        return [{"id": d[0], "name": d[0]} for d in result.fetchall() if d[0]]

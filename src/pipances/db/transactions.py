@@ -242,7 +242,6 @@ def apply_filters(
     category_filter: str | None = None,
     internal_id: int | None = None,
     import_id: int | None = None,
-    exclude_transfers: bool = False,
     description_filter: str | None = None,
     category_name_filter: str | None = None,
     external_name_filter: str | None = None,
@@ -284,11 +283,6 @@ def apply_filters(
     if internal_name_filter:
         query = query.join(Transaction.internal).where(
             Account.name.ilike(f"%{internal_name_filter}%")
-        )
-    if exclude_transfers:
-        _transfer_external = aliased(Account)
-        query = query.join(_transfer_external, Transaction.external).where(
-            _transfer_external.kind == AccountKind.EXTERNAL
         )
     return query
 
@@ -495,7 +489,6 @@ async def fetch_page(
     category_filter: str | None = None,
     internal_id: int | None = None,
     import_id: int | None = None,
-    exclude_transfers: bool = False,
     description_filter: str | None = None,
     category_name_filter: str | None = None,
     external_name_filter: str | None = None,
@@ -529,7 +522,6 @@ async def fetch_page(
             category_filter=category_filter,
             internal_id=internal_id,
             import_id=import_id,
-            exclude_transfers=exclude_transfers,
             description_filter=description_filter,
             category_name_filter=category_name_filter,
             external_name_filter=external_name_filter,
