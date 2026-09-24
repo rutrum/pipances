@@ -1,3 +1,4 @@
+import tempfile
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,16 +11,15 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Application paths
-    db_path: Path
-    static_dir: Path
-    importers_dir: Path
-    temp_dir: Path
+    # Application paths. Defaults suit a source checkout; the Nix wrapper,
+    # NixOS module, and container image override them for packaged deployments.
+    db_path: Path = Path("pipances.db")
+    static_dir: Path = Path("static")
+    importers_dir: Path = Path("importers")
+    temp_dir: Path = Path(tempfile.gettempdir())
 
     # Internal structural path (not user-configurable)
-    templates_dir: Path = (
-        Path(__file__).resolve().parent.parent.parent / "src" / "pipances" / "templates"
-    )
+    templates_dir: Path = Path(__file__).resolve().parent / "templates"
 
     # --- Derived properties ---
     @property
