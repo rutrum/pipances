@@ -1,6 +1,6 @@
 """Tests for the Tabulator-based inbox API and page.
 
-Phase 1 covers the read-only remote table endpoint backing /inbox-tabulator.
+Phase 1 covers the read-only remote table endpoint backing /inbox.
 """
 
 from datetime import date
@@ -172,12 +172,12 @@ async def test_inbox_table_page_out_of_range_clamped(client, seed_pending):
     assert len(body["data"]) == 1
 
 
-async def test_inbox_tabulator_page_renders(client, seed_pending):
-    resp = await client.get("/inbox-tabulator")
+async def test_inbox_page_renders(client, seed_pending):
+    resp = await client.get("/inbox")
     assert resp.status_code == 200
-    assert 'id="inbox-tabulator-root"' in resp.text
-    assert 'id="inbox-tabulator"' in resp.text
-    assert "inbox-tabulator.js" in resp.text
+    assert 'id="inbox-root"' in resp.text
+    assert 'id="inbox-table"' in resp.text
+    assert "inbox.js" in resp.text
 
 
 async def test_patch_description_updates_and_clears_ml_confidence(client, seed_pending):
@@ -398,7 +398,7 @@ async def test_page_shows_marked_count(client, seed_pending):
     await client.patch(
         f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
     )
-    resp = await client.get("/inbox-tabulator")
+    resp = await client.get("/inbox")
     assert resp.status_code == 200
     assert 'data-marked-count="1"' in resp.text
 
@@ -563,9 +563,9 @@ async def test_batch_dedupes_repeated_ids(client, seed_pending):
 
 async def test_edit_modal_renders_transaction_context(client, seed_pending):
     txn_id = seed_pending["split"].id
-    resp = await client.get(f"/inbox-tabulator/transactions/{txn_id}/edit-modal")
+    resp = await client.get(f"/inbox/transactions/{txn_id}/edit-modal")
     assert resp.status_code == 200
-    assert 'id="inbox-tabulator-edit-modal"' in resp.text
+    assert 'id="inbox-edit-modal"' in resp.text
     assert f'data-txn-id="{txn_id}"' in resp.text
     assert "KROGER STORE #2" in resp.text
     assert "ts-json-select" in resp.text
@@ -574,29 +574,20 @@ async def test_edit_modal_renders_transaction_context(client, seed_pending):
 
 async def test_edit_modal_shows_current_scalar_values(client, seed_pending):
     txn_id = seed_pending["categorized"].id
-    resp = await client.get(f"/inbox-tabulator/transactions/{txn_id}/edit-modal")
+    resp = await client.get(f"/inbox/transactions/{txn_id}/edit-modal")
     assert '<option value="Groceries run" selected>' in resp.text
     assert '<option value="Groceries" selected>' in resp.text
     assert '<option value="Kroger" selected>' in resp.text
 
 
 async def test_edit_modal_unknown_transaction_is_404(client, seed_pending):
-    resp = await client.get("/inbox-tabulator/transactions/999999/edit-modal")
+    resp = await client.get("/inbox/transactions/999999/edit-modal")
     assert resp.status_code == 404
 
 
 async def test_page_includes_modal_script(client, seed_pending):
-    resp = await client.get("/inbox-tabulator")
-    assert "inbox-tabulator-modal.js" in resp.text
-
-
-async def test_old_modal_route_uses_shared_description_helper(client, seed_pending):
-    """The shared distinct_descriptions helper must not break the old modal."""
-    txn_id = seed_pending["categorized"].id
-    resp = await client.get(f"/transactions/{txn_id}/edit-modal")
-    assert resp.status_code == 200
-    assert f'id="transaction-edit-modal-{txn_id}"' in resp.text
-    assert '<option value="Groceries run" selected>' in resp.text
+    resp = await client.get("/inbox")
+    assert "inbox-modal.js" in resp.text
 
 
 # === Phase 6: retrain ===
@@ -684,9 +675,3 @@ async def test_retrain_updates_suggestions_and_reports_count(client, seed_retrai
     assert row["category"]["name"] == "Groceries"
     assert row["external_account"]["name"] == "Kroger"
     assert row["can_approve"] is True
-
-
-async def test_old_inbox_retrain_route_uses_shared_helper(client, seed_retrain):
-    resp = await client.post("/inbox/retrain", data={"sort": "date", "dir": "asc"})
-    assert resp.status_code == 200
-    assert "updated 3 suggestions" in resp.text

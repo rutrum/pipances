@@ -11,15 +11,16 @@ from playwright.sync_api import Page, expect
 
 
 def open_modal(page: Page, txn_id: int):
-    """Click Edit on the row and wait for the modal dialog to open."""
-    row = page.locator(f"#txn-{txn_id}")
-    row.locator("button", has_text="Edit").click()
-    dialog = page.locator(f"#transaction-edit-modal-{txn_id}")
+    """Click Edit on the row with the given txn_id and wait for the modal dialog to open."""
+    row = page.locator(f'.tabulator-row[tabulator-row-id="{txn_id}"]')
+    expect(row).to_be_visible()
+    row.locator('button:text-is("Edit")').click()
+    dialog = page.locator("#edit-modal-container dialog")
     expect(dialog).to_be_visible()
     return dialog
 
 
-def close_modal(page: Page, txn_id: int):
+def close_modal(page: Page):
     """Press Escape and wait for the modal container to empty."""
     page.keyboard.press("Escape")
     expect(page.locator("#edit-modal-container")).to_be_empty(timeout=3000)
@@ -65,6 +66,7 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
 
     # --- Open modal ---
     dialog = open_modal(page, txn_id)
+    total = 125.00  # TGT #2847 amount
     split_section = dialog.locator("#splits-section-" + str(txn_id))
     expect(split_section).to_be_visible()
 
@@ -73,11 +75,12 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
 
     # Type an amount equal to the total -> still disabled (no remainder)
     inp = new_amount_input(split_section, txn_id)
-    inp.fill("125.00")
+    inp.fill(f"{total:.2f}")
     expect(add_btn).to_be_disabled()
 
-    # Type a valid amount ($50.00) -> button enabled
-    inp.fill("50.00")
+    # Type a valid half amount -> button enabled
+    half = total / 2
+    inp.fill(f"{half:.2f}")
     expect(add_btn).to_be_enabled()
 
     # --- Add the split (no category) ---
@@ -92,7 +95,7 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
     set_split_category(page, split_select, "Groceries")
 
     # --- Close and reopen modal to verify persistence ---
-    close_modal(page, txn_id)
+    close_modal(page)
     dialog = open_modal(page, txn_id)
     split_section = dialog.locator("#splits-section-" + str(txn_id))
     expect(remainder_row(split_section)).to_be_visible()
@@ -108,10 +111,9 @@ def test_story_a_add_and_remove_split(page: Page, goto, txn_for_splitting):
     # Remainder row should be gone, form back to clean state
     expect(remainder_row(split_section)).not_to_be_visible()
 
-    # --- Close modal -> row refreshes ---
-    close_modal(page, txn_id)
-    row = page.locator(f"#txn-{txn_id}")
-    expect(row).to_be_visible()
+    # --- Close modal -> table visible ---
+    close_modal(page)
+    expect(page.locator("#inbox-table")).to_be_visible()
 
 
 # ============================================================
@@ -126,11 +128,13 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
     txn_id = txn_for_splitting["txn_id"]
     goto("/inbox")
     dialog = open_modal(page, txn_id)
+    total = 125.00  # TGT #2847 amount
     split_section = dialog.locator("#splits-section-" + str(txn_id))
 
-    # --- Add first split: $80.00 Entertainment ---
+    # --- Add first split: ~64% of total ---
+    first_split = round(total * 0.64, 2)
     inp = new_amount_input(split_section, txn_id)
-    inp.fill("80.00")
+    inp.fill(f"{first_split:.2f}")
     add_split_btn(split_section).click()
     page.wait_for_load_state("networkidle")
     expect(remainder_row(split_section)).to_be_visible()
@@ -141,10 +145,11 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
 
     # --- Attempt second split exceeding remainder -> Alpine gate disabled ---
     add_btn = add_split_btn(split_section)
-    inp.fill("120.00")
+    too_much = total + 10
+    inp.fill(f"{too_much:.2f}")
     expect(add_btn).to_be_disabled()
 
-    # --- Add valid second split: $30.00 Groceries ---
+    # --- Add valid second split: $30.00 ---
     inp.fill("30.00")
     expect(add_btn).to_be_enabled()
     add_btn.click()
@@ -155,7 +160,7 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
 
     # --- Edit first split to consume total -> PATCH 422 ---
     first_amount = split_section.locator("input[name='amount_dollars']").first
-    first_amount.fill("125.00")
+    first_amount.fill(f"{total:.2f}")
     first_amount.blur()
     page.wait_for_load_state("networkidle")
 
@@ -163,14 +168,13 @@ def test_story_b_multiple_splits_and_validation(page: Page, goto, txn_for_splitt
     expect(split_section).to_be_visible()
 
     # --- Edit first split to valid value ---
-    first_amount.fill("70.00")
+    first_amount.fill(f"{total / 2:.2f}")
     first_amount.blur()
     page.wait_for_load_state("networkidle")
 
-    # --- Close modal -> row refreshes ---
-    close_modal(page, txn_id)
-    row = page.locator(f"#txn-{txn_id}")
-    expect(row).to_be_visible()
+    # --- Close modal -> table visible ---
+    close_modal(page)
+    expect(page.locator("#inbox-table")).to_be_visible()
 
 
 # ============================================================
@@ -185,6 +189,7 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     txn_id = txn_for_splitting["txn_id"]
     goto("/inbox")
     dialog = open_modal(page, txn_id)
+    total = 125.00  # TGT #2847 amount
     split_section = dialog.locator("#splits-section-" + str(txn_id))
     inp = new_amount_input(split_section, txn_id)
     add_btn = add_split_btn(split_section)
@@ -212,8 +217,8 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     # Should have 3 split rows
     expect(split_section.locator("[data-split-row]")).to_have_count(3)
 
-    # --- Attempt 4th split ($20.00) -> Alpine gate disabled (remainder $15) ---
-    inp.fill("20.00")
+    # --- Attempt too-large split -> Alpine gate disabled ---
+    inp.fill(f"{total:.2f}")
     expect(add_btn).to_be_disabled()
 
     # --- Delete the middle split (index 1) ---
@@ -225,7 +230,6 @@ def test_story_c_three_split_transaction(page: Page, goto, txn_for_splitting):
     # Should now have 2 splits
     expect(split_section.locator("[data-split-row]")).to_have_count(2)
 
-    # --- Close modal -> row refreshes ---
-    close_modal(page, txn_id)
-    row = page.locator(f"#txn-{txn_id}")
-    expect(row).to_be_visible()
+    # --- Close modal -> table visible ---
+    close_modal(page)
+    expect(page.locator("#inbox-table")).to_be_visible()

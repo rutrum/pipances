@@ -74,7 +74,7 @@
                             var vals = {};
                             vals[field] = value || '';
                             htmx.ajax('PATCH', el.dataset.tsPatch, {
-                                target: el.dataset.tsTarget || '#txn-' + el.dataset.tsTxnId,
+                                target: el.dataset.tsTarget,
                                 swap: 'outerHTML',
                                 values: vals
                             });
@@ -89,13 +89,6 @@
             lucide.createIcons();
             Alpine.initTree(document.body);
             initTomSelects(evt.detail.elt);
-        });
-        document.addEventListener('htmx:oobAfterSwap', function(e) {
-            lucide.createIcons();
-            initTomSelects(e.detail.target);
-            if (e.detail.target.id === 'toast-container') {
-                e.detail.target.querySelectorAll('.alert').forEach(autoToast);
-            }
         });
         document.querySelectorAll('#toast-container .alert').forEach(autoToast);
         lucide.createIcons();

@@ -1,4 +1,4 @@
-<dialog id="inbox-tabulator-edit-modal" class="modal">
+<dialog id="inbox-edit-modal" class="modal">
   <div class="modal-box w-full max-w-2xl" data-txn-id="{{ txn.id }}">
     <div class="flex justify-between items-center mb-6">
       <h3 class="font-bold text-lg">Edit Transaction</h3>
@@ -32,7 +32,7 @@
       </table>
     </div>
     <!-- Editable scalar fields; wired to the JSON PATCH endpoint by
-         inbox-tabulator-modal.js, not the global HTMX combobox bootstrap. -->
+         inbox-modal.js, not the global HTMX combobox bootstrap. -->
     <div class="space-y-4">
       <div class="form-control w-full">
         <label class="label">

@@ -124,7 +124,7 @@ async def list_inbox_transactions(
     description=(
         "Tabulator-native endpoint: accepts Tabulator's page/size/sort/filter"
         " body and returns Tabulator's default remote envelope"
-        " (last_page/last_row/data). Used by the /inbox-tabulator page."
+        " (last_page/last_row/data). Used by the /inbox page."
     ),
 )
 async def inbox_table(

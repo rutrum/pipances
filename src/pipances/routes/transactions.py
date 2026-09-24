@@ -1,213 +1,19 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 
 from pipances.db import Database, DatabaseDep
-from pipances.db.accounts import (
-    get_external_accounts,
-    get_or_create_external_account,
-)
 from pipances.db.categories import get_categories, get_or_create_category
 from pipances.db.transactions import (
-    distinct_descriptions,
     get_txn,
     remaining_split_capacity,
-    set_txn_category,
-    set_txn_description,
-    set_txn_external,
-    txn_options,
 )
 from pipances.models import (
-    Account,
-    Category,
     Transaction,
     TransactionSplit,
 )
 from pipances.routes._utils import templates
 
 router = APIRouter()
-
-
-@router.patch("/transactions/bulk", response_class=HTMLResponse)
-async def bulk_update_transactions(
-    request: Request,
-    database: DatabaseDep,
-) -> HTMLResponse:
-    form = await request.form()
-    ids = [int(str(i)) for i in form.getlist("ids") if str(i).strip()]
-    if not ids:
-        return HTMLResponse("No IDs provided", status_code=400)
-
-    async with database.session() as session:
-        result = await session.execute(
-            select(Transaction).where(Transaction.id.in_(ids)).options(*txn_options())
-        )
-        transactions = result.scalars().all()
-
-        # Resolve category once if provided
-        category_name = str(form.get("category", "")).strip()
-        category_obj = (
-            await get_or_create_category(session, category_name)
-            if category_name
-            else None
-        )
-
-        # Resolve external account once if provided
-        external_name = str(form.get("external", "")).strip()
-        external_obj = (
-            await get_or_create_external_account(session, external_name)
-            if external_name
-            else None
-        )
-
-        description = str(form.get("description", "")).strip()
-        approve = str(form.get("marked_for_approval", "")).strip()
-
-        for txn in transactions:
-            if description:
-                set_txn_description(txn, description)
-            if category_obj:
-                set_txn_category(txn, category_obj)
-            if external_obj:
-                set_txn_external(txn, external_obj)
-            if approve == "true" and txn.description:
-                txn.marked_for_approval = True
-
-        await session.commit()
-
-        # Re-fetch to get fresh relationships
-        result = await session.execute(
-            select(Transaction).where(Transaction.id.in_(ids)).options(*txn_options())
-        )
-        transactions = result.scalars().all()
-
-    # Return OOB swaps for each affected row
-    html = ""
-    for txn in transactions:
-        row = templates.get_template("inbox/_inbox_row.jinja2").render(
-            {"txn": txn, "oob": True}
-        )
-        html += row
-    return HTMLResponse(html)
-
-
-@router.patch("/transactions/{txn_id}", response_class=HTMLResponse)
-async def update_transaction(
-    txn_id: int,
-    request: Request,
-    database: DatabaseDep,
-) -> Response:
-    form = await request.form()
-    async with database.session() as session:
-        txn = await get_txn(session, txn_id)
-        if txn is None:
-            return HTMLResponse("Not found", status_code=404)
-
-        if "description" in form:
-            set_txn_description(txn, str(form["description"]) or None)
-
-        if "external_id" in form:
-            external_id_val = str(form["external_id"]).strip()
-            external: Account | None = None
-            if external_id_val:
-                # Combo sends the display name; try integer ID first, then name lookup
-                try:
-                    external = await session.get(Account, int(external_id_val))
-                except (ValueError, TypeError):
-                    external = await get_or_create_external_account(
-                        session, external_id_val
-                    )
-            set_txn_external(txn, external)
-
-        if "category_id" in form:
-            category_id_val = str(form["category_id"]).strip()
-            category: Category | None = None
-            if category_id_val:
-                # Combo sends the display name; try integer ID first, then name lookup
-                try:
-                    category = await session.get(Category, int(category_id_val))
-                except (ValueError, TypeError):
-                    category = await get_or_create_category(session, category_id_val)
-            set_txn_category(txn, category)
-
-        if "marked_for_approval" in form:
-            if form["marked_for_approval"] == "toggle":
-                if not txn.marked_for_approval:
-                    # Toggling from unapproved -> approved: validate required fields
-                    if not txn.description or not txn.description.strip():
-                        return HTMLResponse(
-                            "Description is required for approval", status_code=422
-                        )
-                    if not txn.external_id:
-                        return HTMLResponse(
-                            "External account is required for approval", status_code=422
-                        )
-                txn.marked_for_approval = not txn.marked_for_approval
-            elif form["marked_for_approval"] == "true":
-                # Validate that description is not empty
-                if not txn.description or not txn.description.strip():
-                    return HTMLResponse(
-                        "Description is required for approval",
-                        status_code=422,
-                    )
-                txn.marked_for_approval = True
-
-        await session.commit()
-        await session.refresh(txn, ["internal", "external", "category"])
-
-        if "marked_for_approval" in form:
-            # Approval toggle: return just the row.
-            # The modal closes itself via hx-on::after-request on the Approve/Unapprove
-            # button, so no OOB update is needed.
-            return templates.TemplateResponse(
-                request, "inbox/_inbox_row.jinja2", {"txn": txn}
-            )
-
-        # Field update (description, external_id, category_id): return the row
-        # plus an OOB fragment that refreshes the Approve button in the modal.
-        # HTMX ignores the OOB swap when the target element doesn't exist in the DOM.
-        row_html = templates.get_template("inbox/_inbox_row.jinja2").render(
-            {"txn": txn, "oob": False}
-        )
-        btn_html = templates.get_template("shared/_modal_approve_btn.jinja2").render(
-            {"txn": txn}
-        )
-        return HTMLResponse(row_html + btn_html)
-
-
-@router.get("/transactions/{txn_id}/edit-modal", response_class=HTMLResponse)
-async def edit_modal(
-    txn_id: int,
-    request: Request,
-    database: DatabaseDep,
-) -> Response:
-    """Load transaction edit modal with pre-filled form."""
-    async with database.session() as session:
-        txn = await get_txn(session, txn_id, splits=True)
-        if txn is None:
-            return HTMLResponse("Not found", status_code=404)
-
-        # Load all external accounts for dropdown
-        external_accounts = await get_external_accounts(session)
-
-        # Load all categories for dropdown
-        categories = await get_categories(session)
-        categories_data = [{"id": c.id, "name": c.name} for c in categories]
-
-        # Load all distinct descriptions for dropdown
-        descriptions = await distinct_descriptions(session)
-
-        return templates.TemplateResponse(
-            request,
-            "shared/_transaction_edit_modal.jinja2",
-            {
-                "txn": txn,
-                "external_accounts": external_accounts,
-                "categories": categories,
-                "categories_data": categories_data,
-                "descriptions": descriptions,
-            },
-        )
 
 
 async def _render_splits_section(
@@ -345,22 +151,3 @@ async def delete_split(
 
     html = await _render_splits_section(request, txn, database)
     return HTMLResponse(html)
-
-
-@router.get("/transactions/{txn_id}/row", response_class=HTMLResponse)
-async def transaction_row(
-    txn_id: int,
-    request: Request,
-    database: DatabaseDep,
-) -> Response:
-    """Get a single transaction row for refreshing after modal close."""
-    async with database.session() as session:
-        txn = await get_txn(session, txn_id)
-        if txn is None:
-            return HTMLResponse("Not found", status_code=404)
-
-        return templates.TemplateResponse(
-            request,
-            "inbox/_inbox_row.jinja2",
-            {"txn": txn, "oob": False},
-        )

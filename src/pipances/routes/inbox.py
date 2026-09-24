@@ -1,48 +1,18 @@
-from math import ceil
+"""Inbox page (Tabulator-based).
+
+Replaces the old HTMX inbox and the temporary /inbox-tabulator path.
+The upload toast is ported from the original inbox page.
+"""
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 
 from pipances.db import DatabaseDep
-from pipances.db.accounts import get_active_internal_accounts
-from pipances.db.imports import get_imports
-from pipances.db.transactions import (
-    apply_filters,
-    commit_marked_transactions,
-    commit_summary,
-    fetch_page,
-    pending_txn_count,
-    resolve_order,
-    txn_options,
-)
-from pipances.models import (
-    Transaction,
-    TransactionStatus,
-)
-from pipances.retrain import retrain_pending_suggestions
-from pipances.routes._utils import shared_context, templates
-from pipances.utils import safe_date, safe_int
+from pipances.db.transactions import get_txn, marked_txn_count
+from pipances.routes._utils import shared_context, static_version, templates
+from pipances.settings import settings
 
 router = APIRouter()
-
-
-def _render_inbox_pagination(page: int, page_size: int, total_count: int) -> str:
-    """Render inbox pagination with OOB swap attribute."""
-    total_pages = max(1, ceil(total_count / page_size))
-    return templates.get_template("shared/_pagination.jinja2").render(
-        {
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-            "total_count": total_count,
-            "pagination_id": "inbox-pagination",
-            "pagination_url": "/inbox",
-            "pagination_target": "#inbox-table",
-            "pagination_include": "#filter-bar",
-            "oob": True,
-        }
-    )
 
 
 @router.get("/inbox", response_class=HTMLResponse)
@@ -51,57 +21,18 @@ async def inbox_page(
     database: DatabaseDep,
 ) -> Response:
     params = request.query_params
-    date_from_str = params.get("date_from", "").strip()
-    date_to_str = params.get("date_to", "").strip()
-    internal_id = params.get("internal_id", "").strip()
-    import_id = params.get("import_id", "").strip()
-    sort_col = params.get("sort", "date")
-    sort_dir = params.get("dir", "asc")
-    page = safe_int(params.get("page"), 1, min_val=1)
-    page_size = safe_int(params.get("page_size"), 25, min_val=1, max_val=100)
-    internal_id_val = safe_int(internal_id, 0) if internal_id else None
-    import_id_val = safe_int(import_id, 0) if import_id else None
 
     async with database.session() as session:
-        txn_page = await fetch_page(
-            session,
-            statuses=(TransactionStatus.PENDING,),
-            date_from=safe_date(date_from_str),
-            date_to=safe_date(date_to_str),
-            internal_id=internal_id_val,
-            import_id=import_id_val,
-            sort_col=sort_col,
-            sort_dir=sort_dir,
-            page=page,
-            page_size=page_size,
-        )
-        total_count = txn_page.total_count
-        total_pages = txn_page.total_pages
-        page = txn_page.page
-        transactions = txn_page.rows
-
-        # Filter dropdown data
-        internal_accounts = await get_active_internal_accounts(session)
-
-        imports = await get_imports(session)
-
         shared = await shared_context("inbox", session)
+        marked_count = await marked_txn_count(session)
 
     toast = params.get("toast")
     ctx = {
-        "transactions": transactions,
-        "internal_accounts": internal_accounts,
-        "imports": imports,
-        "date_from": date_from_str,
-        "date_to": date_to_str,
-        "internal_id": internal_id,
-        "import_id": import_id,
-        "sort": sort_col,
-        "dir": sort_dir,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": total_pages,
-        "total_count": total_count,
+        "page_size": settings.inbox_default_page_size,
+        "page_size_options": settings.inbox_page_size_options,
+        "marked_count": marked_count,
+        "js_version": static_version("js", "pages", "inbox.js"),
+        "modal_js_version": static_version("js", "pages", "inbox-modal.js"),
         "toast": toast,
         "import_summary": {
             "imported": params.get("imported"),
@@ -112,195 +43,43 @@ async def inbox_page(
         }
         if toast == "upload_success"
         else None,
+        **shared,
     }
-
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        rows = ""
-        for txn in transactions:
-            rows += templates.get_template("inbox/_inbox_row.jinja2").render(
-                {"txn": txn}
-            )
-        pagination_oob = _render_inbox_pagination(page, page_size, total_count)
-        thead_oob = templates.get_template("inbox/_inbox_thead.jinja2").render(
-            {**ctx, "oob": True}
-        )
-        return HTMLResponse(rows + pagination_oob + thead_oob)
-
-    ctx |= shared
     return templates.TemplateResponse(request, "pages/inbox.jinja2", ctx)
 
 
-@router.get("/inbox/commit-summary", response_class=HTMLResponse)
-async def inbox_commit_summary(
+@router.get(
+    "/inbox/transactions/{txn_id}/edit-modal",
+    response_class=HTMLResponse,
+)
+async def inbox_edit_modal(
+    txn_id: int,
     request: Request,
     database: DatabaseDep,
 ) -> Response:
-    async with database.session() as session:
-        summary = await commit_summary(session)
+    """Load the Tabulator inbox edit modal (scalars + splits) for one row."""
+    from pipances.db.accounts import get_external_accounts
+    from pipances.db.categories import get_categories
+    from pipances.db.transactions import distinct_descriptions
 
-    if not summary.count:
-        toast = templates.get_template("shared/_toast.jinja2").render(
-            {
-                "message": "Nothing to commit -- no transactions are approved.",
-                "type": "warning",
-            }
-        )
-        return HTMLResponse("<!-- empty -->" + toast)
+    async with database.session() as session:
+        txn = await get_txn(session, txn_id, splits=True)
+        if txn is None:
+            return HTMLResponse("Not found", status_code=404)
+
+        external_accounts = await get_external_accounts(session)
+        categories = await get_categories(session)
+        categories_data = [{"id": c.id, "name": c.name} for c in categories]
+        descriptions = await distinct_descriptions(session)
 
     return templates.TemplateResponse(
         request,
-        "inbox/_commit_summary.jinja2",
+        "inbox/_inbox_modal.jinja2",
         {
-            "commit_count": summary.count,
-            "new_categories": summary.new_categories,
-            "new_externals": summary.new_externals,
+            "txn": txn,
+            "external_accounts": external_accounts,
+            "categories": categories,
+            "categories_data": categories_data,
+            "descriptions": descriptions,
         },
     )
-
-
-@router.post("/inbox/commit", response_class=HTMLResponse)
-async def commit_inbox(
-    request: Request,
-    database: DatabaseDep,
-) -> Response:
-    async with database.session() as session:
-        committed_count = await commit_marked_transactions(session)
-
-        if not committed_count:
-            toast = templates.get_template("shared/_toast.jinja2").render(
-                {
-                    "message": "Nothing to commit -- no transactions are marked.",
-                    "type": "warning",
-                }
-            )
-            remaining = await session.execute(
-                select(Transaction)
-                .where(Transaction.status == TransactionStatus.PENDING)
-                .options(*txn_options())
-                .order_by(Transaction.date)
-            )
-            rows = ""
-            for txn in remaining.scalars().all():
-                rows += templates.get_template("inbox/_inbox_row.jinja2").render(
-                    {"txn": txn}
-                )
-            return HTMLResponse(rows + toast)
-
-    # Re-render remaining pending transactions (with filters if present)
-    form = await request.form()
-    filter_date_from = str(form.get("date_from", "")).strip()
-    filter_date_to = str(form.get("date_to", "")).strip()
-    filter_internal_id = str(form.get("internal_id", "")).strip()
-    filter_import_id = str(form.get("import_id", "")).strip()
-    page_size = safe_int(str(form.get("page_size")), 25, min_val=1, max_val=100)
-
-    async with database.session() as session:
-        rows_result = await session.execute(
-            apply_filters(
-                select(Transaction)
-                .where(Transaction.status == TransactionStatus.PENDING)
-                .options(*txn_options())
-                .order_by(Transaction.date)
-                .limit(page_size),
-                date_from=safe_date(filter_date_from),
-                date_to=safe_date(filter_date_to),
-                internal_id=safe_int(filter_internal_id, 0)
-                if filter_internal_id
-                else None,
-                import_id=safe_int(filter_import_id, 0) if filter_import_id else None,
-            )
-        )
-        transactions = rows_result.scalars().all()
-
-        # Count all remaining (unfiltered) for badge
-        remaining_count = await pending_txn_count(session)
-
-    badge = templates.get_template("shared/_badge.jinja2").render(
-        {"count": remaining_count}
-    )
-    pagination = _render_inbox_pagination(1, page_size, remaining_count)
-    toast = templates.get_template("shared/_toast.jinja2").render(
-        {
-            "message": f"Committed {committed_count} transaction{'s' if committed_count != 1 else ''}.",
-            "type": "success",
-        }
-    )
-    dialog_clear = '<div id="commit-dialog-container" hx-swap-oob="innerHTML:#commit-dialog-container"></div>'
-    oob = toast + badge + pagination + dialog_clear
-
-    if not transactions:
-        empty = (
-            '<tr><td colspan="6">'
-            '<div class="flex flex-col items-center justify-center py-16 text-base-content/60">'
-            '<p class="text-xl font-semibold mb-2">All cleaned up!</p>'
-            '<p class="mb-4">No pending transactions to review.</p>'
-            '<a href="/import" class="btn btn-primary">Upload transactions</a>'
-            "</div></td></tr>"
-        )
-        return HTMLResponse(empty + oob)
-
-    rows = ""
-    for txn in transactions:
-        rows += templates.get_template("inbox/_inbox_row.jinja2").render({"txn": txn})
-    return HTMLResponse(rows + oob)
-
-
-@router.post("/inbox/retrain", response_class=HTMLResponse)
-async def retrain_inbox(
-    request: Request,
-    database: DatabaseDep,
-) -> Response:
-    # Extract sort parameters from filter bar
-    form_data = await request.form()
-    sort_col = str(form_data.get("sort", "date"))
-    sort_dir = str(form_data.get("dir", "asc"))
-
-    async with database.session() as session:
-        result = await retrain_pending_suggestions(
-            session, sort_col=sort_col, sort_dir=sort_dir
-        )
-
-        if not result.pending_count:
-            toast = templates.get_template("shared/_toast.jinja2").render(
-                {"message": "No pending transactions to retrain.", "type": "warning"}
-            )
-            return HTMLResponse(toast)
-
-        if not result.approved_count:
-            toast = templates.get_template("shared/_toast.jinja2").render(
-                {
-                    "message": "No training data available. Approve some transactions first.",
-                    "type": "warning",
-                }
-            )
-            return HTMLResponse(toast)
-
-        # Re-query so the rendered rows carry the refreshed suggestions.
-        pending = (
-            (
-                await session.execute(
-                    select(Transaction)
-                    .where(Transaction.status == TransactionStatus.PENDING)
-                    .options(*txn_options(import_record=True))
-                    .order_by(resolve_order(sort_col, sort_dir))
-                )
-            )
-            .scalars()
-            .all()
-        )
-
-    toast = templates.get_template("shared/_toast.jinja2").render(
-        {
-            "message": f"Retrained model and updated {result.updated_count} suggestion{'s' if result.updated_count != 1 else ''}.",
-            "type": "success",
-        }
-    )
-
-    rows = ""
-    for txn in pending:
-        rows += templates.get_template("inbox/_inbox_row.jinja2").render(
-            {"txn": txn, "oob": True}
-        )
-
-    return HTMLResponse(rows + toast)

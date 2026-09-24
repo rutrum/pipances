@@ -8,8 +8,8 @@
 (function () {
   "use strict";
 
-  var root = document.getElementById("inbox-tabulator-root");
-  var container = document.getElementById("inbox-tabulator");
+  var root = document.getElementById("inbox-root");
+  var container = document.getElementById("inbox-table");
   if (!root || !container) return;
 
   var editors = window.PipancesEditors;

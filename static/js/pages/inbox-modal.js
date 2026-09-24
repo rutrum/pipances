@@ -250,7 +250,7 @@
   function openModal(txnId) {
     var container = document.getElementById(CONTAINER_ID);
     if (!container) return;
-    fetch("/inbox-tabulator/transactions/" + txnId + "/edit-modal")
+    fetch("/inbox/transactions/" + txnId + "/edit-modal")
       .then(function (response) {
         if (!response.ok) throw new Error("Could not load transaction");
         return response.text();

@@ -91,7 +91,7 @@ def _paste(page: Page, text: str):
 def test_range_paste_persists_across_rows(
     page: Page, goto, live_server, pending_txn_ids
 ):
-    goto("/inbox-tabulator")
+    goto("/inbox")
     expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
 
     _select_description_range(page, 0, 2)
@@ -112,7 +112,7 @@ def test_range_paste_persists_across_rows(
 
 def _open_first_row_modal(page: Page):
     """Click Edit on the first table row and wait for the modal."""
-    page.locator('#inbox-tabulator button:text-is("Edit")').first.click()
+    page.locator('#inbox-table button:text-is("Edit")').first.click()
     dialog = page.locator("#edit-modal-container dialog")
     expect(dialog).to_be_visible()
     return dialog
@@ -121,7 +121,7 @@ def _open_first_row_modal(page: Page):
 def test_modal_scalar_edit_updates_row_and_persists(
     page: Page, goto, live_server, ui_db, pending_txn_ids
 ):
-    goto("/inbox-tabulator")
+    goto("/inbox")
     expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
     _open_first_row_modal(page)
 
@@ -158,7 +158,7 @@ def test_modal_combobox_dropdown_renders_above_dialog(
     """A native modal <dialog> is in the top layer, so a dropdown parented to
     body would be painted behind it (and be unclickable). Assert the dropdown
     is actually the topmost element at the option's position."""
-    goto("/inbox-tabulator")
+    goto("/inbox")
     expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
     _open_first_row_modal(page)
 
@@ -195,7 +195,7 @@ def test_modal_combobox_dropdown_escapes_scroll_container(
     dropdown for the lower (splits) combobox on a short viewport. The dropdown
     is portaled into the dialog with position:fixed, so it must stay on screen."""
     page.set_viewport_size({"width": 800, "height": 460})
-    goto("/inbox-tabulator")
+    goto("/inbox")
     expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
     _open_first_row_modal(page)
 
@@ -239,7 +239,7 @@ def test_modal_combobox_dropdown_escapes_scroll_container(
 def test_modal_add_split_refreshes_table_badge(
     page: Page, goto, live_server, pending_txn_ids
 ):
-    goto("/inbox-tabulator")
+    goto("/inbox")
     expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
     _open_first_row_modal(page)
 
@@ -261,7 +261,7 @@ def test_modal_add_split_refreshes_table_badge(
     expect(page.locator("#edit-modal-container")).to_be_empty(timeout=3000)
 
     # Closing refetches the row, so the category badge shows the split count.
-    expect(page.locator('#inbox-tabulator .badge:text-is("1 split")')).to_be_visible()
+    expect(page.locator('#inbox-table .badge:text-is("1 split")')).to_be_visible()
 
 
 def test_retrain_reports_count_and_refreshes_table(page: Page, goto, live_server):
@@ -271,7 +271,7 @@ def test_retrain_reports_count_and_refreshes_table(page: Page, goto, live_server
     The endpoint itself is covered by the API tests, so it is stubbed here to
     keep the browser test deterministic and free of shared-DB mutation.
     """
-    goto("/inbox-tabulator")
+    goto("/inbox")
     expect(page.locator(DESCRIPTION_CELL).first).to_be_visible()
 
     table_calls = []
