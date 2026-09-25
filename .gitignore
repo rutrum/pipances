@@ -2,8 +2,8 @@
 .opencode
 __pycache__
 
-# Nix-managed symlinks
-daisyui.css
+# Nix-managed build inputs (symlinked from flake inputs)
+nix/vendor/
 result
 
 # Nix-managed vendor assets (symlinked from flake inputs)

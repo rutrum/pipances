@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-25
+
+Packaging fix for the Tabulator tables, plus a consolidation of how Nix-managed static assets are handled.
+
+### Changed
+
+- Nix-managed static assets now come from a single manifest (`nix/lib/assets.nix`) shared by the dev shell and the package, so the two can no longer disagree about what has to exist on disk.
+- The package copies first-party assets wholesale instead of listing them, so new page scripts ship without a Nix change.
+- The daisyUI build input moved from the repository root to `nix/vendor/daisyui.css`.
+
+### Fixed
+
+- Packaged deployments serve `static/js/tables.js` again. The static-asset derivation listed first-party files by hand and omitted it, leaving `window.PipancesTables` undefined and breaking the Data > Transactions and Explore tables.
+
 ## [0.2.0] - 2026-09-24
 
 This release replaces the hand-rolled HTMX table stack with a JSON API and Tabulator tables, and reorganizes the database and configuration layers.

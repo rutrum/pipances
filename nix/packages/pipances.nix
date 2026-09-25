@@ -5,14 +5,8 @@ let
   # Single source of truth for the app version: pyproject.toml.
   version = (builtins.fromTOML (builtins.readFile ../../pyproject.toml)).project.version;
 
-  # Vendor JS without dangling sourceMappingURL comments (the .map files are
-  # not bundled, so the comments only produce 404 noise in browser devtools).
-  stripSourcemap =
-    file:
-    pkgs.runCommand (builtins.baseNameOf file) { } ''
-      cp ${file} $out
-      sed -i '/sourceMappingURL/d' $out
-    '';
+  # Single source of truth for vendored JS/CSS plus the Tailwind build inputs.
+  assets = import ../lib/assets.nix { inherit pkgs inputs; };
 
   # Parse uv.lock at evaluation time
   workspace = uv2nix.lib.workspace.loadWorkspace {
@@ -50,40 +44,29 @@ let
     nativeBuildInputs = [ pkgs.tailwindcss_4 ];
 
     buildPhase = ''
-      # Build CSS
-      ln -sf ${inputs.daisyui-css} daisyui.css
+      # Build CSS. The daisyUI import is a build input, materialised exactly like
+      # every other Nix-managed file rather than special-cased here.
+      ${assets.installBuildInputs {
+        prefix = ".";
+        mode = "symlink";
+      }}
       tailwindcss -i input.css -o static/css/style.css --minify
     '';
 
     installPhase = ''
-      mkdir -p $out/static/js/external $out/static/css/external $out/static/js/pages
+      mkdir -p $out/static
 
-      # Copy built CSS
-      cp static/css/style.css $out/static/css/
+      # First-party assets are copied wholesale rather than enumerated, so a new
+      # table/page script ships without anyone remembering to update this file.
+      # The vendor directories do not exist in the store source (they are
+      # gitignored) and are materialised below.
+      cp -r static/. $out/static/
 
-      # Copy first-party CSS (tracked in git)
-      cp static/css/tabulator-daisy.css $out/static/css/
-
-      # Copy favicon (tracked in git)
-      cp static/favicon.svg $out/static/
-
-      # Copy vendor JS from flake inputs
-      cp ${inputs.htmx-js} $out/static/js/external/htmx.min.js
-      cp ${inputs.htmx-response-targets-js} $out/static/js/external/response-targets.js
-      cp ${stripSourcemap inputs.lucide-js} $out/static/js/external/lucide.min.js
-      cp ${stripSourcemap inputs.vega-js} $out/static/js/external/vega.min.js
-      cp ${stripSourcemap inputs.vega-lite-js} $out/static/js/external/vega-lite.min.js
-      cp ${stripSourcemap inputs.vega-embed-js} $out/static/js/external/vega-embed.min.js
-      cp ${inputs.alpine-js} $out/static/js/external/alpine.min.js
-      cp ${stripSourcemap inputs.tom-select-js} $out/static/js/external/tom-select.complete.min.js
-      cp ${stripSourcemap inputs.tabulator-js} $out/static/js/external/tabulator.min.js
-
-      # Copy vendor CSS from flake inputs
-      cp ${inputs.tom-select-css} $out/static/css/external/tom-select.min.css
-      cp ${inputs.tabulator-css} $out/static/css/external/tabulator.min.css
-
-      # Copy first-party page scripts (tracked in git)
-      cp -r static/js/pages/. $out/static/js/pages/
+      # Vendored JS/CSS from flake inputs, via the shared manifest.
+      ${assets.installServed {
+        prefix = "$out/static";
+        mode = "copy";
+      }}
     '';
   };
 
