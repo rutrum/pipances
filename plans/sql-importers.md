@@ -33,6 +33,8 @@ Agents update this table when their workstream's gate passes.
 | F — detection cutover | done | `ingest.py` is DB-backed and provenance-aware; import routes key on importer `id` and run the selected SQL through `run_importer_sql`, so builder preview and import are the same engine path. Detection is one `run_importers_sql` sweep over the uploaded bytes. `importers/*.py` left in place for G. Deviations recorded below. |
 | G — cleanup | done | Python importer path removed: `importers/`, `importers_dir`, nix derivation, docker env, NixOS option/sandbox/tmpfiles, README + CHANGELOG. `prek.toml`'s `ty check` entry also dropped `importers/` (not in G's listed ownership; `just lint` could not pass otherwise). `nix build` has no `default` attr — `.#pipances` and `.#docker` both build. Deviation recorded below. |
 | H — Playwright | done | `tests/ui/test_importers_builder.py` (13 tests) + `importer_cleanup` fixture in `tests/ui/conftest.py` + `create_importer` helper in `tests/ui/helpers.py`. Full pre-existing UI suite stays green: 26 passed. No source changes needed. |
+| I — builder page extraction | done | Builder moved out of the `/data/importers` modal to dedicated `GET /data/importers/new` and `GET /data/importers/{id}/edit` pages inside the Data layout. List JS and builder JS split (`importers.js` + new `importer-builder.js`); list route no longer ships builder markup. Interface section 7 updated. Gate: `just lint` clean, `just test` 270 passed, full `just test-ui` 28 passed. |
+| J — builder form + staged UX | done | Round 2: preamble removed, header title/actions row, full width, daisyUI 5 `fieldset` forms, `Sample CSV` label; staged sample-to-editor flow with immediate `SELECT * FROM raw` preview, debounced re-runs, never-blank stale grid, save-validates-first + toast on navigation. Preview API gains `result_columns`/`result_rows`. Interface sections 4 + 7 updated. Gate: `just lint` clean, `just test` 271 passed, full `just test-ui` 29 passed. |
 
 ## The seam
 
@@ -40,7 +42,7 @@ Only `importer.parse(blob) -> pl.DataFrame` changes. Everything downstream is
 indifferent to how the DataFrame was produced:
 
 ```
-blob ──▶ DuckDB `raw` (all VARCHAR) ──▶ user SQL ──▶ ImportedTransaction.validate ──▶ ingest()
+blob ──▶ DuckDB `raw` (inferred types) ──▶ user SQL ──▶ ImportedTransaction.validate ──▶ ingest()
                                                             │
                                                             ├─ preview_dedup
                                                             └─ _predict_for_transactions
@@ -58,7 +60,7 @@ settings/nix plumbing.
 | # | Decision |
 |---|---|
 | 1 | DuckDB SQL is the only dialect. Python importers are deleted, no fallback. |
-| 2 | `raw` is loaded with `all_varchar = true` so the user is fully explicit with casts. |
+| 2 | `raw` is loaded with DuckDB type inference; `importer_csv_type_candidates` biases numeric columns to `DECIMAL(38,2)` over `DOUBLE`. |
 | 3 | The `read_csv(...)` load is server-owned; the user writes the `SELECT`/`WITH` that references `raw`. |
 | 4 | The runtime is locked down for accidents, not malice: no local filesystem, no statement mutation, resource caps, timeout. |
 | 5 | Editor is a plain `<textarea>` with a Run button. No CodeMirror/Monaco in v1. |
@@ -69,7 +71,7 @@ settings/nix plumbing.
 | 10 | `ImportedTransaction` keeps the strict `DECIMAL(38,2)` amount type. |
 | 11 | No seeded example importer. |
 | 12 | The importer feature moves off HTMX. New interactions are JSON `/api` calls driven by first-party JS; no new `hx-*` attributes. |
-| 13 | The `/data/importers` page ships the importer list and builder markup on load; no per-step HTML fragment endpoints. |
+| 13 | The `/data/importers` page ships the importer list only; the builder lives on dedicated `/data/importers/new` and `/data/importers/{id}/edit` pages. No per-step HTML fragment endpoints. |
 | 14 | The uploaded sample lives in memory only. Nothing under `importers/` and no temp CSV on disk. |
 | 15 | `Import` records `importer_id`/`importer_name`/`importer_sql` for audit; not surfaced in UI yet. |
 | 16 | User SQL must be exactly one `SELECT`, enforced with `duckdb.extract_statements`, not a string wrap. |
@@ -77,17 +79,13 @@ settings/nix plumbing.
 | 18 | Preview validates the whole file; only the rendered rows are truncated. |
 | 19 | Preview errors are `{stage, message}`. |
 
-## The contract and the "lie"
+## The contract and the `raw` relation
 
-The editor shows a read-only preamble (rendered HTML, not part of the
-submitted SQL):
-
-```sql
--- raw is loaded for you from the uploaded file, every column as VARCHAR:
---   SELECT * FROM read_csv('input_file.csv', all_varchar = true)
-```
-
-The user then writes, e.g.:
+`raw` is server-owned: it is a DuckDB relation built from the uploaded file's
+in-memory bytes, with DuckDB inferring each column's type (`DECIMAL` preferred
+over `DOUBLE` for numerics). No preamble is shown in the editor; the builder
+displays the sniffed raw schema instead. The user
+writes, e.g.:
 
 ```sql
 SELECT
@@ -99,11 +97,10 @@ WHERE "Credit" IS NULL OR "Credit" = ''
 ```
 
 Server-side, `raw` is a DuckDB relation built from the in-memory bytes. The
-user's query is never concatenated with the preamble; the preamble is
-illustrative only. `raw` is in scope like a table, so the user's query may
-start with `WITH`. Validation errors come from `ImportedTransaction.validate`
-after the query runs, so missing columns and wrong types surface as a readable
-message.
+user's query references it directly; there is no illustrative SQL to submit.
+`raw` is in scope like a table, so the user's query may start with `WITH`.
+Validation errors come from `ImportedTransaction.validate` after the query
+runs, so missing columns and wrong types surface as a readable message.
 
 ## Engine: verified in-memory CSV + DuckDB
 
@@ -123,7 +120,12 @@ con.execute("SET disabled_filesystems = 'LocalFileSystem'")
 con.execute("SET lock_configuration = true")
 
 # BytesIO is parsed by DuckDB's sniffer entirely in memory (requires fsspec).
-con.register("raw", con.read_csv(io.BytesIO(blob), all_varchar=True))
+con.register(
+    "raw",
+    con.read_csv(
+        io.BytesIO(blob), auto_type_candidates=settings.importer_csv_type_candidates
+    ),
+)
 
 # Exactly one SELECT, enforced before execution (see "Single statement").
 assert_single_select(user_sql)
@@ -133,7 +135,7 @@ df = con.execute(user_sql).pl()
 Properties, all confirmed by the spike:
 
 - Semicolon-delimited files and files with preamble rows are sniffed correctly.
-- Every column is `VARCHAR`, so the user is explicit.
+- Every column's type is inferred; numerics prefer `DECIMAL(38,2)` over `DOUBLE`.
 - `read_csv('/etc/passwd')` is rejected by the disabled local filesystem.
 - `duckdb.extract_statements()` reports statement count and type, so we require
   exactly one `SELECT` before execution. `SELECT 1; DROP TABLE x` reports two
@@ -248,18 +250,22 @@ on `create_all`.
 ## API and UI: client-side, no HTMX
 
 The `/data/importers` page is an early step of the HTMX-to-JS shift. It does
-not add any `hx-*` attributes. The server renders the page shell, embeds the
-full importer list (including SQL) as JSON, ships the builder modal markup, and
-loads a first-party script. Everything after that is `/api` plus JS.
+not add any `hx-*` attributes. The list page renders the page shell, embeds the
+full importer list (including SQL) as JSON, and loads a first-party script; the
+builder is a separate page that embeds a single importer. Everything after that
+is `/api` plus JS.
 
-### Page: `GET /data/importers`
+### Pages: `GET /data/importers`, `/data/importers/new`, `/data/importers/{id}/edit`
 
-- Renders the list, the builder modal, and `window.__IMPORTERS__ = [...]`
-  (id, name, sql, updated_at) so the client needs no extra fetch to populate
-  the table or open the edit form.
-- Tabulator runs in client mode over the embedded array (no `ajaxURL`), with
-  Edit/Delete action buttons and a "New Importer" button.
-- `static/js/pages/importers.js` owns all state and API calls.
+- The list page renders the Tabulator table and `window.__IMPORTERS__ = [...]`
+  (id, name, sql, updated_at) so the client needs no extra fetch. It ships no
+  builder markup. The Edit action is a link to the edit route; New links to the
+  create route.
+- The builder pages render the form inside the Data layout and embed
+  `window.__IMPORTER__` (the importer in edit mode, `null` in create mode).
+- Tabulator runs in client mode over the embedded array (no `ajaxURL`).
+- `static/js/pages/importers.js` owns the list and delete;
+  `static/js/pages/importer-builder.js` owns the builder and preview.
 
 ### API
 
@@ -276,20 +282,25 @@ receives the CSV bytes, runs the engine on them, and returns:
 
 ```json
 {
-  "raw_columns": [{"name": "Transaction Date", "type": "VARCHAR"}],
-  "raw_rows": [["02/15/2026", null, "2800.00", "EMPLOYER DIRECT DEP"]],
+  "raw_columns": [{"name": "Transaction Date", "type": "DATE"}],
+  "raw_rows": [["2026-02-15", null, "2800.00", "EMPLOYER DIRECT DEP"]],
   "rows": [{"date": "2026-02-15", "amount_cents": -280000, "description": "..."}],
   "total_rows": 4213,
   "truncated": true,
-  "error": null
+  "error": null,
+  "result_columns": [{"name": "date", "type": "DATE"}],
+  "result_rows": [["2026-02-15"]]
 }
 ```
 
 `raw_columns`/`raw_rows` let the user see what the sniffer inferred (and the
-exact column names to quote). `rows` is the transformed, contract-shaped result
-capped at `settings.importer_preview_display_rows` for rendering, while
-`total_rows` reports the full validated count and `truncated` says whether the
-display was cut.
+exact column names to quote). `result_columns`/`result_rows` are the generic
+grid of whatever the user SQL executed, populated whenever the query runs,
+including when contract validation then fails; they are empty on parse/query
+errors. `rows` is the transformed, contract-shaped result capped at
+`settings.importer_preview_display_rows` for rendering, while `total_rows`
+reports the full validated count and `truncated` says whether the display was
+cut. The builder renders `result_columns`/`result_rows` as its main table.
 
 Validation runs against the **whole file**, not the display window. The query
 executes without a `LIMIT`, the full result is validated through
@@ -316,18 +327,21 @@ the endpoint stateless. If iteration cost becomes real, add an in-memory LRU
 keyed by a client-generated sample id (still no disk); that is a follow-up, not
 v1.
 
-### Builder behaviour (`importers.js`)
+### Builder behaviour (`importer-builder.js`)
 
-- State: `editingId`, `sampleFile`.
-- New: opens the modal blank. Edit: opens the modal populated from the embedded
-  list; the sample must be re-selected before Run.
-- Run: `POST /api/importers/preview` with the current SQL and sample; renders
-  the raw schema/rows and the transformed preview (a plain DaisyUI
-  `table table-zebra`, no Tabulator needed for ≤100 rows) or the error.
-- Save: `PATCH` when `editingId` else `POST`; on success update the embedded
-  array and rebuild the Tabulator table. A warning is shown if the last Run
-  errored, but saving still succeeds (decision 9).
-- Delete: `DELETE`, then rebuild the table.
+- State: `editingId`, `sampleFile`, `lastRunError`. The builder is staged:
+  Name and Sample CSV first; the SQL editor and results stay hidden until a
+  sample is picked (decision 8).
+- On file selection the client previews `SELECT * FROM raw`, renders the
+  generic result grid, then reveals the SQL textarea (prefilled with
+  `SELECT * FROM raw` in create mode or the saved SQL in edit mode).
+- Every SQL edit re-runs the preview after a ~500 ms debounce; Run forces an
+  immediate run. A parse/query error keeps the last good grid and tints it
+  stale; a validate error shows its executed grid with a soft warning.
+- Save validates first, then `PATCH` when `editingId` else `POST`; on success
+  it navigates to `/data/importers` with a toast. A warning is shown (and the
+  save still succeeds) if the last Run errored (decision 9).
+- Delete: `DELETE`, then rebuild the list table.
 - The preview table and editor use existing DaisyUI classes; no new styling
   system.
 
@@ -398,7 +412,7 @@ and deletes the Python path.
 ## Test plan
 
 - Engine: `run_importer_sql` on `example.csv` and the split debit/credit Metro
-  CU shape (semicolon/preamble variants); `all_varchar` cast behaviour;
+  CU shape (semicolon/preamble variants); inferred-type/decimal-bias behaviour;
   single-statement rejection; full-file validation catches an error that only
   appears after the display window; validation errors for missing columns,
   wrong types, duplicate output names, and extra columns.

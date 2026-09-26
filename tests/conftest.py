@@ -89,7 +89,7 @@ async def seed_importers(session):
     """
     metro_sql = """
     SELECT
-      CAST(strptime("Transaction Date", '%m/%d/%Y') AS DATE) AS date,
+      CAST("Transaction Date" AS DATE) AS date,
       CASE
         WHEN "Credit" IS NOT NULL THEN CAST("Credit" AS DECIMAL(38,2))
         ELSE -CAST("Debit" AS DECIMAL(38,2))

@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     importer_max_rows: int = 200_000
     importer_preview_display_rows: int = 100
     importer_raw_preview_rows: int = 20
+    # CSV sniffer candidates, applied in order: integers stay integers, then
+    # decimals are preferred over DOUBLE (matching the DECIMAL(38,2) money
+    # contract), then temporal/boolean fallbacks. VARCHAR is always a fallback.
+    importer_csv_type_candidates: list[str] = [
+        "BIGINT",
+        "DECIMAL(38,2)",
+        "DOUBLE",
+        "DATE",
+        "TIMESTAMP",
+        "BOOLEAN",
+    ]
 
 
 settings = Settings()

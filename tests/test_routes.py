@@ -305,6 +305,39 @@ async def test_data_external_accounts_includes_txn_count(
 async def test_data_importers_get_200(client, seed_accounts):
     resp = await client.get("/data/importers")
     assert resp.status_code == 200
+    # The list page no longer carries the builder markup.
+    assert 'id="importer-new"' in resp.text
+    assert 'id="importer-sql"' not in resp.text
+    assert 'id="importer-name"' not in resp.text
+
+
+async def test_data_importer_new_page_renders_builder(client, seed_accounts):
+    resp = await client.get("/data/importers/new")
+    assert resp.status_code == 200
+    assert 'id="importer-name"' in resp.text
+    assert 'id="importer-sql"' in resp.text
+    assert 'id="importer-save"' in resp.text
+    assert "window.__IMPORTER__ = null" in resp.text
+
+
+async def test_data_importer_edit_page_prefills(client, session, seed_accounts):
+    session.add(Importer(name="Example Bank", sql="SELECT 1"))
+    await session.commit()
+
+    listing = await client.get("/api/importers")
+    importer_id = listing.json()[0]["id"]
+
+    resp = await client.get(f"/data/importers/{importer_id}/edit")
+    assert resp.status_code == 200
+    assert 'id="importer-name"' in resp.text
+    assert 'id="importer-sql"' in resp.text
+    assert "Example Bank" in resp.text
+    assert "SELECT 1" in resp.text
+
+
+async def test_data_importer_edit_page_missing_404(client, seed_accounts):
+    resp = await client.get("/data/importers/99999/edit")
+    assert resp.status_code == 404
 
 
 async def test_data_importers_lists_sql(client, session):
@@ -418,15 +451,26 @@ async def test_importer_preview_success(client):
         "total_rows",
         "truncated",
         "error",
+        "result_columns",
+        "result_rows",
     }
     assert body["error"] is None
-    assert body["raw_columns"][0] == {"name": "date", "type": "VARCHAR"}
+    assert body["raw_columns"][0] == {"name": "date", "type": "DATE"}
     assert len(body["raw_rows"]) == 2
     assert body["total_rows"] == 2
     assert body["truncated"] is False
     assert body["rows"] == [
         {"date": "2026-01-15", "amount_cents": 1999, "description": "Coffee"},
         {"date": "2026-01-16", "amount_cents": -500, "description": "Tea"},
+    ]
+    assert body["result_columns"] == [
+        {"name": "date", "type": "DATE"},
+        {"name": "amount", "type": "DECIMAL(38,2)"},
+        {"name": "description", "type": "VARCHAR"},
+    ]
+    assert body["result_rows"] == [
+        ["2026-01-15", "19.99", "Coffee"],
+        ["2026-01-16", "-5.00", "Tea"],
     ]
 
 
@@ -461,12 +505,22 @@ async def test_importer_preview_validate_error_returns_200(client):
     resp = await client.post(
         "/api/importers/preview",
         files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
-        data={"sql": "SELECT * FROM raw"},
+        data={"sql": "SELECT date, description FROM raw"},
     )
     assert resp.status_code == 200
     body = resp.json()
     assert body["error"]["stage"] == "validate"
     assert body["rows"] == []
+    # The query executed, so the generic grid is populated even though the
+    # contract validation failed.
+    assert [c["name"] for c in body["result_columns"]] == [
+        "date",
+        "description",
+    ]
+    assert body["result_rows"] == [
+        ["2026-01-15", "Coffee"],
+        ["2026-01-16", "Tea"],
+    ]
 
 
 async def test_importer_preview_missing_sql_422(client):

@@ -85,7 +85,7 @@ Pipances is configured via environment variables:
 
 Importers are managed at `/data/importers` in the browser: upload a sample CSV,
 write a single DuckDB `SELECT` over the `raw` relation, preview the result, and
-save. `raw` exposes every column of the uploaded file as `VARCHAR`, so casts are
-explicit. The query must return `date`, `amount`, and `description`. Saved SQL
-runs in memory on the server for both preview and real imports; nothing is
-written to disk.
+save. DuckDB infers `raw` column types (numeric columns prefer `DECIMAL` over
+`DOUBLE`), so casts are usually optional. The query must return `date`,
+`amount`, and `description`. Saved SQL runs in memory on the server for both
+preview and real imports; nothing is written to disk.

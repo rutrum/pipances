@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from pipances.db import DatabaseDep
+from pipances.db.importers import get_importer as db_get_importer
 from pipances.db.importers import list_importers as db_list_importers
 from pipances.routes._utils import shared_context, static_version, templates
 from pipances.utils import compute_date_range
@@ -148,7 +149,7 @@ async def data_importers_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
-    """SQL importer list + builder modal (client mode over embedded JSON)."""
+    """SQL importer list (client mode over embedded JSON). No builder markup."""
     async with database.session() as session:
         shared = await shared_context("data", session)
         importers = await db_list_importers(session)
@@ -170,7 +171,61 @@ async def data_importers_page(
     return templates.TemplateResponse(
         request,
         "pages/data.jinja2",
+        _data_page_ctx(
+            "importers",
+            shared,
+            data_content_html=content_html,
+            toast=request.query_params.get("toast"),
+        ),
+    )
+
+
+def _render_importer_builder(
+    request: Request, shared: dict, importer: dict | None
+) -> Response:
+    """Render the builder page content inside the Data layout."""
+    ctx = {
+        "js_version": static_version("js", "pages", "importer-builder.js"),
+        "importer": importer,
+    }
+    content_html = templates.get_template("data/_importer_builder.jinja2").render(ctx)
+    return templates.TemplateResponse(
+        request,
+        "pages/data.jinja2",
         _data_page_ctx("importers", shared, data_content_html=content_html),
+    )
+
+
+@router.get("/data/importers/new", response_class=HTMLResponse)
+async def data_importer_new_page(
+    request: Request,
+    database: DatabaseDep,
+) -> Response:
+    """SQL importer builder in create mode."""
+    async with database.session() as session:
+        shared = await shared_context("data", session)
+
+    return _render_importer_builder(request, shared, None)
+
+
+@router.get("/data/importers/{importer_id}/edit", response_class=HTMLResponse)
+async def data_importer_edit_page(
+    request: Request,
+    importer_id: int,
+    database: DatabaseDep,
+) -> Response:
+    """SQL importer builder in edit mode; 404 when the importer is missing."""
+    async with database.session() as session:
+        shared = await shared_context("data", session)
+        importer = await db_get_importer(session, importer_id)
+
+    if importer is None:
+        raise HTTPException(status_code=404, detail="Importer not found")
+
+    return _render_importer_builder(
+        request,
+        shared,
+        {"id": importer.id, "name": importer.name, "sql": importer.sql},
     )
 
 

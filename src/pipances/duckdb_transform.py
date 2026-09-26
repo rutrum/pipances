@@ -1,9 +1,10 @@
 """DuckDB engine for user-authored SQL importers.
 
 A user writes exactly one ``SELECT`` over a server-owned ``raw`` relation. The
-``raw`` relation is loaded from the uploaded CSV bytes with every column typed
-as ``VARCHAR`` (``all_varchar = true``), so the user is fully explicit about
-casts. The result must satisfy the ``ImportedTransaction`` contract:
+``raw`` relation is loaded from the uploaded CSV bytes with DuckDB inferring
+column types (``importer_csv_type_candidates`` biases numeric columns to
+``DECIMAL`` over ``DOUBLE``). The result must satisfy the
+``ImportedTransaction`` contract:
 ``date`` (Date), ``amount`` (Decimal(38,2)), ``description`` (String).
 
 Everything runs in memory and the connection is locked down for accidents (not
@@ -61,6 +62,11 @@ class PreviewResult:
     total_rows: int
     truncated: bool
     error: ImporterSqlError | None
+    # Generic grid of whatever the user SQL executed, independent of the
+    # ImportedTransaction contract. Populated whenever the query executes,
+    # including when validation then fails. Empty on parse/query errors.
+    result_columns: list[RawColumn]
+    result_rows: list[list[str | None]]
 
 
 def assert_single_select(sql: str) -> None:
@@ -115,12 +121,17 @@ def _query_timeout(con: duckdb.DuckDBPyConnection) -> Iterator[None]:
 
 
 def load_raw(con: duckdb.DuckDBPyConnection, blob: bytes) -> list[RawColumn]:
-    """Register ``raw`` from in-memory bytes; return the sniffed schema.
+    """Register ``raw`` from in-memory bytes; return the inferred schema.
 
-    Raises ``ImporterSqlError('parse')`` if the CSV cannot be parsed.
+    DuckDB infers column types; ``settings.importer_csv_type_candidates``
+    biases numeric columns to ``DECIMAL`` over ``DOUBLE``. Raises
+    ``ImporterSqlError('parse')`` if the CSV cannot be parsed.
     """
     try:
-        relation = con.read_csv(io.BytesIO(blob), all_varchar=True)
+        relation = con.read_csv(
+            io.BytesIO(blob),
+            auto_type_candidates=settings.importer_csv_type_candidates,
+        )
         con.register("raw", relation)
         described = con.execute("DESCRIBE raw").fetchall()
     except (duckdb.Error, OSError) as exc:
@@ -129,8 +140,14 @@ def load_raw(con: duckdb.DuckDBPyConnection, blob: bytes) -> list[RawColumn]:
     return [RawColumn(name=row[0], type=row[1]) for row in described]
 
 
-def _execute_and_validate(con: duckdb.DuckDBPyConnection, sql: str) -> pl.DataFrame:
-    """Run one statement, enforce the contract, return the validated frame."""
+def _execute(
+    con: duckdb.DuckDBPyConnection, sql: str
+) -> tuple[list[RawColumn], pl.DataFrame]:
+    """Run one SELECT and return its described columns plus the raw frame.
+
+    This does not apply the ``ImportedTransaction`` contract: callers that need
+    it pass the result to ``_validate``. Raises parse/query errors only.
+    """
     assert_single_select(sql)
 
     try:
@@ -138,7 +155,21 @@ def _execute_and_validate(con: duckdb.DuckDBPyConnection, sql: str) -> pl.DataFr
     except duckdb.Error as exc:
         raise ImporterSqlError("query", f"Query failed: {exc}") from exc
 
-    output_names = [column[0] for column in cursor.description]
+    result_columns = [
+        RawColumn(name=column[0], type=str(column[1])) for column in cursor.description
+    ]
+
+    try:
+        df = cursor.pl()
+    except duckdb.Error as exc:
+        raise ImporterSqlError("query", f"Query failed: {exc}") from exc
+
+    return result_columns, df
+
+
+def _validate(df: pl.DataFrame, result_columns: list[RawColumn]) -> pl.DataFrame:
+    """Enforce the ``ImportedTransaction`` contract on an executed frame."""
+    output_names = [column.name for column in result_columns]
     duplicates = sorted(
         name for name, count in Counter(output_names).items() if count > 1
     )
@@ -147,11 +178,6 @@ def _execute_and_validate(con: duckdb.DuckDBPyConnection, sql: str) -> pl.DataFr
             "validate",
             "Duplicate output column name(s): " + ", ".join(duplicates),
         )
-
-    try:
-        df = cursor.pl()
-    except duckdb.Error as exc:
-        raise ImporterSqlError("query", f"Query failed: {exc}") from exc
 
     missing = [name for name in REQUIRED_COLUMNS if name not in df.columns]
     if missing:
@@ -172,6 +198,12 @@ def _execute_and_validate(con: duckdb.DuckDBPyConnection, sql: str) -> pl.DataFr
         return ImportedTransaction.validate(df)
     except Exception as exc:  # patito raises a DataFrameValidationError
         raise ImporterSqlError("validate", str(exc)) from exc
+
+
+def _execute_and_validate(con: duckdb.DuckDBPyConnection, sql: str) -> pl.DataFrame:
+    """Run one statement, enforce the contract, return the validated frame."""
+    result_columns, df = _execute(con, sql)
+    return _validate(df, result_columns)
 
 
 def run_importer_sql(sql: str, blob: bytes) -> pl.DataFrame:
@@ -217,6 +249,14 @@ def run_importers_sql(
     return results
 
 
+def _stringify_rows(df: pl.DataFrame, limit: int) -> list[list[str | None]]:
+    """Materialize up to ``limit`` rows as display strings (None preserved)."""
+    return [
+        [None if value is None else str(value) for value in row]
+        for row in df.head(limit).rows()
+    ]
+
+
 def _display_rows(df: pl.DataFrame) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in df.to_dicts():
@@ -244,26 +284,77 @@ def preview_importer(sql: str, blob: bytes) -> PreviewResult:
             try:
                 raw_columns = load_raw(con, blob)
             except ImporterSqlError as exc:
-                return PreviewResult([], [], [], 0, False, exc)
+                return PreviewResult(
+                    raw_columns=[],
+                    raw_rows=[],
+                    rows=[],
+                    total_rows=0,
+                    truncated=False,
+                    error=exc,
+                    result_columns=[],
+                    result_rows=[],
+                )
 
             try:
                 raw_result = con.execute(
                     "SELECT * FROM raw LIMIT ?",
                     [int(settings.importer_raw_preview_rows)],
                 ).fetchall()
-                raw_rows = [list(row) for row in raw_result]
+                raw_rows = [
+                    [None if value is None else str(value) for value in row]
+                    for row in raw_result
+                ]
             except duckdb.Error as exc:
                 return PreviewResult(
-                    raw_columns, [], [], 0, False, ImporterSqlError("query", str(exc))
+                    raw_columns=raw_columns,
+                    raw_rows=[],
+                    rows=[],
+                    total_rows=0,
+                    truncated=False,
+                    error=ImporterSqlError("query", str(exc)),
+                    result_columns=[],
+                    result_rows=[],
                 )
 
             try:
-                df = _execute_and_validate(con, sql)
+                result_columns, df = _execute(con, sql)
             except ImporterSqlError as exc:
-                return PreviewResult(raw_columns, raw_rows, [], 0, False, exc)
+                # parse/query: the query produced no grid to show.
+                return PreviewResult(
+                    raw_columns=raw_columns,
+                    raw_rows=raw_rows,
+                    rows=[],
+                    total_rows=0,
+                    truncated=False,
+                    error=exc,
+                    result_columns=[],
+                    result_rows=[],
+                )
 
-            total_rows = df.height
-            display = df.head(settings.importer_preview_display_rows)
+            # The query executed, so a generic grid exists even if the
+            # contract validation later fails.
+            result_rows = _stringify_rows(df, settings.importer_preview_display_rows)
+
+            try:
+                validated = _validate(df, result_columns)
+            except ImporterSqlError as exc:
+                if exc.stage == "query":
+                    # Row-cap breach: treat like a query error, no grid.
+                    result_columns = []
+                    result_rows = []
+                return PreviewResult(
+                    raw_columns=raw_columns,
+                    raw_rows=raw_rows,
+                    rows=[],
+                    total_rows=0,
+                    truncated=False,
+                    error=exc,
+                    result_columns=result_columns,
+                    result_rows=result_rows,
+                )
+
+            total_rows = validated.height
+            display = validated.head(settings.importer_preview_display_rows)
             rows = _display_rows(display)
             return PreviewResult(
                 raw_columns=raw_columns,
@@ -272,6 +363,8 @@ def preview_importer(sql: str, blob: bytes) -> PreviewResult:
                 total_rows=total_rows,
                 truncated=total_rows > len(rows),
                 error=None,
+                result_columns=result_columns,
+                result_rows=result_rows,
             )
     finally:
         con.close()

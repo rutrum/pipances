@@ -32,7 +32,7 @@ FROM raw
 
 METRO_SQL = """
 SELECT
-  CAST(strptime("Transaction Date", '%m/%d/%Y') AS DATE) AS date,
+  CAST("Transaction Date" AS DATE) AS date,
   CASE
     WHEN "Credit" IS NOT NULL THEN CAST("Credit" AS DECIMAL(38,2))
     ELSE -CAST("Debit" AS DECIMAL(38,2))
@@ -103,11 +103,11 @@ def test_preamble_rows_sniffing():
 
 
 # ---------------------------------------------------------------------------
-# all_varchar + casts
+# inferred schema + casts
 # ---------------------------------------------------------------------------
 
 
-def test_all_varchar_raw_schema():
+def test_inferred_raw_schema():
     con = _open_con()
     try:
         columns = load_raw(con, EXPORT_CSV)
@@ -115,8 +115,8 @@ def test_all_varchar_raw_schema():
         con.close()
 
     assert columns == [
-        RawColumn(name="date", type="VARCHAR"),
-        RawColumn(name="amount", type="VARCHAR"),
+        RawColumn(name="date", type="DATE"),
+        RawColumn(name="amount", type="DECIMAL(38,2)"),
         RawColumn(name="description", type="VARCHAR"),
     ]
 
@@ -279,8 +279,16 @@ def test_preview_success_shape():
         "amount_cents": -1299,
         "description": "SPOTIFY PREMIUM",
     }
-    assert result.raw_columns[0] == RawColumn(name="date", type="VARCHAR")
+    assert result.raw_columns[0] == RawColumn(name="date", type="DATE")
     assert len(result.raw_rows) == 11
+    # The generic executed grid mirrors the query's own result shape.
+    assert result.result_columns == [
+        RawColumn(name="date", type="DATE"),
+        RawColumn(name="amount", type="DECIMAL(38,2)"),
+        RawColumn(name="description", type="VARCHAR"),
+    ]
+    assert len(result.result_rows) == 11
+    assert result.result_rows[0] == ["2025-12-18", "-12.99", "SPOTIFY PREMIUM"]
 
 
 def test_preview_truncates_display_only(monkeypatch):
@@ -306,12 +314,31 @@ def test_preview_never_raises_parse_error():
         "amount",
         "description",
     ]
+    # A parse error produced no grid.
+    assert result.result_columns == []
+    assert result.result_rows == []
+
+
+def test_preview_validate_error_keeps_result_grid():
+    """A query that executes but misses a contract column keeps its grid."""
+    result = preview_importer("SELECT date, description FROM raw", EXPORT_CSV)
+    assert result.error is not None
+    assert result.error.stage == "validate"
+    assert [column.name for column in result.result_columns] == [
+        "date",
+        "description",
+    ]
+    assert len(result.result_rows) == 11
+    assert result.rows == []
+    assert result.total_rows == 0
 
 
 def test_preview_reports_query_error_on_disk_read():
     result = preview_importer("SELECT * FROM read_csv('/etc/passwd')", EXPORT_CSV)
     assert result.error is not None
     assert result.error.stage == "query"
+    assert result.result_columns == []
+    assert result.result_rows == []
 
 
 def test_preview_validates_beyond_display_window(monkeypatch):
@@ -330,6 +357,8 @@ def test_preview_validates_beyond_display_window(monkeypatch):
     assert result.error.stage == "validate"
     assert result.total_rows == 0
     assert result.rows == []
+    # The executed grid is still available (slice capped by display rows).
+    assert len(result.result_rows) == 3
 
 
 # ---------------------------------------------------------------------------

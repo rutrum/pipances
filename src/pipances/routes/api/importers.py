@@ -69,6 +69,10 @@ def _preview_to_response(result: PreviewResult) -> ImporterPreviewResponse:
         total_rows=result.total_rows,
         truncated=result.truncated,
         error=error,
+        result_columns=[
+            RawColumnItem(name=c.name, type=c.type) for c in result.result_columns
+        ],
+        result_rows=result.result_rows,
     )
 
 

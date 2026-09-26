@@ -198,3 +198,22 @@ async def test_importers_api(client, session):
     item = items[0]
     assert set(item) == {"id", "name", "sql", "created_at", "updated_at"}
     assert item["sql"] == "SELECT 1"
+
+
+async def test_importers_list_page_has_no_builder(client, seed_accounts):
+    """The list page carries the table only; the builder is on its own route."""
+    resp = await client.get("/data/importers")
+    assert resp.status_code == 200
+    assert 'id="importers-table"' in resp.text
+    assert 'id="importer-sql"' not in resp.text
+    assert 'id="importer-name"' not in resp.text
+
+
+async def test_importer_builder_routes(client, seed_accounts):
+    """The builder page renders in create mode and 404s for a missing edit."""
+    created = await client.get("/data/importers/new")
+    assert created.status_code == 200
+    assert 'id="importer-sql"' in created.text
+
+    missing = await client.get("/data/importers/99999/edit")
+    assert missing.status_code == 404

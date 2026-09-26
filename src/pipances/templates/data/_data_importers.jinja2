@@ -1,9 +1,10 @@
 {#
-  SQL importer list plus the builder modal.
+  SQL importer list.
 
   Tabulator runs in client mode over the embedded ``window.__IMPORTERS__``
-  array; there is no ajaxURL. All CRUD and preview traffic is JSON /api calls
-  made by static/js/pages/importers.js. No htmx here.
+  array; there is no ajaxURL. All CRUD traffic is JSON /api calls made by
+  static/js/pages/importers.js. The builder lives on its own page
+  (/data/importers/new, /data/importers/{id}/edit). No htmx here.
 #}
 {# djlint:off #}
 <script>
@@ -12,11 +13,12 @@
 {# djlint:on #}
 <div class="flex justify-between items-center mb-4">
   <h2 class="text-lg font-semibold">SQL Importers</h2>
-  <button type="button" id="importer-new" class="btn btn-primary btn-sm">
+  <a id="importer-new"
+     href="/data/importers/new"
+     class="btn btn-primary btn-sm">
     <i data-lucide="plus" class="w-4 h-4"></i>
     New Importer
-  </button>
+  </a>
 </div>
 <div id="importers-table"></div>
-{% include "data/_importer_builder.jinja2" %}
 <script src="/static/js/pages/importers.js?v={{ js_version }}"></script>

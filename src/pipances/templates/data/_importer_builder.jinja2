@@ -1,65 +1,68 @@
 {#
-  Importer builder modal.
+  Importer builder page content (create + edit modes).
 
-  A plain DaisyUI <dialog class="modal">, driven entirely by
-  static/js/pages/importers.js. The raw preamble is read-only and illustrative:
-  it is never submitted; the user's SQL references the server-owned `raw`
-  relation directly.
+  Rendered inside the Data layout by /data/importers/new and
+  /data/importers/{id}/edit; driven entirely by
+  static/js/pages/importer-builder.js. The `raw` relation is server-owned: the
+  user's SQL references it directly and no preamble is displayed.
 
-  Frozen ids (interface section 7): #importer-modal,
-  #importer-modal-title, #importer-name, #importer-sql, #importer-file,
-  #importer-run, #importer-save, #importer-close, #importer-error,
+  Staged UX: the SQL fieldset and the results are hidden until a sample CSV is
+  picked, at which point js runs `SELECT * FROM raw` and reveals the editor.
+
+  Frozen ids (interface section 7): #importer-name, #importer-sql,
+  #importer-file, #importer-run, #importer-save, #importer-error,
   #importer-preview, #importer-raw-schema, #importer-summary.
 #}
-<dialog id="importer-modal" class="modal">
-  <div class="modal-box w-full max-w-4xl">
-    <div class="flex justify-between items-center mb-4">
-      <h3 id="importer-modal-title" class="font-bold text-lg">New Importer</h3>
-      <button type="button"
-              id="importer-close"
-              class="btn btn-sm btn-circle btn-ghost"
-              aria-label="Close">✕</button>
-    </div>
-    <div class="space-y-4">
-      <label class="form-control w-full">
-        <span class="label-text mb-1">Name</span>
-        <input type="text"
-               id="importer-name"
-               class="input input-bordered w-full"
-               placeholder="Metro CU checking"
-               autocomplete="off" />
-      </label>
-      <label class="form-control w-full">
-        <span class="label-text mb-1">SQL (a single SELECT over <code class="font-mono">raw</code>)</span>
-        <textarea id="importer-sql"
-                  class="textarea textarea-bordered w-full h-48 font-mono text-sm"
-                  placeholder="SELECT CAST(date AS DATE) AS date, ... FROM raw"
-                  spellcheck="false"></textarea>
-      </label>
-      <div class="form-control w-full">
-        <span class="label-text mb-1">Sample CSV (kept in memory, never saved)</span>
-        <input type="file"
-               id="importer-file"
-               class="file-input file-input-bordered w-full"
-               accept=".csv,text/csv" />
-      </div>
-      <div class="form-control w-full">
-        <span class="label-text mb-1">Server-owned preamble (illustrative, not submitted)</span>
-        <textarea class="textarea textarea-bordered w-full font-mono text-xs"
-                  rows="1"
-                  disabled
-                  readonly
-                  aria-label="Server-owned preamble, illustrative only">SELECT * FROM read_csv('input_file.csv', all_varchar = true)</textarea>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" id="importer-run" class="btn btn-secondary btn-sm">Run</button>
-        <button type="button" id="importer-save" class="btn btn-primary btn-sm">Save</button>
-      </div>
-      <div id="importer-error"></div>
-      <div id="importer-summary" class="text-sm text-base-content/70"></div>
-      <div id="importer-raw-schema" class="overflow-x-auto"></div>
-      <div id="importer-preview"
-           class="overflow-x-auto max-h-96 overflow-y-auto"></div>
-    </div>
+{# djlint:off #}
+<script>
+  window.__IMPORTER__ = {{ importer | tojson }};
+</script>
+{# djlint:on #}
+<div class="flex items-center justify-between mb-4">
+  <h2 class="text-lg font-semibold">
+    {% if importer %}
+      Edit Importer
+    {% else %}
+      New Importer
+    {% endif %}
+  </h2>
+  <div class="flex gap-2">
+    <button type="button" id="importer-run" class="btn btn-secondary btn-sm">Run</button>
+    <button type="button" id="importer-save" class="btn btn-primary btn-sm">Save</button>
+    <a href="/data/importers" class="btn btn-ghost btn-sm">Cancel</a>
   </div>
-</dialog>
+</div>
+<div class="space-y-4">
+  <fieldset class="fieldset">
+    <legend class="fieldset-legend">Name</legend>
+    <input type="text"
+           id="importer-name"
+           class="input w-full"
+           placeholder="Example Bank"
+           autocomplete="off" />
+  </fieldset>
+  <fieldset class="fieldset">
+    <legend class="fieldset-legend">Sample CSV</legend>
+    <input type="file"
+           id="importer-file"
+           class="file-input w-full"
+           accept=".csv,text/csv" />
+  </fieldset>
+  <div id="importer-editor" class="space-y-4" hidden>
+    <fieldset class="fieldset">
+      <legend class="fieldset-legend">
+        SQL (a single SELECT over <code class="font-mono">raw</code>)
+      </legend>
+      <textarea id="importer-sql"
+                class="textarea w-full h-72 font-mono text-sm"
+                placeholder="SELECT CAST(date AS DATE) AS date, ... FROM raw"
+                spellcheck="false"></textarea>
+    </fieldset>
+    <div id="importer-error"></div>
+    <div id="importer-summary" class="text-sm text-base-content/70"></div>
+    <div id="importer-raw-schema" class="overflow-x-auto"></div>
+    <div id="importer-preview"
+         class="overflow-x-auto max-h-96 overflow-y-auto"></div>
+  </div>
+</div>
+<script src="/static/js/pages/importer-builder.js?v={{ js_version }}"></script>

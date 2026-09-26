@@ -39,6 +39,12 @@ class PreviewResult:
     total_rows: int                    # full validated count
     truncated: bool                    # total_rows > len(rows)
     error: ImporterSqlError | None     # never raises
+    result_columns: list[RawColumn]    # generic grid of the user SQL
+    result_rows: list[list[str | None]]  # display slice, any shape
+
+# `result_columns`/`result_rows` are populated whenever the user SQL executes,
+# including when contract validation then fails. They are empty on parse/query
+# errors (including the row-cap query error).
 
 
 # Core helpers (module-private is fine, but these three are part of the contract)
@@ -69,7 +75,7 @@ def preview_importer(sql: str, blob: bytes) -> PreviewResult:
 
 ### Data-shape rules (frozen)
 
-- `raw` is every column `VARCHAR`, loaded with `read_csv(BytesIO(blob), all_varchar=True)`.
+- `raw` columns are type-inferred with `read_csv(BytesIO(blob), auto_type_candidates=settings.importer_csv_type_candidates)`, which biases numerics to `DECIMAL(38,2)` over `DOUBLE`.
 - Connection config order: `duckdb.connect(config={...})` → `SET disabled_filesystems = 'LocalFileSystem'` → `SET lock_configuration = true`.
 - Contract columns: `date` (Date), `amount` (patito `Decimal(38,2)`), `description` (String). Column order is irrelevant; selection is by name.
 - Extra output columns are **dropped before** `ImportedTransaction.validate` (patito rejects superfluous columns). Missing required columns or **duplicate output names** raise `ImporterSqlError('validate')` with a message naming the offender. Duplicate names are read from DuckDB's raw `cursor.description`, before `.pl()` renames `x`/`x_1`.
@@ -162,6 +168,8 @@ class ImporterPreviewResponse(BaseModel):
     total_rows: int
     truncated: bool
     error: ImporterPreviewError | None
+    result_columns: list[RawColumnItem]
+    result_rows: list[list[str | None]]
 ```
 
 The old `ImporterItem` (`name`, `filename`) is replaced. Nothing else in the
@@ -227,19 +235,41 @@ Rules:
 - The existing `/import` temp-file mechanics are unchanged; detection now takes
   the uploaded bytes directly.
 
-## 7. Browser contract — `static/js/pages/importers.js` (new)
+## 7. Browser contract — `static/js/pages/importers.js` + `static/js/pages/importer-builder.js` (new)
 
-- `window.__IMPORTERS__`: `Array<ImporterItem>` embedded by the page route.
-- DOM ids: `#importers-table`, `#importer-modal`, `#importer-modal-title`,
-  `#importer-name`, `#importer-sql`, `#importer-file`, `#importer-run`,
-  `#importer-save`, `#importer-close`, `#importer-error`, `#importer-preview`,
-  `#importer-raw-schema`, `#importer-summary`.
+Two pages, two scripts. The list never ships builder markup.
+
+- `GET /data/importers` renders the Tabulator list only and embeds
+  `window.__IMPORTERS__: Array<ImporterItem>`. `importers.js` owns the list and
+  delete; the row Edit action is a plain link to the edit route.
+- `GET /data/importers/new` and `GET /data/importers/{id}/edit` render the
+  builder inside the Data layout and embed `window.__IMPORTER__`: an
+  `ImporterItem` in edit mode, `null` in create mode. `importer-builder.js`
+  owns Run and Save.
+- List DOM ids: `#importers-table`, `#importer-new` (an `<a>` to
+  `/data/importers/new`).
+- Builder DOM ids: `#importer-name`, `#importer-sql`, `#importer-file`,
+  `#importer-run`, `#importer-save`, `#importer-error`, `#importer-preview`,
+  `#importer-raw-schema`, `#importer-summary`. The builder page also has a
+  Cancel link back to `/data/importers`. No preamble is displayed; `raw` is
+  server-owned and only the sniffed raw schema is shown.
+- Staged UX: Name and Sample CSV show first; the SQL fieldset and results stay
+  hidden until a sample is picked. Picking a sample immediately previews
+  `SELECT * FROM raw` and renders `result_columns`/`result_rows`, then reveals
+  the editor (prefilled with `SELECT * FROM raw` in create mode or the saved
+  SQL in edit mode). SQL edits re-run after ~500 ms; Run forces an immediate
+  run. A parse/query error keeps the last good grid and marks it stale; a
+  validate error shows its freshly executed grid with a soft warning.
 - Requests: `fetch("/api/importers", {method, headers: {"Content-Type": "application/json"}, body})`
   for CRUD; `FormData` with `file` + `sql` for preview.
-- On save/create/delete, update the local `__IMPORTERS__` array and rebuild the
-  Tabulator table in client mode; no page reload, no HTMX.
-- Edit opens the modal populated from `__IMPORTERS__`; sample must be re-picked
-  before Run.
+- Delete updates the local `__IMPORTERS__` array and rebuilds the Tabulator
+  table in client mode; no page reload, no HTMX. Save validates first, then
+  persists and navigates to `/data/importers?toast=importer_saved`
+  (`?toast=importer_draft` when the last Run errored; draft save still allowed,
+  decision 9). The list page renders the toast via the Data layout's
+  `initial_toast` block.
+- Edit prefills name + SQL from `__IMPORTER__`; the sample must be re-picked
+  before the editor is revealed (decision 8).
 
 ## 8. Ownership map (no two workstreams share a file)
 

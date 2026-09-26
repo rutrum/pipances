@@ -199,6 +199,8 @@ class ImporterPreviewResponse(BaseModel):
     total_rows: int
     truncated: bool
     error: ImporterPreviewError | None
+    result_columns: list[RawColumnItem] = Field(default_factory=list)
+    result_rows: list[list[str | None]] = Field(default_factory=list)
 
 
 class CategoryRow(BaseModel):

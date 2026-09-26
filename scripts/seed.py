@@ -92,7 +92,7 @@ CATEGORY_NAMES = [
 ]
 
 # === SQL Importers ===
-# DuckDB `SELECT` queries over the all-VARCHAR `raw` relation. These match the
+# DuckDB `SELECT` queries over the inferred `raw` relation. These match the
 # sample CSVs used by the dev/import flow: "Example Bank" for a plain
 # date,amount,description export and "Metro Credit Union" for split
 # debit/credit columns with MM/DD/YYYY dates.
@@ -112,9 +112,9 @@ FROM raw
         "name": "Metro Credit Union",
         "sql": """\
 SELECT
-  CAST(strptime("Transaction Date", '%m/%d/%Y') AS DATE) AS date,
+  CAST("Transaction Date" AS DATE) AS date,
   CASE
-    WHEN "Credit" IS NOT NULL AND "Credit" <> '' THEN CAST("Credit" AS DECIMAL(38,2))
+    WHEN "Credit" IS NOT NULL THEN CAST("Credit" AS DECIMAL(38,2))
     ELSE -CAST("Debit" AS DECIMAL(38,2))
   END AS amount,
   CAST("Memo" AS VARCHAR) AS description
