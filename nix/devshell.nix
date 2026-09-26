@@ -6,9 +6,9 @@
   ...
 }:
 let
-  # The vendored asset list lives in nix/lib/assets.nix so this shell and the
+  # The vendored asset list lives in nix/assets.nix so this shell and the
   # production package can never disagree about what needs to exist on disk.
-  assets = import ./lib/assets.nix { inherit pkgs inputs; };
+  assets = import ./assets.nix { inherit pkgs inputs; };
 in
 pkgs.mkShell {
   packages = with pkgs; [

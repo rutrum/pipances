@@ -6,7 +6,7 @@ let
   version = (builtins.fromTOML (builtins.readFile ../../pyproject.toml)).project.version;
 
   # Single source of truth for vendored JS/CSS plus the Tailwind build inputs.
-  assets = import ../lib/assets.nix { inherit pkgs inputs; };
+  assets = import ../assets.nix { inherit pkgs inputs; };
 
   # Parse uv.lock at evaluation time
   workspace = uv2nix.lib.workspace.loadWorkspace {
