@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from pipances.db import DatabaseDep
+from pipances.db.importers import list_importers as db_list_importers
 from pipances.routes._utils import shared_context, static_version, templates
 from pipances.utils import compute_date_range
 
@@ -147,11 +148,24 @@ async def data_importers_page(
     request: Request,
     database: DatabaseDep,
 ) -> Response:
-    """Tabulator-based importers table (filesystem-backed, client mode)."""
+    """SQL importer list + builder modal (client mode over embedded JSON)."""
     async with database.session() as session:
         shared = await shared_context("data", session)
+        importers = await db_list_importers(session)
 
-    ctx = {"js_version": static_version("js", "pages", "importers-table.js")}
+    ctx = {
+        "js_version": static_version("js", "pages", "importers.js"),
+        "importers": [
+            {
+                "id": importer.id,
+                "name": importer.name,
+                "sql": importer.sql,
+                "created_at": importer.created_at.isoformat(),
+                "updated_at": importer.updated_at.isoformat(),
+            }
+            for importer in importers
+        ],
+    }
     content_html = templates.get_template("data/_data_importers.jinja2").render(ctx)
     return templates.TemplateResponse(
         request,
