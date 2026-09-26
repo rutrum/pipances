@@ -157,3 +157,45 @@ async def test_missing_internal_account_raises(
     )
     with pytest.raises(ValueError, match="not found"):
         await ingest(database, df, internal_account="NonExistent", importer_name="test")
+
+
+async def test_ingest_records_importer_provenance(
+    database, session, seed_accounts, seed_importers
+) -> None:
+    importer = seed_importers["Example Bank"]
+    df = _make_df(
+        [{"date": date(2026, 1, 15), "amount": 19.99, "description": "Coffee"}]
+    )
+    await ingest(
+        database,
+        df,
+        internal_account="Checking",
+        importer_name=importer.name,
+        importer_id=importer.id,
+        importer_sql=importer.sql,
+    )
+
+    imp = await session.scalar(select(Import))
+    assert imp is not None
+    assert imp.importer_id == importer.id
+    assert imp.importer_name == "Example Bank"
+    assert imp.importer_sql == importer.sql
+    # `institution` keeps its meaning: the importer display name.
+    assert imp.institution == "Example Bank"
+
+
+async def test_ingest_without_importer_leaves_provenance_null(
+    database, session, seed_accounts
+) -> None:
+    df = _make_df(
+        [{"date": date(2026, 1, 15), "amount": 19.99, "description": "Coffee"}]
+    )
+    await ingest(database, df, internal_account="Checking", importer_name="Manual")
+
+    imp = await session.scalar(select(Import))
+    assert imp is not None
+    assert imp.importer_id is None
+    assert imp.importer_sql is None
+    # `institution`/`importer_name` still carry the display name.
+    assert imp.importer_name == "Manual"
+    assert imp.institution == "Manual"

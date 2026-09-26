@@ -1,7 +1,7 @@
 import pytest
 
 from pipances.db import Database, get_database
-from pipances.models import Account, Category, Import
+from pipances.models import Account, Category, Import, Importer
 
 
 @pytest.fixture
@@ -62,9 +62,49 @@ async def seed_categories(session):
 
 
 @pytest.fixture
-async def seed_import(session):
+async def seed_import(
+    session,
+):
     imp = Import(institution="test_bank", filename="test.csv", row_count=0)
     session.add(imp)
     await session.commit()
     await session.refresh(imp)
     return imp
+
+
+@pytest.fixture
+async def seed_importers(session):
+    """Two saved SQL importers matching the historical Python examples.
+
+    Returns a dict keyed by display name. "Example Bank" handles a simple
+    ``date,amount,description`` CSV; "Metro Credit Union" handles the split
+    debit/credit shape.
+    """
+    simple_sql = """
+    SELECT
+      CAST(date AS DATE) AS date,
+      CAST(amount AS DECIMAL(38,2)) AS amount,
+      CAST(description AS VARCHAR) AS description
+    FROM raw
+    """
+    metro_sql = """
+    SELECT
+      CAST(strptime("Transaction Date", '%m/%d/%Y') AS DATE) AS date,
+      CASE
+        WHEN "Credit" IS NOT NULL THEN CAST("Credit" AS DECIMAL(38,2))
+        ELSE -CAST("Debit" AS DECIMAL(38,2))
+      END AS amount,
+      CAST("Memo" AS VARCHAR) AS description
+    FROM raw
+    """
+
+    importers = {
+        "Example Bank": Importer(name="Example Bank", sql=simple_sql),
+        "Metro Credit Union": Importer(name="Metro Credit Union", sql=metro_sql),
+    }
+    for imp in importers.values():
+        session.add(imp)
+    await session.commit()
+    for imp in importers.values():
+        await session.refresh(imp)
+    return importers

@@ -1,3 +1,4 @@
+import asyncio
 import html as html_mod
 import logging
 import time
@@ -15,7 +16,9 @@ from pipances.db.accounts import (
     get_active_internal_accounts,
     get_or_create_external_account,
 )
+from pipances.duckdb_transform import run_importer_sql
 from pipances.ingest import (
+    ImporterInfo,
     discover_importers,
     ingest,
     preview_dedup,
@@ -23,7 +26,6 @@ from pipances.ingest import (
 )
 from pipances.models import Account, Import, Transaction, TransactionStatus
 from pipances.routes._utils import shared_context, templates
-from pipances.schemas import ImportedTransaction
 from pipances.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -68,6 +70,21 @@ def _delete_temp_file(token: str) -> None:
 async def _get_active_accounts(database: Database) -> Sequence[Account]:
     async with database.session() as session:
         return await get_active_internal_accounts(session)
+
+
+async def _resolve_importer(database: Database, raw: str) -> ImporterInfo | None:
+    """Look up an importer from the raw ``importer`` form field (an id)."""
+    try:
+        importer_id = int(raw)
+    except (TypeError, ValueError):
+        return None
+    importers = await discover_importers(database)
+    return importers.get(importer_id)
+
+
+async def _load_selected_importer(database: Database, info: ImporterInfo, blob: bytes):
+    """Run the selected importer's saved SQL through the shared engine path."""
+    return await asyncio.to_thread(run_importer_sql, info.sql, blob)
 
 
 def _preview_rows(
@@ -173,7 +190,15 @@ async def import_preview(
                 status_code=422,
             )
 
-        results = try_all_importers(blob)
+        importers = await discover_importers(database)
+        if not importers:
+            return HTMLResponse(
+                '<div class="alert alert-error">No importers are configured. '
+                "Create one under Data \u2192 Importers, or use manual entry.</div>",
+                status_code=422,
+            )
+
+        results = await try_all_importers(database, blob)
         successes = {k: v for k, v in results.items() if v["success"]}
         failures = {k: v for k, v in results.items() if not v["success"]}
 
@@ -240,16 +265,14 @@ async def import_preview_dedup(
         )
 
     try:
-        importers = discover_importers()
-        if importer_key not in importers:
+        importer_info = await _resolve_importer(database, importer_key)
+        if importer_info is None:
             return HTMLResponse(
                 f'<div class="alert alert-error">Unknown importer: {html_mod.escape(importer_key)}</div>',
                 status_code=422,
             )
 
-        importer_info = importers[importer_key]
-        df = importer_info.parse(blob)
-        df = ImportedTransaction.validate(df)
+        df = await _load_selected_importer(database, importer_info, blob)
 
         rows = df.to_dicts()
         for row in rows:
@@ -271,9 +294,9 @@ async def import_preview_dedup(
             "import/_import_preview.jinja2",
             {
                 "token": token,
-                "successes": {importer_key: {"name": importer_info.name}},
+                "successes": {importer_info.id: {"name": importer_info.name}},
                 "failures": {},
-                "auto_importer": importer_key,
+                "auto_importer": importer_info.id,
                 "preview_rows": _preview_rows(rows, duplicate_flags),
                 "accounts": accounts,
                 "selected_account": account_name,
@@ -313,16 +336,14 @@ async def import_commit(
         )
 
     try:
-        importers = discover_importers()
-        if importer_key not in importers:
+        importer_info = await _resolve_importer(database, importer_key)
+        if importer_info is None:
             return HTMLResponse(
                 f'<div class="alert alert-error">Unknown importer: {html_mod.escape(importer_key)}</div>',
                 status_code=422,
             )
 
-        importer_info = importers[importer_key]
-        df = importer_info.parse(blob)
-        df = ImportedTransaction.validate(df)
+        df = await _load_selected_importer(database, importer_info, blob)
 
         result = await ingest(
             database,
@@ -330,6 +351,8 @@ async def import_commit(
             internal_account=account_name,
             importer_name=importer_info.name,
             filename=f"import_{token}.csv",
+            importer_id=importer_info.id,
+            importer_sql=importer_info.sql,
         )
 
         _delete_temp_file(token)

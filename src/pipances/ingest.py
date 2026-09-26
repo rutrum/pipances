@@ -1,7 +1,6 @@
-import importlib.util
+import asyncio
 import logging
 from collections import Counter
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from typing import cast
@@ -11,7 +10,9 @@ from sqlalchemy import func, select
 
 from pipances.db import Database
 from pipances.db.accounts import get_or_create_external_account
+from pipances.db.importers import list_importers
 from pipances.db.transactions import txn_options
+from pipances.duckdb_transform import ImporterSqlError, run_importers_sql
 from pipances.models import (
     Account,
     Import,
@@ -20,7 +21,6 @@ from pipances.models import (
 )
 from pipances.predict import TransactionPredictor
 from pipances.schemas import ImportedTransaction
-from pipances.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -36,61 +36,52 @@ class IngestResult:
 
 @dataclass
 class ImporterInfo:
+    id: int
     name: str
-    module_name: str
-    parse: Callable[[bytes], pt.DataFrame[ImportedTransaction]]
+    sql: str
 
 
-def discover_importers() -> dict[str, ImporterInfo]:
-    importers: dict[str, ImporterInfo] = {}
-
-    if not settings.importers_dir.is_dir():
-        return importers
-
-    for path in sorted(settings.importers_dir.glob("*.py")):
-        if path.name.startswith("_"):
-            continue
-
-        module_name = path.stem
-        spec = importlib.util.spec_from_file_location(f"importers.{module_name}", path)
-        if spec is None or spec.loader is None:
-            continue
-
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        if not hasattr(module, "IMPORTER_NAME"):
-            raise ValueError(f"Importer {path} missing IMPORTER_NAME")
-        if not hasattr(module, "parse"):
-            raise ValueError(f"Importer {path} missing parse() function")
-
-        importers[module_name] = ImporterInfo(
-            name=module.IMPORTER_NAME,
-            module_name=module_name,
-            parse=module.parse,
-        )
-
-    return importers
+async def discover_importers(database: Database) -> dict[int, ImporterInfo]:
+    """All saved SQL importers, keyed by id."""
+    async with database.session() as session:
+        rows = await list_importers(session)
+    return {row.id: ImporterInfo(id=row.id, name=row.name, sql=row.sql) for row in rows}
 
 
-def try_all_importers(blob: bytes) -> dict[str, dict]:
-    """Try every discovered importer against the given file bytes.
+async def try_all_importers(database: Database, blob: bytes) -> dict[int, dict]:
+    """Try every saved importer against the given file bytes.
 
-    Returns a dict keyed by module_name with:
+    Returns a dict keyed by importer id with:
       - success: bool
       - name: importer display name
       - df: validated DataFrame (if success)
       - error: error message (if failure)
     """
-    importers = discover_importers()
-    results: dict[str, dict] = {}
-    for key, info in importers.items():
-        try:
-            df = info.parse(blob)
-            df = ImportedTransaction.validate(df)
-            results[key] = {"success": True, "name": info.name, "df": df}
-        except Exception as e:
-            results[key] = {"success": False, "name": info.name, "error": str(e)}
+    importers = await discover_importers(database)
+    if not importers:
+        return {}
+
+    raw_results = await asyncio.to_thread(
+        run_importers_sql,
+        {importer_id: info.sql for importer_id, info in importers.items()},
+        blob,
+    )
+
+    results: dict[int, dict] = {}
+    for importer_id, info in importers.items():
+        outcome = raw_results[importer_id]
+        if isinstance(outcome, ImporterSqlError):
+            results[importer_id] = {
+                "success": False,
+                "name": info.name,
+                "error": str(outcome),
+            }
+        else:
+            results[importer_id] = {
+                "success": True,
+                "name": info.name,
+                "df": outcome,
+            }
     return results
 
 
@@ -159,6 +150,9 @@ async def ingest(
     internal_account: str,
     importer_name: str,
     filename: str | None = None,
+    *,
+    importer_id: int | None = None,
+    importer_sql: str | None = None,
 ) -> IngestResult:
     """Ingest a validated ImportedTransaction DataFrame into the database.
 
@@ -206,6 +200,9 @@ async def ingest(
             institution=importer_name,
             filename=filename,
             row_count=len(rows),
+            importer_id=importer_id,
+            importer_name=importer_name,
+            importer_sql=importer_sql,
         )
         session.add(import_record)
         await session.flush()

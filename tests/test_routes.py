@@ -177,7 +177,9 @@ async def test_import_preview_missing_file(client, seed_accounts):
     assert resp.status_code == 422
 
 
-async def test_import_preview_renders_tabulator(client, seed_accounts):
+async def test_import_preview_renders_tabulator(
+    client, session, seed_accounts, seed_importers
+):
     resp = await client.post(
         "/import/preview",
         files={
