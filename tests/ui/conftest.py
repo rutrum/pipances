@@ -120,6 +120,35 @@ def goto(page: Page, live_server):
     return _goto
 
 
+@pytest.fixture
+def importer_cleanup(ui_db):
+    """Delete every importer a test creates so the seeded DB is left as found.
+
+    The seed DB has no importers. This snapshots the table before the test and
+    removes any row added while it runs (whether created through the builder UI
+    or the JSON API), leaving pre-existing rows untouched.
+    """
+
+    def _ids() -> set[int]:
+        conn = sqlite3.connect(str(ui_db))
+        try:
+            return {row[0] for row in conn.execute("SELECT id FROM importers")}
+        finally:
+            conn.close()
+
+    before = _ids()
+    yield
+    new_ids = _ids() - before
+    if not new_ids:
+        return
+    conn = sqlite3.connect(str(ui_db))
+    try:
+        conn.executemany("DELETE FROM importers WHERE id=?", [(i,) for i in new_ids])
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _external_on_approved(conn):
     """Pick an external account already referenced by an approved transaction.
 
