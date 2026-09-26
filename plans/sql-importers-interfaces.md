@@ -222,7 +222,7 @@ importers. `ingest` and `preview_dedup` keep taking a validated
 |---|---|
 | B | `src/pipances/duckdb_transform.py`, `tests/test_duckdb_transform.py`, new `duckdb_*` / `importer_*` keys in `src/pipances/settings.py` |
 | C | `src/pipances/models.py`, `src/pipances/db/__init__.py`, `src/pipances/db/importers.py`, `src/pipances/db/migrations.py`, `tests/test_db.py` |
-| D | `src/pipances/routes/api/importers.py`, `src/pipances/routes/api/schemas.py`, `tests/test_routes.py` |
+| D | `src/pipances/routes/api/importers.py`, `src/pipances/routes/api/schemas.py`, `tests/test_routes.py`, `tests/test_data_tables.py` |
 | E | `src/pipances/routes/data.py`, `src/pipances/templates/**`, `static/js/pages/importers.js`, delete `static/js/pages/importers-table.js` |
 | F | `src/pipances/ingest.py`, `src/pipances/routes/import_page.py`, `tests/test_import.py`, `tests/test_ingest.py` |
 | G | Phase 2 only: `src/pipances/settings.py` (remove `importers_dir`), `nix/**`, `README.md`, `CHANGELOG.md`, delete `importers/` |

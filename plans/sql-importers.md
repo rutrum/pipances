@@ -28,7 +28,7 @@ Agents update this table when their workstream's gate passes.
 | Step 0 — interface freeze | done | `plans/sql-importers-interfaces.md` |
 | B — engine | done | `duckdb_transform.py` + engine tests green; adds the new `duckdb_*` / `importer_*` settings keys (keeps `importers_dir` for G). Deviations resolved in the interface doc. |
 | C — model + DB | done | `models.py` (`Importer` + 3 `Import` provenance columns), `db/migrations.py` (`migrate_imports`), `db/__init__.py`, new `db/importers.py`, db tests green. No interface-shape change; one clarification recorded below (CRUD flushes, caller commits). |
-| D — API | blocked | on B + C |
+| D — API | done | CRUD + preview routes live; preview returns 200 with embedded `{stage, message}`, enforces size/length caps, and writes nothing to disk. Deviation: interface section 8 ownership row corrected to include `tests/test_data_tables.py` (see below). |
 | E — UI | blocked | on D |
 | F — detection cutover | Phase 2 | on B + C + D |
 | G — cleanup | Phase 2 | on F |
@@ -387,12 +387,12 @@ and deletes the Python path.
 
 ### Phase 2 — logic replacement
 
-6. **Import flow cutover.** Async DB-backed `discover_importers` /
+1. **Import flow cutover.** Async DB-backed `discover_importers` /
    `try_all_importers`; importer-id keys in the import routes. A saved draft
    that never ran simply fails detection like a bad Python importer did.
-7. **Delete the Python path.** `importers/`, `importers_dir`, the nix
+2. **Delete the Python path.** `importers/`, `importers_dir`, the nix
    derivation and module option, and the docker env.
-8. **Cleanup + tests.** Settings, README/CHANGELOG, updated import tests,
+3. **Cleanup + tests.** Settings, README/CHANGELOG, updated import tests,
    browser verification of detection/commit.
 
 ## Test plan
@@ -457,6 +457,22 @@ clarification for D:
    translation.** `create_importer`/`update_importer` strip the name; the
    non-empty (422) check stays route-side, matching `routes/api/accounts.py`.
 
+### Workstream D deviations (resolved)
+
+Recorded 2026-03 (D implementation):
+
+1. **`tests/test_data_tables.py` was missing from interface section 8's
+   ownership map.** The workstream table and agent brief both assign it to D
+   (D updates the existing `/api/importers` assertion there), so section 8 now
+   lists it. Unambiguous correction, not an interface-shape change.
+2. **The preview handler uses `Annotated[UploadFile, File()]` /
+   `Annotated[str, Form()]`** rather than `= File(...)` / `= Form(...)`. The
+   repo's ruff config enables `B` (bugbear) with no B008 exception, so the
+   argument-default form fails `just lint`. Interface section 4 only specifies
+   the multipart `file` + form `sql` fields, so the wire contract is unchanged.
+3. **`POST /api/importers/preview` takes no database dependency.** It is
+   stateless as specified; nothing in the request touches the DB.
+
 ## Agent execution plan
 
 The work is shaped for parallel agents: after one interface-freeze step, the
@@ -476,7 +492,7 @@ recorded here and in the plan before proceeding.
 | A | Build spike: duckdb/fsspec wheel under uv2nix — **done** | `pyproject.toml`, `uv.lock`, flake files | — | `uv sync`, `nix build` |
 | B | Engine + new settings keys | new `duckdb_transform.py`, `tests/test_duckdb_transform.py`, new keys in `settings.py` | A, Step 0 | engine tests |
 | C | Model + DB + migrations | `models.py`, `db/importers.py`, `db/migrations.py`, db tests | Step 0 | db tests |
-| D | API + schemas | `routes/api/importers.py`, `routes/api/schemas.py`, route tests | B, C | API tests |
+| D | API + schemas | `routes/api/importers.py`, `routes/api/schemas.py`, `tests/test_routes.py`, `tests/test_data_tables.py` | B, C | API tests |
 | E | UI: page, modal, `importers.js` | `routes/data.py`, templates, `static/js/pages/importers.js` | D | lint + agent-browser |
 | F | Phase 2 detection cutover | `ingest.py`, `routes/import_page.py`, `tests/test_import.py`, `tests/test_ingest.py` | B, C, D | `just test` |
 | G | Phase 2 cleanup | `settings.py`, `nix/**`, `README.md`, `CHANGELOG.md`, delete `importers/` | F | `just lint`, `nix build` |
