@@ -6,7 +6,7 @@ They document the shape of every API response.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -165,8 +165,40 @@ class TabulatorTableResponse(BaseModel):
 
 
 class ImporterItem(BaseModel):
+    id: int
     name: str
-    filename: str
+    sql: str
+    created_at: str  # ISO
+    updated_at: str  # ISO
+
+
+class ImporterCreate(BaseModel):
+    name: str
+    sql: str
+
+
+class ImporterUpdate(BaseModel):
+    name: str | None = None
+    sql: str | None = None
+
+
+class RawColumnItem(BaseModel):
+    name: str
+    type: str
+
+
+class ImporterPreviewError(BaseModel):
+    stage: Literal["parse", "query", "validate"]
+    message: str
+
+
+class ImporterPreviewResponse(BaseModel):
+    raw_columns: list[RawColumnItem]
+    raw_rows: list[list[str | None]]
+    rows: list[dict[str, Any]]
+    total_rows: int
+    truncated: bool
+    error: ImporterPreviewError | None
 
 
 class CategoryRow(BaseModel):

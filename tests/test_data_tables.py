@@ -9,7 +9,7 @@ from datetime import date, datetime
 
 import pytest
 
-from pipances.models import Account, Import, Transaction
+from pipances.models import Account, Import, Importer, Transaction
 
 
 @pytest.fixture
@@ -187,9 +187,14 @@ async def test_imports_pagination(client, seed_imports):
     assert len(body["data"]) == 1
 
 
-async def test_importers_api(client, seed_accounts):
+async def test_importers_api(client, session):
+    session.add(Importer(name="Example Bank", sql="SELECT 1"))
+    await session.commit()
+
     resp = await client.get("/api/importers")
     assert resp.status_code == 200
     items = resp.json()
-    assert "example.py" in {item["filename"] for item in items}
-    assert "Example Bank" in {item["name"] for item in items}
+    assert {item["name"] for item in items} == {"Example Bank"}
+    item = items[0]
+    assert set(item) == {"id", "name", "sql", "created_at", "updated_at"}
+    assert item["sql"] == "SELECT 1"

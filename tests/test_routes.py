@@ -1,8 +1,10 @@
+import tempfile
 from datetime import date
 
 import pytest
 
-from pipances.models import Account, Transaction
+from pipances.models import Account, Importer, Transaction
+from pipances.settings import settings
 
 # === Inbox ===
 
@@ -303,12 +305,195 @@ async def test_data_importers_get_200(client, seed_accounts):
     assert resp.status_code == 200
 
 
-async def test_data_importers_lists_files(client, seed_accounts):
+async def test_data_importers_lists_sql(client, session):
+    session.add(Importer(name="Example Bank", sql="SELECT 1"))
+    await session.commit()
+
     resp = await client.get("/api/importers")
     assert resp.status_code == 200
     items = resp.json()
-    assert "example.py" in {item["filename"] for item in items}
-    assert "Example Bank" in {item["name"] for item in items}
+    assert {item["name"] for item in items} == {"Example Bank"}
+    item = items[0]
+    assert set(item) == {"id", "name", "sql", "created_at", "updated_at"}
+    assert item["sql"] == "SELECT 1"
+    assert item["created_at"]
+    assert item["updated_at"]
+
+
+# Small sample used by the preview tests.
+SAMPLE_CSV = b"date,amount,description\n2026-01-15,19.99,Coffee\n2026-01-16,-5.00,Tea\n"
+SAMPLE_SQL = (
+    "SELECT CAST(date AS DATE) AS date,"
+    " CAST(amount AS DECIMAL(38,2)) AS amount,"
+    " CAST(description AS VARCHAR) AS description FROM raw"
+)
+
+
+async def test_importers_crud_happy_path(client):
+    created = await client.post(
+        "/api/importers",
+        json={"name": "  My Bank  ", "sql": "SELECT 1"},
+    )
+    assert created.status_code == 201
+    row = created.json()
+    assert row["name"] == "My Bank"
+    assert row["sql"] == "SELECT 1"
+    assert set(row) == {"id", "name", "sql", "created_at", "updated_at"}
+    importer_id = row["id"]
+
+    listed = await client.get("/api/importers")
+    assert [item["id"] for item in listed.json()] == [importer_id]
+
+    patched = await client.patch(
+        f"/api/importers/{importer_id}",
+        json={"name": "Renamed", "sql": "SELECT 2"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["name"] == "Renamed"
+    assert patched.json()["sql"] == "SELECT 2"
+
+    deleted = await client.delete(f"/api/importers/{importer_id}")
+    assert deleted.status_code == 204
+    assert (await client.get("/api/importers")).json() == []
+
+
+async def test_importers_create_duplicate_name_409(client):
+    assert (
+        await client.post("/api/importers", json={"name": "Dup", "sql": "SELECT 1"})
+    ).status_code == 201
+    dup = await client.post("/api/importers", json={"name": "Dup", "sql": "SELECT 2"})
+    assert dup.status_code == 409
+    assert len((await client.get("/api/importers")).json()) == 1
+
+
+async def test_importers_patch_duplicate_name_409(client):
+    first = (
+        await client.post("/api/importers", json={"name": "First", "sql": "SELECT 1"})
+    ).json()
+    second = (
+        await client.post("/api/importers", json={"name": "Second", "sql": "SELECT 2"})
+    ).json()
+    dup = await client.patch(f"/api/importers/{second['id']}", json={"name": "First"})
+    assert dup.status_code == 409
+    assert first["name"] == "First"
+
+
+async def test_importers_create_blank_name_422(client):
+    resp = await client.post("/api/importers", json={"name": "   ", "sql": "x"})
+    assert resp.status_code == 422
+
+
+async def test_importers_patch_blank_name_422(client):
+    created = (
+        await client.post("/api/importers", json={"name": "Keep", "sql": "SELECT 1"})
+    ).json()
+    resp = await client.patch(f"/api/importers/{created['id']}", json={"name": ""})
+    assert resp.status_code == 422
+
+
+async def test_importers_patch_missing_404(client):
+    resp = await client.patch("/api/importers/99999", json={"name": "Nope"})
+    assert resp.status_code == 404
+
+
+async def test_importers_delete_missing_404(client):
+    resp = await client.delete("/api/importers/99999")
+    assert resp.status_code == 404
+
+
+async def test_importer_preview_success(client):
+    resp = await client.post(
+        "/api/importers/preview",
+        files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
+        data={"sql": SAMPLE_SQL},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body) == {
+        "raw_columns",
+        "raw_rows",
+        "rows",
+        "total_rows",
+        "truncated",
+        "error",
+    }
+    assert body["error"] is None
+    assert body["raw_columns"][0] == {"name": "date", "type": "VARCHAR"}
+    assert len(body["raw_rows"]) == 2
+    assert body["total_rows"] == 2
+    assert body["truncated"] is False
+    assert body["rows"] == [
+        {"date": "2026-01-15", "amount_cents": 1999, "description": "Coffee"},
+        {"date": "2026-01-16", "amount_cents": -500, "description": "Tea"},
+    ]
+
+
+async def test_importer_preview_truncates_display(client, monkeypatch):
+    monkeypatch.setattr(settings, "importer_preview_display_rows", 1)
+    resp = await client.post(
+        "/api/importers/preview",
+        files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
+        data={"sql": SAMPLE_SQL},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total_rows"] == 2
+    assert len(body["rows"]) == 1
+    assert body["truncated"] is True
+
+
+async def test_importer_preview_bad_sql_returns_200_error(client):
+    resp = await client.post(
+        "/api/importers/preview",
+        files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
+        data={"sql": "DROP TABLE raw"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["error"] is not None
+    assert body["error"]["stage"] == "parse"
+    assert body["error"]["message"]
+
+
+async def test_importer_preview_validate_error_returns_200(client):
+    resp = await client.post(
+        "/api/importers/preview",
+        files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
+        data={"sql": "SELECT * FROM raw"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["error"]["stage"] == "validate"
+    assert body["rows"] == []
+
+
+async def test_importer_preview_missing_sql_422(client):
+    resp = await client.post(
+        "/api/importers/preview",
+        files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
+    )
+    assert resp.status_code == 422
+
+
+async def test_importer_preview_oversized_file_413(client, monkeypatch):
+    monkeypatch.setattr(settings, "importer_upload_max_bytes", 10)
+    resp = await client.post(
+        "/api/importers/preview",
+        files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
+        data={"sql": SAMPLE_SQL},
+    )
+    assert resp.status_code == 413
+
+
+async def test_importer_preview_writes_no_temp_files(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    resp = await client.post(
+        "/api/importers/preview",
+        files={"file": ("sample.csv", SAMPLE_CSV, "text/csv")},
+        data={"sql": SAMPLE_SQL},
+    )
+    assert resp.status_code == 200
+    assert list(tmp_path.iterdir()) == []
 
 
 # === Data: Imports ===
