@@ -129,9 +129,7 @@ def load_raw(con: duckdb.DuckDBPyConnection, blob: bytes) -> list[RawColumn]:
     return [RawColumn(name=row[0], type=row[1]) for row in described]
 
 
-def _execute_and_validate(
-    con: duckdb.DuckDBPyConnection, sql: str
-) -> pl.DataFrame:
+def _execute_and_validate(con: duckdb.DuckDBPyConnection, sql: str) -> pl.DataFrame:
     """Run one statement, enforce the contract, return the validated frame."""
     assert_single_select(sql)
 
@@ -250,7 +248,8 @@ def preview_importer(sql: str, blob: bytes) -> PreviewResult:
 
             try:
                 raw_result = con.execute(
-                    f"SELECT * FROM raw LIMIT {int(settings.importer_raw_preview_rows)}"
+                    "SELECT * FROM raw LIMIT ?",
+                    [int(settings.importer_raw_preview_rows)],
                 ).fetchall()
                 raw_rows = [list(row) for row in raw_result]
             except duckdb.Error as exc:

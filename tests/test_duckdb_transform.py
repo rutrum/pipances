@@ -309,9 +309,7 @@ def test_preview_never_raises_parse_error():
 
 
 def test_preview_reports_query_error_on_disk_read():
-    result = preview_importer(
-        "SELECT * FROM read_csv('/etc/passwd')", EXPORT_CSV
-    )
+    result = preview_importer("SELECT * FROM read_csv('/etc/passwd')", EXPORT_CSV)
     assert result.error is not None
     assert result.error.stage == "query"
 
