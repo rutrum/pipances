@@ -17,6 +17,7 @@ from pipances.models import (
     AccountKind,
     Category,
     Import,
+    Importer,
     Transaction,
     TransactionStatus,
 )
@@ -88,6 +89,38 @@ CATEGORY_NAMES = [
     "Credit Card Payment",
     "Savings Transfer",
     "Bank Migration",
+]
+
+# === SQL Importers ===
+# DuckDB `SELECT` queries over the all-VARCHAR `raw` relation. These match the
+# sample CSVs used by the dev/import flow: "Example Bank" for a plain
+# date,amount,description export and "Metro Credit Union" for split
+# debit/credit columns with MM/DD/YYYY dates.
+
+IMPORTERS: list[dict[str, str]] = [
+    {
+        "name": "Example Bank",
+        "sql": """\
+SELECT
+  CAST(date AS DATE) AS date,
+  CAST(amount AS DECIMAL(38,2)) AS amount,
+  CAST(description AS VARCHAR) AS description
+FROM raw
+""",
+    },
+    {
+        "name": "Metro Credit Union",
+        "sql": """\
+SELECT
+  CAST(strptime("Transaction Date", '%m/%d/%Y') AS DATE) AS date,
+  CASE
+    WHEN "Credit" IS NOT NULL AND "Credit" <> '' THEN CAST("Credit" AS DECIMAL(38,2))
+    ELSE -CAST("Debit" AS DECIMAL(38,2))
+  END AS amount,
+  CAST("Memo" AS VARCHAR) AS description
+FROM raw
+""",
+    },
 ]
 
 # === Merchant Variants ===
@@ -368,6 +401,11 @@ async def seed():
             session.add(cat)
             await session.flush()
             category_map[name] = cat
+
+        # === Create SQL importers ===
+        for importer_data in IMPORTERS:
+            session.add(Importer(**importer_data))
+        await session.flush()
 
         # === Create external accounts ===
         external_map: dict[str, Account] = {}
@@ -794,6 +832,7 @@ async def seed():
     print(f"  {len(INTERNAL_ACCOUNTS)} internal accounts")
     print(f"  {len(external_map)} external accounts")
     print(f"  {len(CATEGORY_NAMES)} categories")
+    print(f"  {len(IMPORTERS)} SQL importers")
     print("  4 import records (FN, Metro CU, Chase, Amex)")
     print(f"  {uncategorized_count} transactions left uncategorized")
     for inst, count in sorted(import_counts.items()):
