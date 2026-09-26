@@ -30,7 +30,7 @@ Agents update this table when their workstream's gate passes.
 | C — model + DB | done | `models.py` (`Importer` + 3 `Import` provenance columns), `db/migrations.py` (`migrate_imports`), `db/__init__.py`, new `db/importers.py`, db tests green. No interface-shape change; one clarification recorded below (CRUD flushes, caller commits). |
 | D — API | done | CRUD + preview routes live; preview returns 200 with embedded `{stage, message}`, enforces size/length caps, and writes nothing to disk. Deviation: interface section 8 ownership row corrected to include `tests/test_data_tables.py` (see below). |
 | E — UI | done | `/data/importers` embeds `window.__IMPORTERS__`, builder modal + `importers.js` live; lint + agent-browser verified. Deviations recorded below. |
-| F — detection cutover | Phase 2 | on B + C + D |
+| F — detection cutover | done | `ingest.py` is DB-backed and provenance-aware; import routes key on importer `id` and run the selected SQL through `run_importer_sql`, so builder preview and import are the same engine path. Detection is one `run_importers_sql` sweep over the uploaded bytes. `importers/*.py` left in place for G. Deviations recorded below. |
 | G — cleanup | Phase 2 | on F |
 | H — Playwright | Phase 2 | on E |
 
@@ -502,6 +502,30 @@ Recorded 2026-03 (E implementation):
 Deferred: Tabulator column-level filtering/sorting of the action column is off
 (`headerSort: false`, `download: false`); raw sample rows are not displayed; no
 confirm-on-delete. None affect the frozen contract.
+
+### Workstream F deviations (recorded)
+
+Recorded 2026-03 (F implementation). No interface-shape change; two flags for
+the orchestrator/G:
+
+1. **`templates/data/_importer_builder.jinja2` needed one djlint reformat for
+   `just lint` to pass.** On this branch, `djlint reformat` rewraps the
+   `#importer-preview` div onto two lines, and `prek` reports failure whenever a
+   hook modifies a file. The change is whitespace-only (no markup or id change)
+   and came out of the project's own formatter, so it was kept to keep the gate
+   green. It is E's file and predates F; flagging so it is not mistaken for an F
+   change and can be squashed into E.
+2. **Multi-success detection still renders no commit form.** For more than one
+   successful importer the frozen template gates the whole commit form on
+   `preview_rows is not none`, while the route (before and after F) leaves rows
+   unset unless exactly one importer succeeded. So multiple successes are listed
+   as badges, but the picker/commit form is not shown. This is pre-existing
+   template behaviour, unchanged by F (test coverage added at the badge/list
+   level). Interface section 6 only freezes the detection objects, so this is a
+   UI follow-up for E/H, not an interface correction.
+
+The `/import` temp-file mechanics, HTMX attributes, and `preview_dedup` /
+`_predict_for_transactions` behaviour are unchanged.
 
 ## Agent execution plan
 

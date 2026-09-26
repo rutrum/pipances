@@ -195,12 +195,37 @@ class ImporterInfo:
 async def discover_importers(database: Database) -> dict[int, ImporterInfo]
 
 async def try_all_importers(database: Database, blob: bytes) -> dict[int, dict]:
-    # value: {"success": bool, "name": str, "df": pl.DataFrame} | {"success": False, "name": str, "error": str}
+    # value: {"success": True, "name": str, "df": pl.DataFrame}
+    #      | {"success": False, "name": str, "error": str}
+
+async def ingest(
+    database: Database,
+    df: pl.DataFrame,              # validated ImportedTransaction
+    internal_account: str,
+    importer_name: str,
+    filename: str | None = None,
+    *,
+    importer_id: int | None = None,
+    importer_sql: str | None = None,
+) -> IngestResult
 ```
 
-`ImporterInfo.parse` is deleted; detection calls `run_importers_sql` once for all
-importers. `ingest` and `preview_dedup` keep taking a validated
-`pl.DataFrame[ImportedTransaction]`.
+Rules:
+
+- `discover_importers` reads the `importers` table via `db.importers.list_importers`.
+  The importlib discovery code and `ImporterInfo.parse` are deleted.
+- `try_all_importers` calls `run_importers_sql({id: sql}, blob)` once and maps
+  each result to the dict shape above. Keys are importer ids.
+- `ingest` sets `Import.importer_id`, `Import.importer_name`, and
+  `Import.importer_sql` from its arguments. `Import.institution` keeps its
+  current meaning (the importer display name, or `"Manual"`). Manual entry and
+  any non-importer caller pass `importer_id=None` and `importer_sql=None`.
+- Routes key on importer `id` (the `importer` form field is the id string). The
+  selected importer's SQL runs through `run_importer_sql(info.sql, blob)` for
+  dedup/commit, so builder preview and import share one execution path.
+- `preview_dedup` keeps taking a validated `pl.DataFrame[ImportedTransaction]`.
+- The existing `/import` temp-file mechanics are unchanged; detection now takes
+  the uploaded bytes directly.
 
 ## 7. Browser contract — `static/js/pages/importers.js` (new)
 
@@ -224,6 +249,6 @@ importers. `ingest` and `preview_dedup` keep taking a validated
 | C | `src/pipances/models.py`, `src/pipances/db/__init__.py`, `src/pipances/db/importers.py`, `src/pipances/db/migrations.py`, `tests/test_db.py` |
 | D | `src/pipances/routes/api/importers.py`, `src/pipances/routes/api/schemas.py`, `tests/test_routes.py`, `tests/test_data_tables.py` |
 | E | `src/pipances/routes/data.py`, `src/pipances/templates/**`, `static/js/pages/importers.js`, delete `static/js/pages/importers-table.js` |
-| F | `src/pipances/ingest.py`, `src/pipances/routes/import_page.py`, `tests/test_import.py`, `tests/test_ingest.py` |
+| F | `src/pipances/ingest.py`, `src/pipances/routes/import_page.py`, `tests/test_import.py`, `tests/test_ingest.py`, `tests/conftest.py` (fixtures only), and only the `/import/*` tests in `tests/test_routes.py` |
 | G | Phase 2 only: `src/pipances/settings.py` (remove `importers_dir`), `nix/**`, `README.md`, `CHANGELOG.md`, delete `importers/` |
 | H | `tests/ui/**` |
