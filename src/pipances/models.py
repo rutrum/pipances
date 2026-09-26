@@ -1,7 +1,17 @@
 from datetime import date, datetime
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -49,6 +59,23 @@ class Account(Base):
         return f"Account(id={self.id}, name={self.name!r}, kind={self.kind!r}, active={self.active})"
 
 
+class Importer(Base):
+    __tablename__ = "importers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    sql: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"Importer(id={self.id}, name={self.name!r})"
+
+
 class Import(Base):
     __tablename__ = "imports"
 
@@ -59,6 +86,11 @@ class Import(Base):
         DateTime, server_default=func.now(), nullable=False
     )
     row_count: Mapped[int | None] = mapped_column(Integer)
+    importer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("importers.id", ondelete="SET NULL"), nullable=True
+    )
+    importer_name: Mapped[str | None] = mapped_column(String)
+    importer_sql: Mapped[str | None] = mapped_column(Text)
 
     transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="import_record"

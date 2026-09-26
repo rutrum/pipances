@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
 
 from pipances.db.migrations import (
     migrate_accounts,
+    migrate_imports,
     migrate_transaction_splits,
     migrate_transactions,
 )
@@ -58,6 +59,7 @@ class Database:
             await migrate_accounts(conn)
             await migrate_transactions(conn)
             await migrate_transaction_splits(conn)
+            await migrate_imports(conn)
 
     async def dispose(self) -> None:
         await self.engine.dispose()

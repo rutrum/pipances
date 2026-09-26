@@ -50,3 +50,18 @@ async def migrate_transaction_splits(conn: AsyncConnection) -> None:
             ")"
         )
     )
+
+
+async def migrate_imports(conn: AsyncConnection) -> None:
+    columns = await _columns(conn, "imports")
+    migrations = {
+        "importer_id": (
+            "ALTER TABLE imports ADD COLUMN importer_id INTEGER "
+            "REFERENCES importers(id) ON DELETE SET NULL"
+        ),
+        "importer_name": "ALTER TABLE imports ADD COLUMN importer_name VARCHAR",
+        "importer_sql": "ALTER TABLE imports ADD COLUMN importer_sql TEXT",
+    }
+    for column, ddl in migrations.items():
+        if column not in columns:
+            await conn.execute(text(ddl))
