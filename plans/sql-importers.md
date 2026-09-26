@@ -29,7 +29,7 @@ Agents update this table when their workstream's gate passes.
 | B — engine | done | `duckdb_transform.py` + engine tests green; adds the new `duckdb_*` / `importer_*` settings keys (keeps `importers_dir` for G). Deviations resolved in the interface doc. |
 | C — model + DB | done | `models.py` (`Importer` + 3 `Import` provenance columns), `db/migrations.py` (`migrate_imports`), `db/__init__.py`, new `db/importers.py`, db tests green. No interface-shape change; one clarification recorded below (CRUD flushes, caller commits). |
 | D — API | done | CRUD + preview routes live; preview returns 200 with embedded `{stage, message}`, enforces size/length caps, and writes nothing to disk. Deviation: interface section 8 ownership row corrected to include `tests/test_data_tables.py` (see below). |
-| E — UI | blocked | on D |
+| E — UI | done | `/data/importers` embeds `window.__IMPORTERS__`, builder modal + `importers.js` live; lint + agent-browser verified. Deviations recorded below. |
 | F — detection cutover | Phase 2 | on B + C + D |
 | G — cleanup | Phase 2 | on F |
 | H — Playwright | Phase 2 | on E |
@@ -472,6 +472,36 @@ Recorded 2026-03 (D implementation):
    the multipart `file` + form `sql` fields, so the wire contract is unchanged.
 3. **`POST /api/importers/preview` takes no database dependency.** It is
    stateless as specified; nothing in the request touches the DB.
+
+### Workstream E deviations (resolved)
+
+Recorded 2026-03 (E implementation):
+
+1. **The `window.__IMPORTERS__` inline script is wrapped in `{# djlint:off #}`.**
+   `pyproject.toml` sets `[tool.djlint] format_js = true`, so djlint rewrote
+   `window.__IMPORTERS__ = {{ importers | tojson }};` into invalid JS (`{{` .. `}}`
+   read as object literals). The `djlint:off` block preserves the exact frozen
+   form; interface section 7 is unchanged.
+2. **The builder markup is a separate include,
+   `templates/data/_importer_builder.jinja2`** (the brief explicitly allowed
+   "new builder partial if cleaner"). `_data_importers.jinja2` renders the
+   embedded list + table + `{% include %}` + script tag. The frozen ids in
+   interface section 7 all live in the builder partial.
+3. **Delete has no confirmation step.** The frozen id list has no confirm
+   element, and a native `window.confirm()` is unreliable under the browser
+   harness (Playwright auto-dismisses dialogs). One click deletes and rebuilds.
+   A DaisyUI confirm dialog is a possible follow-up.
+4. **`importers.js` carries its own small `showToast`.** `table-editors.js` is
+   not loaded on `/data/importers`, so the page does not depend on the shared
+   editors bundle for toasts. No wire change.
+5. **Only `raw_columns` (the sniffed schema) is rendered from the raw side, not
+   `raw_rows`.** The brief asked to "render raw columns"; the API still returns
+   `raw_rows` (interface section 1) so a future UI can show sample values
+   without a wire change.
+
+Deferred: Tabulator column-level filtering/sorting of the action column is off
+(`headerSort: false`, `download: false`); raw sample rows are not displayed; no
+confirm-on-delete. None affect the frozen contract.
 
 ## Agent execution plan
 
