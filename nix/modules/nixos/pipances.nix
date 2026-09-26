@@ -35,12 +35,6 @@ in
       description = "Directory for the SQLite database.";
     };
 
-    importersDir = lib.mkOption {
-      type = lib.types.str;
-      default = "/var/lib/pipances/importers";
-      description = "Directory for custom importers.";
-    };
-
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -78,7 +72,6 @@ in
         PIPANCES_DB_PATH = "${cfg.dataDir}/pipances.db";
         PIPANCES_HOST = cfg.host;
         PIPANCES_PORT = toString cfg.port;
-        PIPANCES_IMPORTERS_DIR = cfg.importersDir;
       };
 
       serviceConfig = {
@@ -96,15 +89,9 @@ in
         PrivateTmp = true;
         ReadWritePaths = [
           cfg.dataDir
-          cfg.importersDir
         ];
       };
     };
-
-    # Create importers directory on boot
-    systemd.tmpfiles.rules = [
-      "d ${cfg.importersDir} 0755 ${cfg.user} ${cfg.group}"
-    ];
 
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
   };

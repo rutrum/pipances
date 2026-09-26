@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     # NixOS module, and container image override them for packaged deployments.
     db_path: Path = Path("pipances.db")
     static_dir: Path = Path("static")
-    importers_dir: Path = Path("importers")
     temp_dir: Path = Path(tempfile.gettempdir())
 
     # Internal structural path (not user-configurable)

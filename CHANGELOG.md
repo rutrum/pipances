@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced filesystem Python importers with DuckDB SQL importers. Importers are now
+  built and edited at `/data/importers` in the browser and stored in the database:
+  each is a single DuckDB `SELECT` over an all-`VARCHAR` `raw` relation returning
+  `date`, `amount`, and `description`, executed in memory server-side.
+
+### Removed
+
+- The `importers/` directory, the `PIPANCES_IMPORTERS_DIR` setting and its NixOS
+  module/container wiring, and the `importersDir` NixOS option.
+
 ## [0.2.1] - 2026-09-25
 
 Packaging fix for the Tabulator tables, plus a consolidation of how Nix-managed static assets are handled.

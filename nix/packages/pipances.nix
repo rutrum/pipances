@@ -70,18 +70,6 @@ let
     '';
   };
 
-  # Copy importers directory
-  importers = pkgs.stdenvNoCC.mkDerivation {
-    pname = "pipances-importers";
-    inherit version;
-    src = ../../importers;
-
-    installPhase = ''
-      mkdir -p $out
-      cp -r $src/*.py $out/ 2>/dev/null || true
-    '';
-  };
-
 in
 pkgs.writeShellApplication {
   name = "pipances";

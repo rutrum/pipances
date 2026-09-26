@@ -85,7 +85,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"importers/*" = ["S"]
 "scripts/*" = ["S"]
 "tests/*" = ["S"]
 
