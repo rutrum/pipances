@@ -32,7 +32,7 @@ Agents update this table when their workstream's gate passes.
 | E — UI | done | `/data/importers` embeds `window.__IMPORTERS__`, builder modal + `importers.js` live; lint + agent-browser verified. Deviations recorded below. |
 | F — detection cutover | done | `ingest.py` is DB-backed and provenance-aware; import routes key on importer `id` and run the selected SQL through `run_importer_sql`, so builder preview and import are the same engine path. Detection is one `run_importers_sql` sweep over the uploaded bytes. `importers/*.py` left in place for G. Deviations recorded below. |
 | G — cleanup | done | Python importer path removed: `importers/`, `importers_dir`, nix derivation, docker env, NixOS option/sandbox/tmpfiles, README + CHANGELOG. `prek.toml`'s `ty check` entry also dropped `importers/` (not in G's listed ownership; `just lint` could not pass otherwise). `nix build` has no `default` attr — `.#pipances` and `.#docker` both build. Deviation recorded below. |
-| H — Playwright | Phase 2 | on E |
+| H — Playwright | done | `tests/ui/test_importers_builder.py` (13 tests) + `importer_cleanup` fixture in `tests/ui/conftest.py` + `create_importer` helper in `tests/ui/helpers.py`. Full pre-existing UI suite stays green: 26 passed. No source changes needed. |
 
 ## The seam
 
@@ -607,6 +607,29 @@ Recorded 2026-03 (G implementation):
    `/api/importers/...` route strings in `routes/api/importers.py` and
    `tests/test_routes.py` are outside G's scope and untouched; the verification
    grep is only clean under the filesystem interpretation.
+
+### Workstream H notes (recorded)
+
+Recorded 2026-03 (H implementation). No interface-shape change.
+
+1. **The builder is pure JS, so coverage lives in `tests/ui/`.**
+   `tests/ui/test_importers_builder.py` drives the real `/data/importers` page on
+   the live server: list render, New/Edit dialog with the read-only preamble,
+   Run against an uploaded sample (raw schema + transformed rows + summary),
+   Save in place, and the parse/query/409 error surfaces.
+2. **Cleanup is a new `importer_cleanup` fixture in `tests/ui/conftest.py`.**
+   It snapshots the importer ids in the session-scoped seeded `ui_db` before the
+   test and deletes any rows added during it, so the seed DB is left as found
+   even for tests that create importers through the builder UI. Applied at
+   module scope with `pytest.mark.usefixtures`.
+3. **`tests/ui/helpers.py` gained a `create_importer` helper** that creates a
+   row through the JSON API, so the edit/delete/duplicate-name tests set up
+   state without exercising the save flow they are not testing.
+4. **The sample is the repo-root `test_export.csv`**, the same gitignored
+   working-tree fixture `tests/test_duckdb_transform.py` reads. No new fixture
+   file was added under `tests/ui/` (`*.csv` is gitignored repo-wide).
+5. **No source change was required.** Every assertion is satisfied by the
+   frozen contract (interface section 7) and the already-merged A–G code.
 
 ## Future considerations
 
