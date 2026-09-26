@@ -31,7 +31,7 @@ Agents update this table when their workstream's gate passes.
 | D — API | done | CRUD + preview routes live; preview returns 200 with embedded `{stage, message}`, enforces size/length caps, and writes nothing to disk. Deviation: interface section 8 ownership row corrected to include `tests/test_data_tables.py` (see below). |
 | E — UI | done | `/data/importers` embeds `window.__IMPORTERS__`, builder modal + `importers.js` live; lint + agent-browser verified. Deviations recorded below. |
 | F — detection cutover | done | `ingest.py` is DB-backed and provenance-aware; import routes key on importer `id` and run the selected SQL through `run_importer_sql`, so builder preview and import are the same engine path. Detection is one `run_importers_sql` sweep over the uploaded bytes. `importers/*.py` left in place for G. Deviations recorded below. |
-| G — cleanup | Phase 2 | on F |
+| G — cleanup | done | Python importer path removed: `importers/`, `importers_dir`, nix derivation, docker env, NixOS option/sandbox/tmpfiles, README + CHANGELOG. `prek.toml`'s `ty check` entry also dropped `importers/` (not in G's listed ownership; `just lint` could not pass otherwise). `nix build` has no `default` attr — `.#pipances` and `.#docker` both build. Deviation recorded below. |
 | H — Playwright | Phase 2 | on E |
 
 ## The seam
@@ -585,6 +585,28 @@ files, dependencies, gate), and the standing rules to stay inside its file set,
 not commit/push, and run `just lint` before reporting done. The dependency row
 is the coordination contract; an agent should stop and report rather than reach
 into another workstream's files.
+
+### Workstream G deviations (recorded)
+
+Recorded 2026-03 (G implementation):
+
+1. **`prek.toml` had to change, but is not in G's ownership list.** The `ty-check`
+   hook ran `uv run ty check src/ importers/ tests/ scripts/`, so deleting
+   `importers/` made `just lint` fail with
+   `error[io]: .../importers: No such file or directory`. The entry is now
+   `uv run ty check src/ tests/ scripts/`. This is a dead-path removal required
+   by the mandatory lint gate, not a functional change; flagged for the
+   orchestrator.
+2. **`nix build` (no attribute) was already invalid on this branch.** The flake
+   exposes `packages.<system>.{agent-browser,docker,pipances,skills}` with no
+   `default`, so bare `nix build` errors with
+   `does not provide attribute 'packages.x86_64-linux.default'`. Verification was
+   done with `nix build .#pipances` and `nix build .#docker` (both succeed).
+   Unrelated to G; the importers derivation was internal, not a flake output.
+3. **Remaining `importers/` matches are URL paths, not filesystem paths.**
+   `/api/importers/...` route strings in `routes/api/importers.py` and
+   `tests/test_routes.py` are outside G's scope and untouched; the verification
+   grep is only clean under the filesystem interpretation.
 
 ## Future considerations
 

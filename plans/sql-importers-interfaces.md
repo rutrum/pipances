@@ -250,5 +250,5 @@ Rules:
 | D | `src/pipances/routes/api/importers.py`, `src/pipances/routes/api/schemas.py`, `tests/test_routes.py`, `tests/test_data_tables.py` |
 | E | `src/pipances/routes/data.py`, `src/pipances/templates/**`, `static/js/pages/importers.js`, delete `static/js/pages/importers-table.js` |
 | F | `src/pipances/ingest.py`, `src/pipances/routes/import_page.py`, `tests/test_import.py`, `tests/test_ingest.py`, `tests/conftest.py` (fixtures only), and only the `/import/*` tests in `tests/test_routes.py` |
-| G | Phase 2 only: `src/pipances/settings.py` (remove `importers_dir`), `nix/**`, `README.md`, `CHANGELOG.md`, delete `importers/` |
+| G | Phase 2 cleanup: `src/pipances/settings.py` (remove `importers_dir`), `pyproject.toml` (remove the `importers/*` ruff per-file ignore), `nix/**`, `README.md`, `CHANGELOG.md`, delete `importers/` |
 | H | `tests/ui/**` |
