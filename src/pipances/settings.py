@@ -34,5 +34,15 @@ class Settings(BaseSettings):
     ml_similarity_floor: float = 0.4
     ml_agreement_threshold: float = 0.6
 
+    # --- DuckDB SQL importers ---
+    duckdb_threads: int = 2
+    duckdb_memory_limit: str = "512MB"
+    duckdb_query_timeout_seconds: float = 10.0
+    importer_sql_max_length: int = 100_000
+    importer_upload_max_bytes: int = 20 * 1024 * 1024
+    importer_max_rows: int = 200_000
+    importer_preview_display_rows: int = 100
+    importer_raw_preview_rows: int = 20
+
 
 settings = Settings()
