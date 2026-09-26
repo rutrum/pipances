@@ -127,9 +127,7 @@ def test_save_adds_row_in_place_and_closes_dialog(page: Page, goto):
     ).to_be_visible()
 
 
-def test_edit_prefills_and_requires_a_fresh_sample(
-    page: Page, goto, live_server
-):
+def test_edit_prefills_and_requires_a_fresh_sample(page: Page, goto, live_server):
     """
     WHEN  the user opens a saved importer for editing and clicks Run
     THEN  name and SQL are prefilled, the file input is cleared, and Run warns
@@ -203,9 +201,7 @@ def test_bad_sql_reports_query_stage_for_unknown_column(page: Page, goto):
     expect(page.locator("#importer-modal")).to_be_visible()
 
 
-def test_duplicate_name_shows_409_without_closing(
-    page: Page, goto, live_server
-):
+def test_duplicate_name_shows_409_without_closing(page: Page, goto, live_server):
     """
     WHEN  the user saves an importer whose name already exists
     THEN  the 409 detail is shown in the dialog and the dialog stays open
@@ -233,9 +229,7 @@ def test_delete_removes_row(page: Page, goto, live_server):
     create_importer(page, live_server, "UI Delete Importer", WORKING_SQL)
     goto("/data/importers")
 
-    row = page.locator(
-        "#importers-table .tabulator-row", has_text="UI Delete Importer"
-    )
+    row = page.locator("#importers-table .tabulator-row", has_text="UI Delete Importer")
     expect(row).to_be_visible()
 
     with page.expect_response(re.compile(r"/api/importers/\d+")) as info:
