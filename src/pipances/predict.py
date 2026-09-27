@@ -46,11 +46,11 @@ class FieldPrediction:
 class TransactionPrediction:
     description: FieldPrediction | None = None
     category_id: FieldPrediction | None = None
-    external_id: FieldPrediction | None = None
+    counter_account_id: FieldPrediction | None = None
 
 
 class TransactionPredictor:
-    """Predicts description, category, and external account for transactions."""
+    """Predicts description, category, and counter account for transactions."""
 
     def __init__(self):
         self._text_knn: NearestNeighbors | None = None
@@ -64,7 +64,7 @@ class TransactionPredictor:
         # Frequency tracking for recurrence threshold (minimum 2 occurrences)
         self._description_freq: Counter = Counter()
         self._category_freq: Counter = Counter()
-        self._external_freq: Counter = Counter()
+        self._counter_account_freq: Counter = Counter()
 
     def fit(
         self,
@@ -76,7 +76,7 @@ class TransactionPredictor:
         institutions: list[str],
         descriptions: list[str | None],
         category_ids: list[int | None],
-        external_ids: list[int | None],
+        counter_account_ids: list[int | None],
     ) -> None:
         """Fit the model on approved transaction data.
 
@@ -93,13 +93,13 @@ class TransactionPredictor:
             institutions: Importer institution names
             descriptions: User-friendly descriptions (nullable, for voting)
             category_ids: Category IDs (nullable, for voting)
-            external_ids: External account IDs (for voting)
+            counter_account_ids: Counter account IDs (for voting)
         """
         if not raw_descriptions:
             self._text_knn = None
             self._description_freq = Counter()
             self._category_freq = Counter()
-            self._external_freq = Counter()
+            self._counter_account_freq = Counter()
             return
 
         # TF-IDF operates on raw text, so it is built here rather than in a
@@ -124,7 +124,7 @@ class TransactionPredictor:
         self._labels = {
             "description": descriptions,
             "category_id": category_ids,
-            "external_id": external_ids,
+            "counter_account_id": counter_account_ids,
         }
         # Store training data features for reweighting in Stage 2
         self._train_amounts = np.array(amounts)
@@ -135,7 +135,7 @@ class TransactionPredictor:
         # Compute frequency of each value for recurrence threshold filtering
         self._description_freq = Counter([d for d in descriptions if d is not None])
         self._category_freq = Counter([c for c in category_ids if c is not None])
-        self._external_freq = Counter(external_ids)
+        self._counter_account_freq = Counter(counter_account_ids)
 
     def predict(
         self,
@@ -255,14 +255,17 @@ class TransactionPredictor:
             ):
                 pred.category_id = None
 
-            pred.external_id = self._vote_field(
-                "external_id", adjusted_sims, neighbor_indices
+            pred.counter_account_id = self._vote_field(
+                "counter_account_id", adjusted_sims, neighbor_indices
             )
             # Filter out single-occurrence values (recurrence threshold)
-            if pred.external_id is not None and not self._meets_recurrence_threshold(
-                "external_id", pred.external_id.value
+            if (
+                pred.counter_account_id is not None
+                and not self._meets_recurrence_threshold(
+                    "counter_account_id", pred.counter_account_id.value
+                )
             ):
-                pred.external_id = None
+                pred.counter_account_id = None
 
             results.append(pred)
 
@@ -358,12 +361,12 @@ class TransactionPredictor:
     def _meets_recurrence_threshold(self, field: str, value: object) -> bool:
         """Check if a value meets the minimum recurrence threshold (>=2 occurrences).
 
-        Each field (description, category_id, external_id) tracks frequency of values
+        Each field (description, category_id, counter_account_id) tracks frequency of values
         seen during training. Values appearing fewer than 2 times are filtered out
         from predictions to avoid noise from one-off, non-recurring values.
 
         Args:
-            field: Field name ("description", "category_id", or "external_id")
+            field: Field name ("description", "category_id", or "counter_account_id")
             value: The value to check (e.g., "Groceries", 5, 42)
 
         Returns:
@@ -373,8 +376,8 @@ class TransactionPredictor:
             freq = self._description_freq
         elif field == "category_id":
             freq = self._category_freq
-        elif field == "external_id":
-            freq = self._external_freq
+        elif field == "counter_account_id":
+            freq = self._counter_account_freq
         else:
             # Unknown field, allow it (defensive)
             return True

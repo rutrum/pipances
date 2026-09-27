@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 from math import ceil
 from typing import Any
 
@@ -16,7 +17,7 @@ from pipances.utils import escape_like
 
 
 async def get_active_internal_accounts(session: AsyncSession) -> Sequence[Account]:
-    """Active non-external accounts ordered by name."""
+    """Active accounts that are not external accounts, ordered by name."""
     result = await session.execute(
         select(Account)
         .where(
@@ -28,13 +29,13 @@ async def get_active_internal_accounts(session: AsyncSession) -> Sequence[Accoun
     return result.scalars().all()
 
 
-async def get_external_accounts(session: AsyncSession) -> Sequence[Account]:
-    """All external accounts ordered by name."""
-    result = await session.execute(
-        select(Account)
-        .where(Account.kind == AccountKind.EXTERNAL)
-        .order_by(Account.name)
-    )
+async def get_counter_accounts(session: AsyncSession) -> Sequence[Account]:
+    """All accounts ordered by name, for the counter-account picker.
+
+    A counter account is usually a merchant, but a transfer's counter account
+    is one of the user's own (internal) accounts, so both kinds are returned.
+    """
+    result = await session.execute(select(Account).order_by(Account.name))
     return result.scalars().all()
 
 
@@ -44,13 +45,14 @@ async def get_account_by_name(session: AsyncSession, name: str) -> Account | Non
     return result.scalar_one_or_none()
 
 
-async def get_or_create_external_account(session: AsyncSession, name: str) -> Account:
-    """Resolve an external account by case-insensitive name, creating one if missing."""
+async def get_counter_or_create_external(session: AsyncSession, name: str) -> Account:
+    """Resolve the counter account for a name, creating an external account.
+
+    A transfer's counter account may be another internal account, so an
+    existing account of any kind wins over creating a new external account.
+    """
     result = await session.execute(
-        select(Account).where(
-            Account.kind == AccountKind.EXTERNAL,
-            func.lower(Account.name) == name.lower(),
-        )
+        select(Account).where(func.lower(Account.name) == name.lower())
     )
     account = result.scalar_one_or_none()
     if account is None:
@@ -71,7 +73,7 @@ _EXTERNAL_ACCOUNT_SORTS: dict[str, Any] = {
 def _external_accounts_query() -> Select[Any]:
     return (
         select(Account.id, Account.name, _EXTERNAL_TXN_COUNT)
-        .outerjoin(Transaction, Transaction.external_id == Account.id)
+        .outerjoin(Transaction, Transaction.counter_account_id == Account.id)
         .where(Account.kind == AccountKind.EXTERNAL)
         .group_by(Account.id, Account.name)
     )
@@ -125,11 +127,29 @@ async def fetch_external_accounts_page(
     return TablePage(result.all(), total_count, page, page_size, total_pages)
 
 
+async def last_transaction_date_for_account(
+    session: AsyncSession, account_id: int
+) -> date | None:
+    """Date of the most recent transaction on the given account, if any."""
+    return await session.scalar(
+        select(func.max(Transaction.date)).where(Transaction.internal_id == account_id)
+    )
+
+
+_LAST_TXN_DATE = (
+    select(func.max(Transaction.date))
+    .where(Transaction.internal_id == Account.id)
+    .correlate(Account)
+    .scalar_subquery()
+    .label("last_txn_date")
+)
+
 _ACCOUNT_SORTS: dict[str, Any] = {
     "name": Account.name,
     "kind": Account.kind,
     "starting_balance": Account.starting_balance_cents,
     "balance_date": Account.balance_date,
+    "last_txn_date": _LAST_TXN_DATE,
     "active": Account.active,
 }
 
@@ -139,22 +159,13 @@ async def fetch_accounts_page(
     *,
     show_closed: bool = False,
     sorters: Sequence[dict[str, Any]] | None = None,
-    filters: Sequence[dict[str, Any]] | None = None,
     page: int = 1,
     page_size: int = 25,
 ) -> TablePage:
     """One page of internal accounts, optionally including closed ones."""
-    query = select(Account).where(Account.kind != AccountKind.EXTERNAL)
+    query = select(Account, _LAST_TXN_DATE).where(Account.kind != AccountKind.EXTERNAL)
     if not show_closed:
         query = query.where(Account.active == True)  # noqa: E712
-
-    for spec in filters or ():
-        if str(spec.get("field", "")) != "name":
-            continue
-        value = spec.get("value")
-        if value in (None, ""):
-            continue
-        query = query.where(Account.name.ilike(f"%{escape_like(str(value))}%"))
 
     total_count = int(
         await session.scalar(select(func.count()).select_from(query.subquery())) or 0
@@ -177,4 +188,4 @@ async def fetch_accounts_page(
     result = await session.execute(
         query.order_by(*order_by).offset(offset).limit(page_size)
     )
-    return TablePage(result.scalars().all(), total_count, page, page_size, total_pages)
+    return TablePage(result.all(), total_count, page, page_size, total_pages)

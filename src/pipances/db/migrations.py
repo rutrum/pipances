@@ -21,15 +21,48 @@ async def migrate_accounts(conn: AsyncConnection) -> None:
         await conn.execute(
             text("ALTER TABLE accounts ADD COLUMN active BOOLEAN NOT NULL DEFAULT 1")
         )
+    # Accounts are typed internal or external; the merchant/payee kind is
+    # "external". (An earlier rename used "counter_account" as the kind.)
+    await conn.execute(
+        text("UPDATE accounts SET kind = 'external' WHERE kind = 'counter_account'")
+    )
 
 
 async def migrate_transactions(conn: AsyncConnection) -> None:
+    columns = await _columns(conn, "transactions")
+    # The transaction's other side is its counter account (internal or external).
+    if "external_id" in columns and "counter_account_id" not in columns:
+        await conn.execute(
+            text(
+                "ALTER TABLE transactions RENAME COLUMN external_id TO counter_account_id"
+            )
+        )
+    if "ml_confidence_external" in columns:
+        if "ml_confidence_counter_account" not in columns:
+            await conn.execute(
+                text(
+                    "ALTER TABLE transactions RENAME COLUMN ml_confidence_external"
+                    " TO ml_confidence_counter_account"
+                )
+            )
+        else:
+            # A previously half-applied rename left both columns; carry the
+            # legacy confidence values over before dropping the old column.
+            await conn.execute(
+                text(
+                    "UPDATE transactions SET ml_confidence_counter_account ="
+                    " ml_confidence_external WHERE ml_confidence_counter_account IS NULL"
+                )
+            )
+            await conn.execute(
+                text("ALTER TABLE transactions DROP COLUMN ml_confidence_external")
+            )
     columns = await _columns(conn, "transactions")
     migrations = {
         "category_id": "ALTER TABLE transactions ADD COLUMN category_id INTEGER REFERENCES categories(id)",
         "ml_confidence_description": "ALTER TABLE transactions ADD COLUMN ml_confidence_description REAL",
         "ml_confidence_category": "ALTER TABLE transactions ADD COLUMN ml_confidence_category REAL",
-        "ml_confidence_external": "ALTER TABLE transactions ADD COLUMN ml_confidence_external REAL",
+        "ml_confidence_counter_account": "ALTER TABLE transactions ADD COLUMN ml_confidence_counter_account REAL",
     }
     for column, ddl in migrations.items():
         if column not in columns:

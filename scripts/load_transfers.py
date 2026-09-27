@@ -37,7 +37,7 @@ def _infer_account_kind(name: str) -> AccountKind:
 
 async def load_transfers(database: Database, df: pl.DataFrame) -> int:
     internal_names = df["internal"].unique().to_list()
-    external_names = df["external"].unique().to_list()
+    counter_account_names = df["counter_account"].unique().to_list()
     category_names = [c for c in df["category"].unique().to_list() if c]
 
     async with database.session() as session:
@@ -52,14 +52,14 @@ async def load_transfers(database: Database, df: pl.DataFrame) -> int:
             internal_id_map[name] = account.id
 
         # Ensure external accounts exist
-        external_id_map = {}
-        for name in external_names:
+        counter_account_id_map = {}
+        for name in counter_account_names:
             account = await session.scalar(select(Account).where(Account.name == name))
             if account is None:
                 account = Account(name=name, kind=AccountKind.EXTERNAL)
                 session.add(account)
                 await session.flush()
-            external_id_map[name] = account.id
+            counter_account_id_map[name] = account.id
 
         # Ensure categories exist
         category_id_map = {}
@@ -88,7 +88,7 @@ async def load_transfers(database: Database, df: pl.DataFrame) -> int:
             txn = Transaction(
                 import_id=import_record.id,
                 internal_id=internal_id_map[row["internal"]],
-                external_id=external_id_map[row["external"]],
+                counter_account_id=counter_account_id_map[row["counter_account"]],
                 raw_description=row["description"],
                 description=None,
                 date=row["date"],
@@ -114,6 +114,9 @@ def main():
     asyncio.run(database.create_tables())
 
     df = pl.read_parquet(args.input_path)
+    # Accept parquet produced before the external -> counter_account rename.
+    if "external" in df.columns and "counter_account" not in df.columns:
+        df = df.rename({"external": "counter_account"})
 
     import_id = asyncio.run(load_transfers(database, df))
     print(f"Created import record with id: {import_id}")

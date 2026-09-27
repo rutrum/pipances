@@ -89,11 +89,17 @@ class CommitSummary(NamedTuple):
 
     count: int
     new_categories: list[str]
-    new_externals: list[str]
+    new_external_accounts: list[str]
 
 
 async def commit_summary(session: AsyncSession) -> CommitSummary:
-    """Count marked transactions and the entities a commit would newly create."""
+    """Count marked transactions and the entities a commit would newly create.
+
+    "New" means an entity that is referenced only by pending transactions, so
+    committing would introduce it to the approved history. The user's own
+    (internal) accounts already exist and are never new, even when a transfer
+    makes one of them a transaction's counter account.
+    """
     result = await session.execute(
         select(Transaction)
         .where(
@@ -121,19 +127,23 @@ async def commit_summary(session: AsyncSession) -> CommitSummary:
             if not approved_ref.first():
                 new_category_names.add(category.name)
 
-    # External accounts referenced only by pending transactions.
+    # Merchant/payee external accounts referenced only by pending transactions.
+    # Internal accounts (checking, savings, credit cards) are excluded: they are
+    # the user's own existing accounts, never something a commit creates.
     new_external_names: set[str] = set()
     for txn in marked:
-        if txn.external is None:
+        if txn.counter_account is None:
+            continue
+        if txn.counter_account.kind != AccountKind.EXTERNAL:
             continue
         approved_ref = await session.execute(
             select(Transaction.id).where(
-                Transaction.external_id == txn.external_id,
+                Transaction.counter_account_id == txn.counter_account_id,
                 Transaction.status == TransactionStatus.APPROVED,
             )
         )
         if not approved_ref.first():
-            new_external_names.add(txn.external.name)
+            new_external_names.add(txn.counter_account.name)
 
     return CommitSummary(
         len(marked), sorted(new_category_names), sorted(new_external_names)
@@ -141,7 +151,7 @@ async def commit_summary(session: AsyncSession) -> CommitSummary:
 
 
 async def commit_marked_transactions(session: AsyncSession) -> int:
-    """Approve every marked pending transaction; prune orphaned externals.
+    """Approve every marked pending transaction; prune orphaned external accounts.
 
     Returns the number of transactions committed (0 when nothing was marked).
     """
@@ -167,7 +177,7 @@ async def commit_marked_transactions(session: AsyncSession) -> int:
                     Account.kind == AccountKind.EXTERNAL,
                     ~exists(
                         select(Transaction.id).where(
-                            Transaction.external_id == Account.id
+                            Transaction.counter_account_id == Account.id
                         )
                     ),
                     ~exists(
@@ -193,7 +203,7 @@ def txn_options(
     """Eager-loading options covering the relationships templates render."""
     options: list[ORMOption] = [
         selectinload(Transaction.internal),
-        selectinload(Transaction.external),
+        selectinload(Transaction.counter_account),
         selectinload(Transaction.category),
     ]
     if splits:
@@ -238,13 +248,13 @@ def apply_filters(
     date_from: date | None = None,
     date_to: date | None = None,
     internal_filter: str | None = None,
-    external_filter: str | None = None,
+    counter_account_filter: str | None = None,
     category_filter: str | None = None,
     internal_id: int | None = None,
     import_id: int | None = None,
     description_filter: str | None = None,
     category_name_filter: str | None = None,
-    external_name_filter: str | None = None,
+    counter_account_name_filter: str | None = None,
     internal_name_filter: str | None = None,
 ) -> Select:
     """Apply the standard transaction filters to any SELECT against transactions."""
@@ -259,10 +269,10 @@ def apply_filters(
         )
     if internal_id is not None:
         query = query.where(Transaction.internal_id == internal_id)
-    if external_filter:
-        _external = aliased(Account)
-        query = query.join(_external, Transaction.external).where(
-            _external.name == external_filter
+    if counter_account_filter:
+        _counter_account = aliased(Account)
+        query = query.join(_counter_account, Transaction.counter_account).where(
+            _counter_account.name == counter_account_filter
         )
     if import_id is not None:
         query = query.where(Transaction.import_id == import_id)
@@ -276,9 +286,9 @@ def apply_filters(
         query = query.join(Transaction.category).where(
             Category.name.ilike(f"%{category_name_filter}%")
         )
-    if external_name_filter:
-        query = query.join(Transaction.external).where(
-            Account.name.ilike(f"%{external_name_filter}%")
+    if counter_account_name_filter:
+        query = query.join(Transaction.counter_account).where(
+            Account.name.ilike(f"%{counter_account_name_filter}%")
         )
     if internal_name_filter:
         query = query.join(Transaction.internal).where(
@@ -296,10 +306,10 @@ def _sort_expression(sort_col: str) -> ColumnElement[Any] | None:
             .correlate(Transaction)
             .scalar_subquery()
         )
-    if sort_col == "external_account.name":
+    if sort_col == "counter_account.name":
         return (
             select(Account.name)
-            .where(Account.id == Transaction.external_id)
+            .where(Account.id == Transaction.counter_account_id)
             .correlate(Transaction)
             .scalar_subquery()
         )
@@ -355,7 +365,7 @@ _FILTER_COLUMNS: dict[str, tuple[ColumnElement[Any], str]] = {
 # Client field -> (relationship, related column) for filters on joined names.
 _FILTER_RELATIONSHIPS: dict[str, tuple[Any, ColumnElement[Any]]] = {
     "category.name": (Transaction.category, _column(Category.name)),
-    "external_account.name": (Transaction.external, _column(Account.name)),
+    "counter_account.name": (Transaction.counter_account, _column(Account.name)),
     "internal_account.name": (Transaction.internal, _column(Account.name)),
 }
 
@@ -461,11 +471,11 @@ def set_txn_category(txn: Transaction, category: Category | None) -> None:
     txn.ml_confidence_category = None
 
 
-def set_txn_external(txn: Transaction, account: Account | None) -> None:
-    """Assign an external account, discarding any ML suggestion confidence."""
-    txn.external_id = account.id if account else None
-    txn.external = account
-    txn.ml_confidence_external = None
+def set_txn_counter_account(txn: Transaction, account: Account | None) -> None:
+    """Assign a counter account, discarding any ML suggestion confidence."""
+    txn.counter_account_id = account.id if account else None
+    txn.counter_account = account
+    txn.ml_confidence_counter_account = None
 
 
 class TxnPage(NamedTuple):
@@ -485,13 +495,13 @@ async def fetch_page(
     date_from: date | None = None,
     date_to: date | None = None,
     internal_filter: str | None = None,
-    external_filter: str | None = None,
+    counter_account_filter: str | None = None,
     category_filter: str | None = None,
     internal_id: int | None = None,
     import_id: int | None = None,
     description_filter: str | None = None,
     category_name_filter: str | None = None,
-    external_name_filter: str | None = None,
+    counter_account_name_filter: str | None = None,
     internal_name_filter: str | None = None,
     sort_col: str = "date",
     sort_dir: str = "desc",
@@ -518,13 +528,13 @@ async def fetch_page(
             date_from=date_from,
             date_to=date_to,
             internal_filter=internal_filter,
-            external_filter=external_filter,
+            counter_account_filter=counter_account_filter,
             category_filter=category_filter,
             internal_id=internal_id,
             import_id=import_id,
             description_filter=description_filter,
             category_name_filter=category_name_filter,
-            external_name_filter=external_name_filter,
+            counter_account_name_filter=counter_account_name_filter,
             internal_name_filter=internal_name_filter,
         )
         if tabulator_filters:

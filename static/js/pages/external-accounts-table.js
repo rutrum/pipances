@@ -50,7 +50,7 @@
           var name = cell.getRow().getData().name || "";
           return (
             '<a class="btn btn-ghost btn-xs" title="View in Explore" ' +
-            'href="/explore?external=' +
+            'href="/explore?counter_account=' +
             encodeURIComponent(name) +
             '"><i data-lucide="compass" class="w-4 h-4"></i></a>'
           );

@@ -18,7 +18,7 @@ This vision is here in spirit, but the application is rough around the edges and
 ## Features
 
 - **CSV import** with DuckDB SQL importers you build and edit in the browser
-- **ML-assisted categorization** — predictions for category, description, and external account based on your approved history
+- **ML-assisted categorization** — predictions for category, description, and counter account based on your approved history
 - **Inbox review workflow** — bulk edit, filter, and approve pending transactions
 - **Explore page** — interactive charts, summary statistics, and filtered transaction browsing
 - **Multiple account types** — checking, savings, credit cards, with account lifecycle (open/close)

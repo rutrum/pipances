@@ -27,7 +27,7 @@ async def seed_txns(session, seed_accounts, seed_categories, seed_import):
         Transaction(
             import_id=seed_import.id,
             internal_id=checking.id,
-            external_id=coffee.id,
+            counter_account_id=coffee.id,
             raw_description="SQ *BLUE BOTTLE",
             description="Blue Bottle Coffee",
             date=date(2026, 1, 15),
@@ -38,7 +38,7 @@ async def seed_txns(session, seed_accounts, seed_categories, seed_import):
         Transaction(
             import_id=seed_import.id,
             internal_id=checking.id,
-            external_id=market.id,
+            counter_account_id=market.id,
             raw_description="GREEN MARKET #12",
             description="Weekly groceries",
             date=date(2026, 2, 3),
@@ -49,7 +49,7 @@ async def seed_txns(session, seed_accounts, seed_categories, seed_import):
         Transaction(
             import_id=seed_import.id,
             internal_id=savings.id,
-            external_id=None,
+            counter_account_id=None,
             raw_description="PAYROLL DEPOSIT",
             description="Paycheck",
             date=date(2026, 2, 20),
@@ -60,7 +60,7 @@ async def seed_txns(session, seed_accounts, seed_categories, seed_import):
         Transaction(
             import_id=seed_import.id,
             internal_id=checking.id,
-            external_id=market.id,
+            counter_account_id=market.id,
             raw_description="BUS FARE",
             description=None,
             date=date(2026, 3, 1),
@@ -90,7 +90,7 @@ async def test_table_returns_tabulator_envelope(client, seed_txns):
     coffee = next(d for d in body["data"] if d["description"] == "Blue Bottle Coffee")
     assert coffee["amount"] == pytest.approx(-12.34)
     assert coffee["category"]["name"] == "Dining"
-    assert coffee["external_account"]["name"] == "Blue Bottle"
+    assert coffee["counter_account"]["name"] == "Blue Bottle"
 
 
 async def test_table_default_sort_is_date_desc(client, seed_txns):
@@ -120,10 +120,10 @@ async def test_table_filter_on_category_name(client, seed_txns):
     assert body["data"][0]["category"]["name"] == "Groceries"
 
 
-async def test_table_filter_on_external_name(client, seed_txns):
+async def test_table_filter_on_counter_account_name(client, seed_txns):
     resp = await _post(
         client,
-        filter=[{"field": "external_account.name", "type": "like", "value": "market"}],
+        filter=[{"field": "counter_account.name", "type": "like", "value": "market"}],
     )
     body = resp.json()
     assert body["last_row"] == 2
@@ -202,7 +202,7 @@ async def test_table_empty_filters_returns_everything(client, seed_txns):
     assert resp.json()["last_row"] == 4
 
 
-# === Server-side name filters (internal/external/category) ===
+# === Server-side name filters (internal/counter_account/category) ===
 
 
 async def test_table_internal_name_filter(client, seed_txns):
@@ -212,11 +212,11 @@ async def test_table_internal_name_filter(client, seed_txns):
     assert body["data"][0]["internal_account"]["name"] == "Savings"
 
 
-async def test_table_external_name_filter(client, seed_txns):
-    resp = await _post(client, external="Blue Bottle")
+async def test_table_counter_account_name_filter(client, seed_txns):
+    resp = await _post(client, counter_account="Blue Bottle")
     body = resp.json()
     assert body["last_row"] == 1
-    assert body["data"][0]["external_account"]["name"] == "Blue Bottle"
+    assert body["data"][0]["counter_account"]["name"] == "Blue Bottle"
 
 
 async def test_table_category_name_filter(client, seed_txns):
@@ -228,12 +228,12 @@ async def test_table_category_name_filter(client, seed_txns):
 
 async def test_table_name_filters_are_exact_matches(client, seed_txns):
     """Unlike header-filter `like` entries, name filters match exactly."""
-    resp = await _post(client, external="Blue")
+    resp = await _post(client, counter_account="Blue")
     assert resp.json()["last_row"] == 0
 
 
 async def test_table_name_filters_combine_with_dates(client, seed_txns):
-    resp = await _post(client, external="Green Market", date_from="2026-02-01")
+    resp = await _post(client, counter_account="Green Market", date_from="2026-02-01")
     body = resp.json()
     # Groceries (Feb 3) and bus fare (Mar 1), but not the Jan coffee purchase.
     assert body["last_row"] == 2

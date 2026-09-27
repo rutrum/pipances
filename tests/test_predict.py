@@ -179,7 +179,7 @@ class TestTextOnlyKNN:
             institutions=["Bank1", "Bank1", "Bank1"],
             descriptions=["Grocery Store", "Grocery Store", "Shopping"],
             category_ids=[1, 1, 2],
-            external_ids=[1, 1, 2],
+            counter_account_ids=[1, 1, 2],
         )
 
         assert predictor._text_knn is not None
@@ -200,7 +200,7 @@ class TestTextOnlyKNN:
             institutions=["Bank", "Bank", "Bank"],
             descriptions=["D1", "D2", "D3"],
             category_ids=[1, 2, 3],
-            external_ids=[1, 2, 3],
+            counter_account_ids=[1, 2, 3],
         )
 
         # Should work without crashing
@@ -219,7 +219,7 @@ class TestTextOnlyKNN:
             institutions=["Bank", "Bank", "Bank"],
             descriptions=["D1", "D2", "D3"],
             category_ids=[1, 2, 3],
-            external_ids=[1, 2, 3],
+            counter_account_ids=[1, 2, 3],
         )
 
         assert predictor._text_knn is not None
@@ -245,7 +245,7 @@ class TestTwoStageRanking:
             institutions=["Bank1", "Bank1", "Bank1"],
             descriptions=["Groceries", "Groceries", "Groceries"],
             category_ids=[1, 1, 1],
-            external_ids=[1, 1, 1],
+            counter_account_ids=[1, 1, 1],
         )
 
         # Predict on "KROGER STORE" at $23.50 (different amount)
@@ -280,7 +280,7 @@ class TestTwoStageRanking:
             institutions=["Bank1", "Bank1", "Bank1"],
             descriptions=["Utilities", "Utilities", "Utilities"],
             category_ids=[1, 1, 1],
-            external_ids=[1, 1, 1],
+            counter_account_ids=[1, 1, 1],
         )
 
         # Predict on "UNKNOWN RETAIL STORE" at $35 (exact amount match)
@@ -318,7 +318,7 @@ class TestBackwardCompatibility:
             institutions=["Bank", "Bank"],
             descriptions=["D1", "D2"],
             category_ids=[1, 2],
-            external_ids=[1, 2],
+            counter_account_ids=[1, 2],
         )
 
         predictions = predictor.predict(
@@ -351,7 +351,7 @@ class TestBackwardCompatibility:
         assert len(predictions) == 1
         assert predictions[0].description is None
         assert predictions[0].category_id is None
-        assert predictions[0].external_id is None
+        assert predictions[0].counter_account_id is None
 
 
 class TestExtremeAmounts:
@@ -371,7 +371,7 @@ class TestExtremeAmounts:
             institutions=["Bank1", "Bank1", "Bank1"],
             descriptions=["Groceries", "Groceries", "Groceries"],
             category_ids=[1, 1, 1],
-            external_ids=[1, 1, 1],
+            counter_account_ids=[1, 1, 1],
         )
 
         # Predict on KROGER at $500 (should match despite extreme range in training)
@@ -406,7 +406,7 @@ class TestRecurrenceThreshold:
             institutions=["Bank1", "Bank1", "Bank1"],
             descriptions=["Groceries", "Groceries", "Unique Shop"],
             category_ids=[1, 1, 2],
-            external_ids=[1, 1, 2],
+            counter_account_ids=[1, 1, 2],
         )
 
         # Predict on UNIQUE_SHOP (should not suggest the single-occurrence value)
@@ -423,8 +423,8 @@ class TestRecurrenceThreshold:
         assert predictions[0].description is None
         # Category should be None (only 1 occurrence)
         assert predictions[0].category_id is None
-        # External should be None (only 1 occurrence)
-        assert predictions[0].external_id is None
+        # Counter account should be None (only 1 occurrence)
+        assert predictions[0].counter_account_id is None
 
     def test_two_occurrences_passes_threshold(self):
         """Values appearing exactly 2 times pass the threshold."""
@@ -439,7 +439,7 @@ class TestRecurrenceThreshold:
             institutions=["Bank1", "Bank1"],
             descriptions=["Shopping", "Shopping"],
             category_ids=[3, 3],
-            external_ids=[3, 3],
+            counter_account_ids=[3, 3],
         )
 
         predictions = predictor.predict(
@@ -461,7 +461,7 @@ class TestRecurrenceThreshold:
         """Threshold applied independently to each field."""
         predictor = TransactionPredictor()
 
-        # KROGER: description "Groceries" (1x), category 1 (2x), external 1 (2x)
+        # KROGER: description "Groceries" (1x), category 1 (2x), counter_account 1 (2x)
         predictor.fit(
             raw_descriptions=["KROGER", "KROGER", "OTHER"],
             amounts=[5000, 5000, 3000],
@@ -471,7 +471,7 @@ class TestRecurrenceThreshold:
             institutions=["Bank1", "Bank1", "Bank1"],
             descriptions=["Groceries", "Different", "Other"],
             category_ids=[1, 1, 2],
-            external_ids=[1, 1, 2],
+            counter_account_ids=[1, 1, 2],
         )
 
         predictions = predictor.predict(
@@ -502,7 +502,7 @@ class TestRecurrenceThreshold:
             institutions=["Bank1", "Bank1", "Bank2"],
             descriptions=["Desc_A", "Desc_A", "Desc_B"],
             category_ids=[1, 1, 2],
-            external_ids=[10, 10, 20],
+            counter_account_ids=[10, 10, 20],
         )
 
         # Verify counters match expected frequencies
@@ -510,8 +510,8 @@ class TestRecurrenceThreshold:
         assert predictor._description_freq["Desc_B"] == 1
         assert predictor._category_freq[1] == 2
         assert predictor._category_freq[2] == 1
-        assert predictor._external_freq[10] == 2
-        assert predictor._external_freq[20] == 1
+        assert predictor._counter_account_freq[10] == 2
+        assert predictor._counter_account_freq[20] == 1
 
     def test_empty_training_data_doesnt_crash(self):
         """Empty training data doesn't crash predictor."""
@@ -526,13 +526,13 @@ class TestRecurrenceThreshold:
             institutions=[],
             descriptions=[],
             category_ids=[],
-            external_ids=[],
+            counter_account_ids=[],
         )
 
         # Counters should be empty
         assert len(predictor._description_freq) == 0
         assert len(predictor._category_freq) == 0
-        assert len(predictor._external_freq) == 0
+        assert len(predictor._counter_account_freq) == 0
 
         # Predict should return all None fields (no training data)
         predictions = predictor.predict(
@@ -546,7 +546,7 @@ class TestRecurrenceThreshold:
 
         assert predictions[0].description is None
         assert predictions[0].category_id is None
-        assert predictions[0].external_id is None
+        assert predictions[0].counter_account_id is None
 
 
 class TestRecurrenceIntegration:
@@ -580,7 +580,7 @@ class TestRecurrenceIntegration:
                 "Shopping",
             ],
             category_ids=[1, 1, 1, 2, 3, 3],
-            external_ids=[1, 1, 1, 2, 3, 3],
+            counter_account_ids=[1, 1, 1, 2, 3, 3],
         )
 
         # Predict: SHELL_GAS appears only once, should be filtered
@@ -624,7 +624,7 @@ class TestRecurrenceIntegration:
             institutions=["Bank", "Bank"],
             descriptions=["Desc_A", "Desc_B"],
             category_ids=[1, 2],
-            external_ids=[10, 20],
+            counter_account_ids=[10, 20],
         )
 
         # Each has count 1
@@ -641,7 +641,7 @@ class TestRecurrenceIntegration:
             institutions=["Bank", "Bank"],
             descriptions=["Desc_A", "Desc_A"],
             category_ids=[1, 1],
-            external_ids=[10, 10],
+            counter_account_ids=[10, 10],
         )
 
         # Now Desc_A has count 2
@@ -663,7 +663,7 @@ class TestRecurrenceIntegration:
             institutions=["Bank1", "Bank1", "Bank2"],
             descriptions=["Shopping", "Shopping", "Other"],
             category_ids=[1, 1, 2],
-            external_ids=[1, 1, 2],
+            counter_account_ids=[1, 1, 2],
         )
 
         # Predictions should still work (API unchanged)

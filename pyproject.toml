@@ -118,7 +118,7 @@ ignore_names = [
   "connection_record",
   "ml_confidence",
   "can_approve",
-  "external_account",
+  "counter_account",
   "charts",
   "top",
   "dir",

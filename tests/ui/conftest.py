@@ -149,8 +149,8 @@ def importer_cleanup(ui_db):
         conn.close()
 
 
-def _external_on_approved(conn):
-    """Pick an external account already referenced by an approved transaction.
+def _external_account_on_approved(conn):
+    """Pick a counter account already referenced by an approved transaction.
 
     Using one that already exists keeps the commit-summary "new entities"
     checks meaningful for the fixtures below.
@@ -159,8 +159,8 @@ def _external_on_approved(conn):
         """
         SELECT a.id
         FROM accounts a
-        JOIN transactions t ON t.external_id = a.id
-        WHERE a.kind = 'external' AND t.status = 'approved'
+        JOIN transactions t ON t.counter_account_id = a.id
+        WHERE a.kind = 'counter_account' AND t.status = 'approved'
         ORDER BY a.name
         LIMIT 1
         """
@@ -170,7 +170,7 @@ def _external_on_approved(conn):
 @pytest.fixture
 def approvable_txn(ui_db):
     """
-    Set description and external on one pending transaction so its Approve
+    Set description and counter account on one pending transaction so its Approve
     button is enabled.
     Yields the transaction ID. Restores the transaction fully after the test,
     even if it was committed during the test.
@@ -183,12 +183,12 @@ def approvable_txn(ui_db):
         conn.close()
         pytest.skip("No pending transactions available for this test")
     txn_id = row[0]
-    ext = _external_on_approved(conn)
+    ext = _external_account_on_approved(conn)
     if ext is None:
         conn.close()
-        pytest.skip("No approved external account available for this test")
+        pytest.skip("No approved counter account available for this test")
     conn.execute(
-        "UPDATE transactions SET description='Test Transaction', external_id=? WHERE id=?",
+        "UPDATE transactions SET description='Test Transaction', counter_account_id=? WHERE id=?",
         (ext[0], txn_id),
     )
     conn.commit()
@@ -196,10 +196,10 @@ def approvable_txn(ui_db):
 
     yield txn_id
 
-    # Restore: reset description, external, marked_for_approval, and status
+    # Restore: reset description, counter_account, marked_for_approval, and status
     conn = sqlite3.connect(str(ui_db))
     conn.execute(
-        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        "UPDATE transactions SET description=NULL, counter_account_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
         (txn_id,),
     )
     conn.commit()
@@ -224,7 +224,7 @@ def bulk_pending_txns(ui_db):
     # Grab real foreign-key IDs from the seeded data
     import_id = conn.execute("SELECT id FROM imports LIMIT 1").fetchone()[0]
     internal_id = conn.execute(
-        "SELECT id FROM accounts WHERE kind != 'external' LIMIT 1"
+        "SELECT id FROM accounts WHERE kind != 'counter_account' LIMIT 1"
     ).fetchone()[0]
 
     inserted_ids = []
@@ -241,12 +241,12 @@ def bulk_pending_txns(ui_db):
 
     # Make the first inserted row approvable
     approvable_id = inserted_ids[0]
-    ext = _external_on_approved(conn)
+    ext = _external_account_on_approved(conn)
     if ext is None:
         conn.close()
-        pytest.skip("No approved external account available for this test")
+        pytest.skip("No approved counter account available for this test")
     conn.execute(
-        "UPDATE transactions SET description='Bulk Test Transaction', external_id=? WHERE id=?",
+        "UPDATE transactions SET description='Bulk Test Transaction', counter_account_id=? WHERE id=?",
         (ext[0], approvable_id),
     )
     conn.commit()
@@ -287,12 +287,12 @@ def approvable_txn_with_new_category(ui_db):
         conn.close()
         pytest.skip("No pending transactions available for this test")
     txn_id = row[0]
-    ext = _external_on_approved(conn)
+    ext = _external_account_on_approved(conn)
     if ext is None:
         conn.close()
-        pytest.skip("No approved external account available for this test")
+        pytest.skip("No approved counter account available for this test")
     conn.execute(
-        "UPDATE transactions SET description='Test Transaction', category_id=?, external_id=? WHERE id=?",
+        "UPDATE transactions SET description='Test Transaction', category_id=?, counter_account_id=? WHERE id=?",
         (cat_id, ext[0], txn_id),
     )
     conn.commit()
@@ -303,7 +303,7 @@ def approvable_txn_with_new_category(ui_db):
     # Restore transaction and remove the test category
     conn = sqlite3.connect(str(ui_db))
     conn.execute(
-        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending', category_id=NULL WHERE id=?",
+        "UPDATE transactions SET description=NULL, counter_account_id=NULL, marked_for_approval=0, status='pending', category_id=NULL WHERE id=?",
         (txn_id,),
     )
     conn.execute("DELETE FROM categories WHERE name=?", (category_name,))
@@ -314,8 +314,8 @@ def approvable_txn_with_new_category(ui_db):
 @pytest.fixture
 def description_only_txn(ui_db):
     """
-    Pending transaction with description set, external NULL, category NULL.
-    Used to test that Approve is disabled when external is missing.
+    Pending transaction with description set, counter_account NULL, category NULL.
+    Used to test that Approve is disabled when counter account is missing.
     """
     conn = sqlite3.connect(str(ui_db))
     row = conn.execute(
@@ -326,7 +326,7 @@ def description_only_txn(ui_db):
         pytest.skip("No pending transactions available")
     txn_id = row[0]
     conn.execute(
-        "UPDATE transactions SET description='Desc Only Test', external_id=NULL, category_id=NULL WHERE id=?",
+        "UPDATE transactions SET description='Desc Only Test', counter_account_id=NULL, category_id=NULL WHERE id=?",
         (txn_id,),
     )
     conn.commit()
@@ -336,7 +336,7 @@ def description_only_txn(ui_db):
 
     conn = sqlite3.connect(str(ui_db))
     conn.execute(
-        "UPDATE transactions SET description=NULL, external_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        "UPDATE transactions SET description=NULL, counter_account_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
         (txn_id,),
     )
     conn.commit()
@@ -344,10 +344,10 @@ def description_only_txn(ui_db):
 
 
 @pytest.fixture
-def description_and_external_txn(ui_db):
+def description_and_counter_account_txn(ui_db):
     """
-    Pending transaction with description + external set, category NULL.
-    The minimum fields to enable Approve (per spec: description + external required).
+    Pending transaction with description + counter account set, category NULL.
+    The minimum fields to enable Approve (per spec: description + counter account required).
     Yields (txn_id, ext_name).
     """
     conn = sqlite3.connect(str(ui_db))
@@ -366,7 +366,7 @@ def description_and_external_txn(ui_db):
         pytest.skip("No pending transactions available")
     txn_id = row[0]
     conn.execute(
-        "UPDATE transactions SET description='Desc And External Test', external_id=?, category_id=NULL WHERE id=?",
+        "UPDATE transactions SET description='Desc And External Test', counter_account_id=?, category_id=NULL WHERE id=?",
         (ext_id, txn_id),
     )
     conn.commit()
@@ -376,7 +376,7 @@ def description_and_external_txn(ui_db):
 
     conn = sqlite3.connect(str(ui_db))
     conn.execute(
-        "UPDATE transactions SET description=NULL, external_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
+        "UPDATE transactions SET description=NULL, counter_account_id=NULL, category_id=NULL, marked_for_approval=0, status='pending' WHERE id=?",
         (txn_id,),
     )
     conn.commit()
@@ -387,7 +387,7 @@ def description_and_external_txn(ui_db):
 def txn_for_splitting(ui_db):
     """
     Pick the pending Target transaction (-$125.00, TGT #2847) and set
-    description + external so the modal is openable.
+    description + counter account so the modal is openable.
     Yields {txn_id, amount_cents}.  Cleans up any splits and restores
     the transaction on teardown.
     """
@@ -408,11 +408,11 @@ def txn_for_splitting(ui_db):
     txn_id = row[0]
     orig_date = row[1]
 
-    # Set description + external so the modal is openable, and force its date
+    # Set description + counter account so the modal is openable, and force its date
     # to the epoch so it sorts first in the inbox table (initialSort date asc)
     # -- the split tests open the modal on the first row.
     conn.execute(
-        "UPDATE transactions SET description='Target Shopping', external_id=?, date='2000-01-01' WHERE id=?",
+        "UPDATE transactions SET description='Target Shopping', counter_account_id=?, date='2000-01-01' WHERE id=?",
         (ext_id, txn_id),
     )
     conn.commit()
@@ -424,7 +424,7 @@ def txn_for_splitting(ui_db):
     conn = sqlite3.connect(str(ui_db))
     conn.execute("DELETE FROM transaction_splits WHERE transaction_id=?", (txn_id,))
     conn.execute(
-        "UPDATE transactions SET description=NULL, external_id=NULL, marked_for_approval=0, status='pending', date=? WHERE id=?",
+        "UPDATE transactions SET description=NULL, counter_account_id=NULL, marked_for_approval=0, status='pending', date=? WHERE id=?",
         (orig_date, txn_id),
     )
     conn.commit()

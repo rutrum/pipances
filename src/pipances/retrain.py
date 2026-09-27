@@ -73,7 +73,7 @@ async def retrain_pending_suggestions(
     # Imported lazily so sklearn / TF-IDF are only loaded when a retrain runs.
     from pipances.predict import TransactionPredictor
 
-    train_external_ids = [t.external_id for t in approved]
+    train_counter_account_ids = [t.counter_account_id for t in approved]
     predictor = TransactionPredictor()
     predictor.fit(
         [t.raw_description for t in approved],
@@ -84,7 +84,7 @@ async def retrain_pending_suggestions(
         [t.import_record.institution for t in approved],
         [t.description for t in approved],
         [t.category_id for t in approved],
-        [e for e in train_external_ids if e is not None],
+        [e for e in train_counter_account_ids if e is not None],
     )
 
     predictions = predictor.predict(
@@ -121,15 +121,16 @@ async def retrain_pending_suggestions(
             txn.ml_confidence_category = pred.category_id.confidence
             updated_count += 1
         if (
-            pred.external_id
-            and pred.external_id.value is not None
+            pred.counter_account_id
+            and pred.counter_account_id.value is not None
             and (
-                txn.ml_confidence_external is None
-                or pred.external_id.confidence > txn.ml_confidence_external
+                txn.ml_confidence_counter_account is None
+                or pred.counter_account_id.confidence
+                > txn.ml_confidence_counter_account
             )
         ):
-            txn.external_id = cast(int, pred.external_id.value)
-            txn.ml_confidence_external = pred.external_id.confidence
+            txn.counter_account_id = cast(int, pred.counter_account_id.value)
+            txn.ml_confidence_counter_account = pred.counter_account_id.confidence
             updated_count += 1
 
     await session.commit()

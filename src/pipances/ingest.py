@@ -9,7 +9,7 @@ import patito as pt
 from sqlalchemy import func, select
 
 from pipances.db import Database
-from pipances.db.accounts import get_or_create_external_account
+from pipances.db.accounts import get_counter_or_create_external
 from pipances.db.importers import list_importers
 from pipances.db.transactions import txn_options
 from pipances.duckdb_transform import ImporterSqlError, run_importers_sql
@@ -222,11 +222,13 @@ async def ingest(
             if inserted_per_key[key] >= to_insert_per_key[key]:
                 continue
 
-            external = await get_or_create_external_account(session, row["description"])
+            counter_account = await get_counter_or_create_external(
+                session, row["description"]
+            )
             txn = Transaction(
                 import_id=import_record.id,
                 internal_id=internal.id,
-                external_id=external.id,
+                counter_account_id=counter_account.id,
                 raw_description=row["description"],
                 description=None,
                 date=row["date"],
@@ -280,7 +282,7 @@ async def _predict_for_transactions(database: Database, txn_ids: list[int]) -> N
         train_institution = [t.import_record.institution for t in approved]
         train_desc = [t.description for t in approved]
         train_cat = [t.category_id for t in approved]
-        train_ext = [t.external_id for t in approved]
+        train_counter = [t.counter_account_id for t in approved]
 
         predictor = TransactionPredictor()
         predictor.fit(
@@ -292,7 +294,7 @@ async def _predict_for_transactions(database: Database, txn_ids: list[int]) -> N
             train_institution,
             train_desc,
             train_cat,
-            train_ext,
+            train_counter,
         )
 
         # Load new pending transactions
@@ -330,8 +332,11 @@ async def _predict_for_transactions(database: Database, txn_ids: list[int]) -> N
             if pred.category_id is not None and pred.category_id.value is not None:
                 txn.category_id = cast(int, pred.category_id.value)
                 txn.ml_confidence_category = pred.category_id.confidence
-            if pred.external_id is not None and pred.external_id.value is not None:
-                txn.external_id = cast(int, pred.external_id.value)
-                txn.ml_confidence_external = pred.external_id.confidence
+            if (
+                pred.counter_account_id is not None
+                and pred.counter_account_id.value is not None
+            ):
+                txn.counter_account_id = cast(int, pred.counter_account_id.value)
+                txn.ml_confidence_counter_account = pred.counter_account_id.confidence
 
         await session.commit()

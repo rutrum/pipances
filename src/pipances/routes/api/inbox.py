@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pipances.db import DatabaseDep
-from pipances.db.accounts import get_or_create_external_account
+from pipances.db.accounts import get_counter_or_create_external
 from pipances.db.categories import get_or_create_category
 from pipances.db.transactions import (
     commit_marked_transactions,
@@ -13,8 +13,8 @@ from pipances.db.transactions import (
     get_txn,
     pending_txn_count,
     set_txn_category,
+    set_txn_counter_account,
     set_txn_description,
-    set_txn_external,
 )
 from pipances.models import Account, Category, Transaction, TransactionStatus
 from pipances.retrain import retrain_pending_suggestions
@@ -57,20 +57,20 @@ async def _resolve_category(
     return await get_or_create_category(session, raw)
 
 
-async def _resolve_external(
+async def _resolve_counter_account(
     session: AsyncSession, value: int | str | None
 ) -> Account | None:
-    """Resolve an external account by id or name, creating if needed."""
+    """Resolve a counter account by id or name, creating if needed."""
     raw = str(value).strip() if value is not None else ""
     if not raw:
         return None
     try:
-        external = await session.get(Account, int(raw))
+        counter_account = await session.get(Account, int(raw))
     except (TypeError, ValueError):
-        external = None
-    if external is not None:
-        return external
-    return await get_or_create_external_account(session, raw)
+        counter_account = None
+    if counter_account is not None:
+        return counter_account
+    return await get_counter_or_create_external(session, raw)
 
 
 @router.post(
@@ -107,7 +107,7 @@ async def inbox_table(
     description=(
         "Apply inline edits across several pending transactions in one request."
         " All-or-nothing: any unknown transaction rolls the whole batch back and"
-        " returns 422. Only description, category and external account are"
+        " returns 422. Only description, category and counter account are"
         " accepted. Empty values clear the field."
     ),
 )
@@ -134,15 +134,18 @@ async def batch_update_inbox_transactions(
                 set_txn_category(
                     txn, await _resolve_category(session, update.category_id)
                 )
-            if "external_id" in update.model_fields_set:
-                set_txn_external(
-                    txn, await _resolve_external(session, update.external_id)
+            if "counter_account_id" in update.model_fields_set:
+                set_txn_counter_account(
+                    txn,
+                    await _resolve_counter_account(session, update.counter_account_id),
                 )
             updated[update.id] = txn
 
         await session.commit()
         for txn in updated.values():
-            await session.refresh(txn, ["internal", "external", "category", "splits"])
+            await session.refresh(
+                txn, ["internal", "counter_account", "category", "splits"]
+            )
 
     return {"data": [transaction_to_dict(txn) for txn in updated.values()]}
 
@@ -152,7 +155,7 @@ async def batch_update_inbox_transactions(
     response_model=TransactionResponse,
     summary="Update a pending inbox transaction",
     description=(
-        "Apply inline edits to description, category, or external account."
+        "Apply inline edits to description, category, or counter account."
         " Empty values clear the field. Returns the updated inbox row."
     ),
 )
@@ -173,8 +176,10 @@ async def update_inbox_transaction(
         if "category_id" in payload.model_fields_set:
             set_txn_category(txn, await _resolve_category(session, payload.category_id))
 
-        if "external_id" in payload.model_fields_set:
-            set_txn_external(txn, await _resolve_external(session, payload.external_id))
+        if "counter_account_id" in payload.model_fields_set:
+            set_txn_counter_account(
+                txn, await _resolve_counter_account(session, payload.counter_account_id)
+            )
 
         if (
             "marked_for_approval" in payload.model_fields_set
@@ -186,17 +191,19 @@ async def update_inbox_transaction(
                         status_code=422,
                         detail="Description is required for approval",
                     )
-                if not txn.external_id:
+                if not txn.counter_account_id:
                     raise HTTPException(
                         status_code=422,
-                        detail="External account is required for approval",
+                        detail="Counter account is required for approval",
                     )
                 txn.marked_for_approval = True
             else:
                 txn.marked_for_approval = False
 
         await session.commit()
-        await session.refresh(txn, ["internal", "external", "category", "splits"])
+        await session.refresh(
+            txn, ["internal", "counter_account", "category", "splits"]
+        )
 
     return transaction_to_dict(txn)
 
@@ -206,7 +213,7 @@ async def update_inbox_transaction(
     response_model=CommitSummaryResponse,
     summary="Preview the pending inbox commit",
     description=(
-        "Count the marked pending transactions and list categories / external"
+        "Count the marked pending transactions and list categories / counter_account"
         " accounts that committing them would newly create."
     ),
 )
@@ -216,7 +223,7 @@ async def inbox_commit_summary(database: DatabaseDep):
     return {
         "count": summary.count,
         "new_categories": summary.new_categories,
-        "new_externals": summary.new_externals,
+        "new_external_accounts": summary.new_external_accounts,
     }
 
 
@@ -225,7 +232,7 @@ async def inbox_commit_summary(database: DatabaseDep):
     response_model=CommitResult,
     summary="Commit marked inbox transactions",
     description=(
-        "Approve every marked pending transaction, prune orphaned external"
+        "Approve every marked pending transaction, prune orphaned counter_account"
         " accounts, and return the committed and remaining counts."
     ),
 )

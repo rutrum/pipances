@@ -10,7 +10,11 @@ from pipances.db.importers import (
     list_importers,
     update_importer,
 )
-from pipances.db.migrations import migrate_imports
+from pipances.db.migrations import (
+    migrate_accounts,
+    migrate_imports,
+    migrate_transactions,
+)
 from pipances.models import Import
 
 
@@ -42,7 +46,97 @@ async def test_migration_adds_missing_columns():
             assert "category_id" in txn_columns
             assert "ml_confidence_description" in txn_columns
             assert "ml_confidence_category" in txn_columns
-            assert "ml_confidence_external" in txn_columns
+            assert "ml_confidence_counter_account" in txn_columns
+    finally:
+        await database.dispose()
+
+
+async def test_migration_renames_external_transaction_columns():
+    """Legacy transaction columns move to the counter-account names, and the
+    merchant kind settles on "external"."""
+    database = Database("sqlite+aiosqlite:///:memory:")
+    try:
+        async with database.engine.begin() as conn:
+            # Simulate a schema whose transaction columns predate the
+            # counter-account vocabulary, and whose kinds include the
+            # short-lived "counter_account" value.
+            await conn.execute(
+                text("CREATE TABLE categories (id INTEGER PRIMARY KEY, name VARCHAR)")
+            )
+            await conn.execute(
+                text(
+                    "CREATE TABLE accounts ("
+                    "id INTEGER NOT NULL PRIMARY KEY, "
+                    "name VARCHAR NOT NULL UNIQUE, "
+                    "kind VARCHAR NOT NULL)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE TABLE transactions ("
+                    "id INTEGER NOT NULL PRIMARY KEY, "
+                    "import_id INTEGER NOT NULL, "
+                    "internal_id INTEGER NOT NULL, "
+                    "external_id INTEGER, "
+                    "raw_description VARCHAR NOT NULL, "
+                    "date DATE NOT NULL, "
+                    "amount_cents INTEGER NOT NULL, "
+                    "ml_confidence_external REAL)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "INSERT INTO accounts (id, name, kind) VALUES"
+                    " (1, 'Checking', 'checking'),"
+                    " (2, 'Kroger', 'external'),"
+                    " (3, 'Beta Cafe', 'counter_account')"
+                )
+            )
+            await conn.execute(
+                text(
+                    "INSERT INTO transactions (id, import_id, internal_id,"
+                    " external_id, raw_description, date, amount_cents,"
+                    " ml_confidence_external) VALUES"
+                    " (1, 1, 1, 2, 'KROGER', '2026-01-01', -100, 0.75)"
+                )
+            )
+
+            await migrate_accounts(conn)
+            await migrate_transactions(conn)
+
+            txn_columns = {
+                row[1]
+                for row in await conn.execute(text("PRAGMA table_info(transactions)"))
+            }
+            assert "counter_account_id" in txn_columns
+            assert "external_id" not in txn_columns
+            assert "ml_confidence_counter_account" in txn_columns
+            assert "ml_confidence_external" not in txn_columns
+
+            row = (
+                await conn.execute(
+                    text(
+                        "SELECT counter_account_id, ml_confidence_counter_account"
+                        " FROM transactions"
+                    )
+                )
+            ).one()
+            assert tuple(row) == (2, 0.75)
+
+            kinds = {
+                row[0]: row[1]
+                for row in await conn.execute(text("SELECT id, kind FROM accounts"))
+            }
+            assert kinds == {1: "checking", 2: "external", 3: "external"}
+
+            # Re-running must be a no-op.
+            await migrate_accounts(conn)
+            await migrate_transactions(conn)
+            rerun_columns = {
+                row[1]
+                for row in await conn.execute(text("PRAGMA table_info(transactions)"))
+            }
+            assert rerun_columns == txn_columns
     finally:
         await database.dispose()
 

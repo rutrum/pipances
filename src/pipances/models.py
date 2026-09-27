@@ -124,7 +124,7 @@ class Transaction(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     import_id: Mapped[int] = mapped_column(ForeignKey("imports.id"), nullable=False)
     internal_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
-    external_id: Mapped[int | None] = mapped_column(
+    counter_account_id: Mapped[int | None] = mapped_column(
         ForeignKey("accounts.id"), nullable=True
     )
     raw_description: Mapped[str] = mapped_column(String, nullable=False)
@@ -149,13 +149,15 @@ class Transaction(Base):
     ml_confidence_category: Mapped[float | None] = mapped_column(
         Float, nullable=True, default=None
     )
-    ml_confidence_external: Mapped[float | None] = mapped_column(
+    ml_confidence_counter_account: Mapped[float | None] = mapped_column(
         Float, nullable=True, default=None
     )
 
     import_record: Mapped[Import] = relationship(back_populates="transactions")
     internal: Mapped[Account] = relationship(foreign_keys=[internal_id])
-    external: Mapped[Account | None] = relationship(foreign_keys=[external_id])
+    counter_account: Mapped[Account | None] = relationship(
+        foreign_keys=[counter_account_id]
+    )
     category: Mapped[Category | None] = relationship()
     splits: Mapped[list["TransactionSplit"]] = relationship(
         cascade="all, delete-orphan", order_by="TransactionSplit.id"

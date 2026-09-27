@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from pipances.db import DatabaseDep
-from pipances.db.accounts import get_active_internal_accounts, get_external_accounts
+from pipances.db.accounts import get_active_internal_accounts, get_counter_accounts
 from pipances.db.categories import get_categories
 from pipances.db.transactions import fetch_page, get_txn
 from pipances.models import Account, Category
@@ -45,7 +45,7 @@ async def transactions_table(
             date_from=safe_date(payload.date_from),
             date_to=safe_date(payload.date_to),
             internal_filter=payload.internal or None,
-            external_filter=payload.external or None,
+            counter_account_filter=payload.counter_account or None,
             category_filter=payload.category or None,
             sorters=[s.model_dump() for s in payload.sort],
             tabulator_filters=[f.model_dump() for f in payload.filter],
@@ -116,12 +116,16 @@ async def list_accounts(database: DatabaseDep):
 
 
 @router.get(
-    "/external-accounts",
+    "/counter-accounts",
     response_model=list[AccountItem],
-    summary="List external accounts",
-    description="Return all external (merchant) accounts ordered by name.",
+    summary="List counter accounts",
+    description=(
+        "Return every account selectable as the counter account of a"
+        " transaction, ordered by name. Internal accounts are included because"
+        " a transfer's counter account is another one of the user's accounts."
+    ),
 )
-async def list_external_accounts(
+async def list_counter_accounts(
     database: DatabaseDep,
     q: str = Query("", description="Search filter"),
 ):
@@ -129,7 +133,6 @@ async def list_external_accounts(
         if q:
             result = await session.execute(
                 select(Account)
-                .where(Account.kind == "external")
                 .where(Account.name.ilike(f"%{escape_like(q)}%"))
                 .order_by(Account.name)
                 .limit(50)
@@ -140,5 +143,5 @@ async def list_external_accounts(
             ]
         return [
             {"id": a.id, "name": a.name, "kind": a.kind, "active": a.active}
-            for a in await get_external_accounts(session)
+            for a in await get_counter_accounts(session)
         ]

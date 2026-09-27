@@ -14,15 +14,15 @@ from pipances.models import Account, Transaction, TransactionSplit
 async def seed_pending(session, seed_accounts, seed_import, seed_categories):
     """Three pending transactions (one with a split) and one approved."""
     checking = seed_accounts["Checking"]
-    external = Account(name="Kroger", kind="external")
-    session.add(external)
+    counter_account = Account(name="Kroger", kind="external")
+    session.add(counter_account)
     await session.commit()
-    await session.refresh(external)
+    await session.refresh(counter_account)
 
     categorized = Transaction(
         import_id=seed_import.id,
         internal_id=checking.id,
-        external_id=external.id,
+        counter_account_id=counter_account.id,
         raw_description="KROGER STORE #1",
         description="Groceries run",
         category_id=seed_categories["Groceries"].id,
@@ -35,7 +35,7 @@ async def seed_pending(session, seed_accounts, seed_import, seed_categories):
     split_txn = Transaction(
         import_id=seed_import.id,
         internal_id=checking.id,
-        external_id=external.id,
+        counter_account_id=counter_account.id,
         raw_description="KROGER STORE #2",
         description="Split run",
         category_id=seed_categories["Groceries"].id,
@@ -46,7 +46,7 @@ async def seed_pending(session, seed_accounts, seed_import, seed_categories):
     bare_txn = Transaction(
         import_id=seed_import.id,
         internal_id=checking.id,
-        external_id=None,
+        counter_account_id=None,
         raw_description="UNKNOWN RETAIL STORE",
         description=None,
         category_id=None,
@@ -57,7 +57,7 @@ async def seed_pending(session, seed_accounts, seed_import, seed_categories):
     approved_txn = Transaction(
         import_id=seed_import.id,
         internal_id=checking.id,
-        external_id=external.id,
+        counter_account_id=counter_account.id,
         raw_description="APPROVED ROW",
         description="Already done",
         date=date(2026, 8, 1),
@@ -111,17 +111,20 @@ async def test_inbox_table_row_fields(client, seed_pending):
     categorized = by_id[seed_pending["categorized"].id]
     assert categorized["can_approve"] is True
     assert categorized["category_id"] == seed_pending["categorized"].category_id
-    assert categorized["external_id"] == seed_pending["categorized"].external_id
+    assert (
+        categorized["counter_account_id"]
+        == seed_pending["categorized"].counter_account_id
+    )
     assert categorized["split_count"] == 0
     assert categorized["category"]["name"] == "Groceries"
-    assert categorized["external_account"]["name"] == "Kroger"
+    assert categorized["counter_account"]["name"] == "Kroger"
 
     bare = by_id[seed_pending["bare"].id]
     assert bare["can_approve"] is False
     assert bare["category_id"] is None
-    assert bare["external_id"] is None
+    assert bare["counter_account_id"] is None
     assert bare["category"] is None
-    assert bare["external_account"] is None
+    assert bare["counter_account"] is None
     assert bare["split_count"] == 0
 
     split = by_id[seed_pending["split"].id]
@@ -223,26 +226,53 @@ async def test_patch_category_by_new_name_creates(client, seed_pending):
     assert resp.json()["category"]["name"] == "Utilities"
 
 
-async def test_patch_external_by_new_name_creates(client, seed_pending):
+async def test_patch_counter_account_by_new_name_creates(client, seed_pending):
     txn_id = seed_pending["categorized"].id
     resp = await client.patch(
-        f"/api/inbox/transactions/{txn_id}", json={"external_id": "New Merchant"}
+        f"/api/inbox/transactions/{txn_id}", json={"counter_account_id": "New Merchant"}
     )
     body = resp.json()
-    assert body["external_account"]["name"] == "New Merchant"
-    assert (body["ml_confidence"] or {}).get("external") is None
+    assert body["counter_account"]["name"] == "New Merchant"
+    assert (body["ml_confidence"] or {}).get("counter_account") is None
+
+
+async def test_patch_counter_account_to_internal_account_links(
+    client, seed_pending, seed_accounts
+):
+    """A transfer's counter account side may be one of the user's own accounts."""
+    txn_id = seed_pending["categorized"].id
+    savings = seed_accounts["Savings"]
+    resp = await client.patch(
+        f"/api/inbox/transactions/{txn_id}", json={"counter_account_id": savings.name}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["counter_account"]["name"] == savings.name
+    assert body["counter_account"]["id"] == savings.id
+
+    # Resolving to the internal account must not create a duplicate counter_account.
+    listed = await client.get("/api/counter-accounts", params={"q": savings.name})
+    assert [a["id"] for a in listed.json()] == [savings.id]
+
+
+async def test_counter_accounts_list_includes_internal_accounts(
+    client, seed_pending, seed_accounts
+):
+    resp = await client.get("/api/counter-accounts")
+    names = {a["name"] for a in resp.json()}
+    assert {"Checking", "Savings", "Credit Card", "Kroger"} <= names
 
 
 async def test_patch_empty_strings_clear_fields(client, seed_pending):
     txn_id = seed_pending["categorized"].id
     resp = await client.patch(
         f"/api/inbox/transactions/{txn_id}",
-        json={"description": "", "category_id": "", "external_id": ""},
+        json={"description": "", "category_id": "", "counter_account_id": ""},
     )
     body = resp.json()
     assert body["description"] is None
     assert body["category"] is None
-    assert body["external_account"] is None
+    assert body["counter_account"] is None
     assert body["can_approve"] is False
 
 
@@ -253,7 +283,7 @@ async def test_patch_only_provided_fields_applied(client, seed_pending):
     )
     body = resp.json()
     assert body["description"] == "Groceries run"
-    assert body["external_account"]["name"] == "Kroger"
+    assert body["counter_account"]["name"] == "Kroger"
 
 
 async def test_patch_returns_split_count(client, seed_pending):
@@ -280,7 +310,7 @@ async def test_patch_approve_requires_description(client, seed_pending):
     assert "Description" in resp.json()["detail"]
 
 
-async def test_patch_approve_requires_external(client, seed_pending):
+async def test_patch_approve_requires_counter_account(client, seed_pending):
     txn_id = seed_pending["bare"].id
     await client.patch(
         f"/api/inbox/transactions/{txn_id}", json={"description": "Has a description"}
@@ -289,7 +319,7 @@ async def test_patch_approve_requires_external(client, seed_pending):
         f"/api/inbox/transactions/{txn_id}", json={"marked_for_approval": True}
     )
     assert resp.status_code == 422
-    assert "External" in resp.json()["detail"]
+    assert "Counter account" in resp.json()["detail"]
 
 
 async def test_patch_approve_succeeds_and_toggles(client, seed_pending):
@@ -312,7 +342,7 @@ async def test_patch_approve_alongside_field_updates(client, seed_pending):
         f"/api/inbox/transactions/{txn_id}",
         json={
             "description": "Fresh",
-            "external_id": "Fresh Merchant",
+            "counter_account_id": "Fresh Merchant",
             "marked_for_approval": True,
         },
     )
@@ -320,13 +350,17 @@ async def test_patch_approve_alongside_field_updates(client, seed_pending):
     body = resp.json()
     assert body["marked_for_approval"] is True
     assert body["description"] == "Fresh"
-    assert body["external_account"]["name"] == "Fresh Merchant"
+    assert body["counter_account"]["name"] == "Fresh Merchant"
 
 
 async def test_commit_summary_nothing_marked(client, seed_pending):
     resp = await client.get("/api/inbox/commit-summary")
     assert resp.status_code == 200
-    assert resp.json() == {"count": 0, "new_categories": [], "new_externals": []}
+    assert resp.json() == {
+        "count": 0,
+        "new_categories": [],
+        "new_external_accounts": [],
+    }
 
 
 async def test_commit_summary_lists_new_entities(client, seed_pending):
@@ -336,7 +370,7 @@ async def test_commit_summary_lists_new_entities(client, seed_pending):
         json={
             "description": "Pretty new",
             "category_id": "Brand New Category",
-            "external_id": "Brand New Merchant",
+            "counter_account_id": "Brand New Merchant",
             "marked_for_approval": True,
         },
     )
@@ -344,7 +378,7 @@ async def test_commit_summary_lists_new_entities(client, seed_pending):
     body = resp.json()
     assert body["count"] == 1
     assert body["new_categories"] == ["Brand New Category"]
-    assert body["new_externals"] == ["Brand New Merchant"]
+    assert body["new_external_accounts"] == ["Brand New Merchant"]
 
 
 async def test_commit_summary_ignores_existing_approved_entities(client, seed_pending):
@@ -357,7 +391,28 @@ async def test_commit_summary_ignores_existing_approved_entities(client, seed_pe
     body = (await client.get("/api/inbox/commit-summary")).json()
     assert body["count"] == 1
     assert body["new_categories"] == ["Groceries"]
-    assert body["new_externals"] == []
+    assert body["new_external_accounts"] == []
+
+
+async def test_commit_summary_ignores_internal_counter_account(
+    client, seed_pending, seed_accounts
+):
+    """One of the user's own accounts is never a "new counter account"."""
+    txn_id = seed_pending["bare"].id
+    card = seed_accounts["Credit Card"]
+    resp = await client.patch(
+        f"/api/inbox/transactions/{txn_id}",
+        json={
+            "description": "Card payment",
+            "counter_account_id": card.name,
+            "marked_for_approval": True,
+        },
+    )
+    assert resp.status_code == 200
+
+    body = (await client.get("/api/inbox/commit-summary")).json()
+    assert body["count"] == 1
+    assert body["new_external_accounts"] == []
 
 
 async def test_commit_json_approves_and_reports_remaining(client, seed_pending):
@@ -379,7 +434,7 @@ async def test_commit_json_nothing_marked(client, seed_pending):
     assert resp.json() == {"committed": 0, "remaining": 3}
 
 
-async def test_commit_prunes_orphan_external(client, session, seed_pending):
+async def test_commit_prunes_orphan_counter_account(client, session, seed_pending):
     session.add(Account(name="Orphan Only", kind="external"))
     await session.commit()
 
@@ -389,7 +444,7 @@ async def test_commit_prunes_orphan_external(client, session, seed_pending):
     )
     await client.post("/api/inbox/commit")
 
-    resp = await client.get("/api/external-accounts", params={"q": "Orphan Only"})
+    resp = await client.get("/api/counter-accounts", params={"q": "Orphan Only"})
     assert resp.json() == []
 
 
@@ -423,7 +478,7 @@ async def test_batch_updates_several_rows(client, seed_pending, seed_categories)
                 "id": bare,
                 "description": "Pasted",
                 "category_id": "Dining",
-                "external_id": "Pasted Merchant",
+                "counter_account_id": "Pasted Merchant",
             },
         ],
     )
@@ -433,11 +488,11 @@ async def test_batch_updates_several_rows(client, seed_pending, seed_categories)
     by_id = {row["id"]: row for row in rows}
     assert by_id[categorized]["description"] == "One"
     assert by_id[bare]["category"]["name"] == "Dining"
-    assert by_id[bare]["external_account"]["name"] == "Pasted Merchant"
+    assert by_id[bare]["counter_account"]["name"] == "Pasted Merchant"
     assert by_id[bare]["can_approve"] is True
 
 
-async def test_batch_creates_new_category_and_external(client, seed_pending):
+async def test_batch_creates_new_category_and_counter_account(client, seed_pending):
     bare = seed_pending["bare"].id
     resp = await _batch(
         client,
@@ -445,14 +500,14 @@ async def test_batch_creates_new_category_and_external(client, seed_pending):
             {
                 "id": bare,
                 "category_id": "Pasted Category",
-                "external_id": "Pasted External",
+                "counter_account_id": "Pasted External",
             }
         ],
     )
     assert resp.status_code == 200
     row = resp.json()["data"][0]
     assert row["category"]["name"] == "Pasted Category"
-    assert row["external_account"]["name"] == "Pasted External"
+    assert row["counter_account"]["name"] == "Pasted External"
 
 
 async def test_batch_empty_strings_clear_fields(client, seed_pending):
@@ -464,7 +519,7 @@ async def test_batch_empty_strings_clear_fields(client, seed_pending):
                 "id": categorized,
                 "description": "",
                 "category_id": "",
-                "external_id": "",
+                "counter_account_id": "",
             }
         ],
     )
@@ -472,7 +527,7 @@ async def test_batch_empty_strings_clear_fields(client, seed_pending):
     row = resp.json()["data"][0]
     assert row["description"] is None
     assert row["category"] is None
-    assert row["external_account"] is None
+    assert row["counter_account"] is None
     assert row["can_approve"] is False
 
 
@@ -598,20 +653,20 @@ async def seed_retrain(session, seed_accounts, seed_import, seed_categories):
     """Two approved KROGER rows (training data) and one bare matching pending row.
 
     Identical raw descriptions and labels make the prediction deterministic:
-    the pending row gets the description, category and external from training.
+    the pending row gets the description, category and counter account from training.
     """
     checking = seed_accounts["Checking"]
-    external = Account(name="Kroger", kind="external")
-    session.add(external)
+    counter_account = Account(name="Kroger", kind="external")
+    session.add(counter_account)
     await session.commit()
-    await session.refresh(external)
+    await session.refresh(counter_account)
 
     for day in (1, 2):
         session.add(
             Transaction(
                 import_id=seed_import.id,
                 internal_id=checking.id,
-                external_id=external.id,
+                counter_account_id=counter_account.id,
                 raw_description="KROGER STORE #7",
                 description="Groceries run",
                 category_id=seed_categories["Groceries"].id,
@@ -623,7 +678,7 @@ async def seed_retrain(session, seed_accounts, seed_import, seed_categories):
     pending = Transaction(
         import_id=seed_import.id,
         internal_id=checking.id,
-        external_id=None,
+        counter_account_id=None,
         raw_description="KROGER STORE #7",
         description=None,
         category_id=None,
@@ -634,7 +689,7 @@ async def seed_retrain(session, seed_accounts, seed_import, seed_categories):
     session.add(pending)
     await session.commit()
     await session.refresh(pending)
-    return {"pending": pending, "external": external}
+    return {"pending": pending, "counter_account": counter_account}
 
 
 async def test_retrain_without_pending_is_zero(client):
@@ -666,12 +721,12 @@ async def test_retrain_without_training_data_is_zero(
 async def test_retrain_updates_suggestions_and_reports_count(client, seed_retrain):
     resp = await client.post("/api/inbox/retrain")
     assert resp.status_code == 200
-    # Description + category + external are each refreshed.
+    # Description + category + counter account is refreshed.
     assert resp.json() == {"updated_count": 3}
 
     table = await _post_table(client)
     row = table.json()["data"][0]
     assert row["description"] == "Groceries run"
     assert row["category"]["name"] == "Groceries"
-    assert row["external_account"]["name"] == "Kroger"
+    assert row["counter_account"]["name"] == "Kroger"
     assert row["can_approve"] is True

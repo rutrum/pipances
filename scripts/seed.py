@@ -73,7 +73,20 @@ INTERNAL_ACCOUNTS = [
         "balance_date": date(2025, 11, 30),
         "active": True,
     },
+    # Seeded without transactions so the accounts table's empty "Last
+    # Transaction" state (and sorting on a missing date) has coverage.
+    # NO_SEEDED_TRANSACTIONS keeps it that way.
+    {
+        "name": "Discover Credit",
+        "kind": "credit_card",
+        "starting_balance_cents": -18400,
+        "balance_date": date(2026, 8, 31),
+        "active": True,
+    },
 ]
+
+# Internal accounts that must never receive seeded transactions.
+NO_SEEDED_TRANSACTIONS = {"Discover Credit"}
 
 # === Categories ===
 
@@ -374,7 +387,11 @@ def savings_for_month(year: int, month: int) -> str:
 
 
 def credit_cards_for_month(year: int, month: int) -> list[str]:
-    """Return available credit cards for a given month."""
+    """Credit cards that receive seeded transactions for a given month.
+
+    "Discover Credit" is deliberately absent: it is seeded with no
+    transactions (see NO_SEEDED_TRANSACTIONS).
+    """
     cards = ["Chase Visa"]
     if (year, month) >= (2025, 12):
         cards.append("Amex Blue Cash")
@@ -408,21 +425,21 @@ async def seed():
         await session.flush()
 
         # === Create external accounts ===
-        external_map: dict[str, Account] = {}
-        all_external_names = list(MERCHANT_VARIANTS.keys()) + [
+        counter_account_map: dict[str, Account] = {}
+        all_counter_account_names = list(MERCHANT_VARIANTS.keys()) + [
             RECURRING_RENT[0],
             RECURRING_PAYCHECK[0],
         ]
-        for name in all_external_names:
-            if name not in external_map:
+        for name in all_counter_account_names:
+            if name not in counter_account_map:
                 acct = Account(name=name, kind=AccountKind.EXTERNAL)
                 session.add(acct)
                 await session.flush()
-                external_map[name] = acct
+                counter_account_map[name] = acct
 
-        # For transfers, external_map also references internal accounts by name
+        # For transfers, counter_account_map also references internal accounts by name
         for acct in internal_map.values():
-            external_map[acct.name] = acct
+            counter_account_map[acct.name] = acct
 
         # === Create import records (one per institution) ===
         import_fn = Import(
@@ -455,7 +472,7 @@ async def seed():
             txn_date: date,
             amount_cents: int,
             raw_description: str,
-            external_name: str,
+            counter_account_name: str,
             category_name: str | None,
             internal: str,
         ):
@@ -464,7 +481,7 @@ async def seed():
                     "date": txn_date,
                     "amount_cents": amount_cents,
                     "raw_description": raw_description,
-                    "external_name": external_name,
+                    "counter_account_name": counter_account_name,
                     "category_name": category_name,
                     "internal": internal,
                 }
@@ -479,7 +496,7 @@ async def seed():
             to_account: str,
             category_name: str,
         ):
-            """Add both sides of a transfer. Both internal_id and external_id reference the same account."""
+            """Add both sides of a transfer. Both internal_id and counter_account_id reference the same account."""
             add_txn(
                 txn_date,
                 -abs(amount_cents),
@@ -648,9 +665,11 @@ async def seed():
             txn = Transaction(
                 import_id=imp.id,
                 internal_id=internal_map[txn_data["internal"]].id,
-                external_id=external_map[txn_data["external_name"]].id,
+                counter_account_id=counter_account_map[
+                    txn_data["counter_account_name"]
+                ].id,
                 raw_description=txn_data["raw_description"],
-                description=txn_data["external_name"],  # Normalized description
+                description=txn_data["counter_account_name"],  # Normalized description
                 date=txn_data["date"],
                 amount_cents=txn_data["amount_cents"],
                 status=TransactionStatus.APPROVED,
@@ -803,12 +822,23 @@ async def seed():
             },
         ]
 
+        # Guard the invariant: accounts flagged as transaction-free stay that
+        # way even if the generators above change.
+        assigned_internal = {t["internal"] for t in transactions} | {
+            str(p["internal"]) for p in pending_transactions
+        }
+        leaked = assigned_internal & NO_SEEDED_TRANSACTIONS
+        if leaked:
+            raise ValueError(
+                f"accounts without seeded transactions got one: {sorted(leaked)}"
+            )
+
         for _, pending_data in enumerate(pending_transactions):
             imp = import_for_account(str(pending_data["internal"]))
             txn = Transaction(
                 import_id=imp.id,
                 internal_id=internal_map[str(pending_data["internal"])].id,
-                external_id=None,  # Don't set external for pending transactions
+                counter_account_id=None,  # Don't set counter account for pending transactions
                 raw_description=pending_data["raw_desc"],
                 description=None,
                 date=pending_data["date"],
@@ -830,7 +860,7 @@ async def seed():
     pending_count = len(pending_transactions)
     print(f"Seeded {approved_count} approved + {pending_count} pending transactions")
     print(f"  {len(INTERNAL_ACCOUNTS)} internal accounts")
-    print(f"  {len(external_map)} external accounts")
+    print(f"  {len(counter_account_map)} counter accounts")
     print(f"  {len(CATEGORY_NAMES)} categories")
     print(f"  {len(IMPORTERS)} SQL importers")
     print("  4 import records (FN, Metro CU, Chase, Amex)")

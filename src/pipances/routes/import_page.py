@@ -14,7 +14,7 @@ from pipances.db import Database, DatabaseDep
 from pipances.db.accounts import (
     get_account_by_name,
     get_active_internal_accounts,
-    get_or_create_external_account,
+    get_counter_or_create_external,
 )
 from pipances.duckdb_transform import run_importer_sql
 from pipances.ingest import (
@@ -451,15 +451,15 @@ async def import_manual_submit(
             new_txn_ids = []
             all_dates = []
             for row in valid_rows:
-                # Resolve or create external account from description
-                ext = await get_or_create_external_account(
+                # Resolve or create counter account from description
+                counter = await get_counter_or_create_external(
                     session, str(row["description"])
                 )
 
                 txn = Transaction(
                     import_id=import_record.id,
                     internal_id=internal.id,
-                    external_id=ext.id,
+                    counter_account_id=counter.id,
                     raw_description=row["description"],
                     description=row["description"],
                     date=row["date"],

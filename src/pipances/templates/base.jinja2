@@ -18,6 +18,10 @@
     <script src="/static/js/external/response-targets.js"></script>
     <script src="/static/js/external/tom-select.complete.min.js"></script>
     <script src="/static/js/external/tabulator.min.js"></script>
+    <script>
+        // Wrap long column headers onto multiple lines in every Tabulator table.
+        Tabulator.defaultOptions.columnDefaults.headerWordWrap = true;
+    </script>
     <script src="/static/js/external/alpine.min.js" defer></script>
     <script src="/static/js/external/lucide.min.js"></script>
     {% block head %}

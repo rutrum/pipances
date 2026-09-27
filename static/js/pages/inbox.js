@@ -22,13 +22,13 @@
   var EDITABLE_FIELDS = {
     description: "description",
     "category.name": "category_id",
-    "external_account.name": "external_id",
+    "counter_account.name": "counter_account_id",
   };
 
   // Populated asynchronously; Tabulator reads editorParams at edit time so
   // pushing into the same array is enough.
   var categoryOptions = [];
-  var externalOptions = [];
+  var counterAccountOptions = [];
 
   // Build a nested update object from a flat Tabulator field path so that
   // row.updateData can diff it against the existing nested row data. Passing
@@ -322,7 +322,7 @@
     var next = !data.marked_for_approval;
     if (next && !data.can_approve) {
       editors.showToast(
-        "Description and external account are required to approve.",
+        "Description and counter account are required to approve.",
         "error"
       );
       return;
@@ -446,15 +446,15 @@
         formatter: categoryFormatter,
       },
       {
-        title: "External",
-        field: "external_account.name",
+        title: "Counter Account",
+        field: "counter_account.name",
         sorter: "string",
         minWidth: 160,
         editor: editors.tomSelect,
-        editorParams: { values: externalOptions, create: true },
+        editorParams: { values: counterAccountOptions, create: true },
         formatter: valueFormatter({
-          mlKey: "external",
-          emptyLabel: "no external account",
+          mlKey: "counter_account",
+          emptyLabel: "no counter account",
         }),
       },
       {
@@ -528,7 +528,7 @@
   }
 
   loadOptions("/api/categories", categoryOptions);
-  loadOptions("/api/external-accounts", externalOptions);
+  loadOptions("/api/counter-accounts", counterAccountOptions);
 
   // === Commit dialog ===
 
@@ -575,14 +575,14 @@
           renderDialogList(
             "commit-dialog-externals",
             "commit-dialog-externals-list",
-            summary.new_externals
+            summary.new_external_accounts
           );
           document
             .getElementById("commit-dialog-none")
             .classList.toggle(
               "hidden",
               summary.new_categories.length > 0 ||
-                summary.new_externals.length > 0
+                summary.new_external_accounts.length > 0
             );
           commitDialog.showModal();
         })

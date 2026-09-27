@@ -47,7 +47,7 @@ async def seed_explore_txns(session, seed_accounts, seed_categories, seed_import
         Transaction(
             import_id=seed_import.id,
             internal_id=checking.id,
-            external_id=savings.id,
+            counter_account_id=savings.id,
             raw_description="CHECKING TO SAVINGS",
             description="Transfer to savings",
             date=date(2026, 3, 15),
@@ -57,7 +57,7 @@ async def seed_explore_txns(session, seed_accounts, seed_categories, seed_import
         Transaction(
             import_id=seed_import.id,
             internal_id=savings.id,
-            external_id=checking.id,
+            counter_account_id=checking.id,
             raw_description="SAVINGS FROM CHECKING",
             description="Transfer from checking",
             date=date(2026, 3, 15),
@@ -67,7 +67,7 @@ async def seed_explore_txns(session, seed_accounts, seed_categories, seed_import
         Transaction(
             import_id=seed_import.id,
             internal_id=checking.id,
-            external_id=None,
+            counter_account_id=None,
             raw_description="SQ *BLUE BOTTLE",
             description="Blue Bottle Coffee",
             date=date(2026, 4, 2),
@@ -121,11 +121,11 @@ async def test_explore_no_data_alert(client, seed_accounts):
 async def test_explore_initial_filter_seed(client, seed_explore_txns):
     """Query-string name filters seed the table's initialHeaderFilter."""
     resp = await client.get(
-        "/explore?preset=all&internal=Checking&external=Savings&category=Dining"
+        "/explore?preset=all&internal=Checking&counter_account=Savings&category=Dining"
     )
     assert resp.status_code == 200
     assert '"internal_account.name": "Checking"' in resp.text
-    assert '"external_account.name": "Savings"' in resp.text
+    assert '"counter_account.name": "Savings"' in resp.text
     assert '"category.name": "Dining"' in resp.text
 
 
@@ -281,7 +281,7 @@ async def test_data_external_accounts_includes_txn_count(
     txn = Transaction(
         import_id=seed_import.id,
         internal_id=checking.id,
-        external_id=ext.id,
+        counter_account_id=ext.id,
         raw_description="Purchase",
         date=date(2026, 1, 15),
         amount_cents=1000,
@@ -576,7 +576,7 @@ async def test_data_categories_includes_txn_count_and_explore(
     txn = Transaction(
         import_id=seed_import.id,
         internal_id=checking.id,
-        external_id=ext.id,
+        counter_account_id=ext.id,
         raw_description="Grocery run",
         date=date(2026, 1, 15),
         amount_cents=5000,

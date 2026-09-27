@@ -29,7 +29,7 @@ async def seed_external_accounts(session, seed_accounts, seed_import):
             Transaction(
                 import_id=seed_import.id,
                 internal_id=checking.id,
-                external_id=alpha.id,
+                counter_account_id=alpha.id,
                 raw_description="ALPHA 1",
                 date=date(2026, 1, 1),
                 amount_cents=-100,
@@ -38,7 +38,7 @@ async def seed_external_accounts(session, seed_accounts, seed_import):
             Transaction(
                 import_id=seed_import.id,
                 internal_id=checking.id,
-                external_id=alpha.id,
+                counter_account_id=alpha.id,
                 raw_description="ALPHA 2",
                 date=date(2026, 1, 2),
                 amount_cents=-200,
@@ -47,7 +47,7 @@ async def seed_external_accounts(session, seed_accounts, seed_import):
             Transaction(
                 import_id=seed_import.id,
                 internal_id=checking.id,
-                external_id=beta.id,
+                counter_account_id=beta.id,
                 raw_description="BETA 1",
                 date=date(2026, 1, 3),
                 amount_cents=-300,
@@ -59,14 +59,14 @@ async def seed_external_accounts(session, seed_accounts, seed_import):
     return {"alpha": alpha, "beta": beta, "gamma": gamma}
 
 
-async def _post_external(client, **body):
+async def _post_external_account(client, **body):
     return await client.post(
         "/api/external-accounts/table", json={"page": 1, "size": 25, **body}
     )
 
 
 async def test_external_accounts_table_envelope(client, seed_external_accounts):
-    resp = await _post_external(client)
+    resp = await _post_external_account(client)
     assert resp.status_code == 200
     body = resp.json()
     assert set(body) == {"last_page", "last_row", "data"}
@@ -78,19 +78,21 @@ async def test_external_accounts_table_envelope(client, seed_external_accounts):
 async def test_external_accounts_default_sort_is_name_asc(
     client, seed_external_accounts
 ):
-    resp = await _post_external(client)
+    resp = await _post_external_account(client)
     names = [row["name"] for row in resp.json()["data"]]
     assert names == sorted(names)
 
 
 async def test_external_accounts_sort_by_txn_count_desc(client, seed_external_accounts):
-    resp = await _post_external(client, sort=[{"field": "txn_count", "dir": "desc"}])
+    resp = await _post_external_account(
+        client, sort=[{"field": "txn_count", "dir": "desc"}]
+    )
     counts = [row["txn_count"] for row in resp.json()["data"]]
     assert counts == sorted(counts, reverse=True)
 
 
 async def test_external_accounts_name_filter(client, seed_external_accounts):
-    resp = await _post_external(
+    resp = await _post_external_account(
         client, filter=[{"field": "name", "type": "like", "value": "market"}]
     )
     body = resp.json()
@@ -110,7 +112,7 @@ async def test_external_accounts_pagination(client, seed_external_accounts):
 
 
 async def test_external_accounts_unknown_field_ignored(client, seed_external_accounts):
-    resp = await _post_external(
+    resp = await _post_external_account(
         client,
         sort=[{"field": "evil; DROP TABLE", "dir": "asc"}],
         filter=[{"field": "nope", "type": "like", "value": "x"}],

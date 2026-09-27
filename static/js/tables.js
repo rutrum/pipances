@@ -64,8 +64,8 @@ window.PipancesTables.transactions = function (container, options) {
         headerFilterPlaceholder: "Filter...",
       },
       {
-        title: "External",
-        field: "external_account.name",
+        title: "Counter Account",
+        field: "counter_account.name",
         sorter: "string",
         headerFilter: "input",
         headerFilterParams: headerFilterParams,

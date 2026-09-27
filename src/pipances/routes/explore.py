@@ -30,8 +30,9 @@ def _transactions_to_df(transactions) -> pl.DataFrame:
             "date": [t.date for t in transactions],
             "amount_cents": [t.amount_cents for t in transactions],
             "description": [t.description or t.raw_description for t in transactions],
-            "external_name": [
-                t.external.name if t.external else "" for t in transactions
+            "counter_account_name": [
+                t.counter_account.name if t.counter_account else ""
+                for t in transactions
             ],
             "internal_name": [t.internal.name for t in transactions],
             "category_name": [
@@ -52,14 +53,14 @@ async def explore_page(
     The transaction list is a client-side Tabulator remote table fed by
     POST /api/transactions/table; date presets and the custom range do
     full-page navigation so the server-rendered aggregates stay in sync.
-    Name filters (internal/external/category) come from the query string and
+    Name filters (internal/counter_account/category) come from the query string and
     seed Tabulator's header filters.
     """
     params = request.query_params
 
     preset = params.get("preset", "ytd")
     internal_filter = params.get("internal", "")
-    external_filter = params.get("external", "")
+    counter_account_filter = params.get("counter_account", "")
     category_filter = params.get("category", "")
 
     date_from, date_to = compute_date_range(
@@ -87,8 +88,8 @@ async def explore_page(
     initial_filter = {}
     if internal_filter:
         initial_filter["internal_account.name"] = internal_filter
-    if external_filter:
-        initial_filter["external_account.name"] = external_filter
+    if counter_account_filter:
+        initial_filter["counter_account.name"] = counter_account_filter
     if category_filter:
         initial_filter["category.name"] = category_filter
 
@@ -102,7 +103,7 @@ async def explore_page(
                 date_from=date_from,
                 date_to=date_to,
                 internal_filter=internal_filter,
-                external_filter=external_filter,
+                counter_account_filter=counter_account_filter,
                 category_filter=category_filter,
             )
         )

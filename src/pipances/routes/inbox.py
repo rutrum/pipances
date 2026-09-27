@@ -58,7 +58,7 @@ async def inbox_edit_modal(
     database: DatabaseDep,
 ) -> Response:
     """Load the Tabulator inbox edit modal (scalars + splits) for one row."""
-    from pipances.db.accounts import get_external_accounts
+    from pipances.db.accounts import get_counter_accounts
     from pipances.db.categories import get_categories
     from pipances.db.transactions import distinct_descriptions
 
@@ -67,7 +67,7 @@ async def inbox_edit_modal(
         if txn is None:
             return HTMLResponse("Not found", status_code=404)
 
-        external_accounts = await get_external_accounts(session)
+        counter_accounts = await get_counter_accounts(session)
         categories = await get_categories(session)
         categories_data = [{"id": c.id, "name": c.name} for c in categories]
         descriptions = await distinct_descriptions(session)
@@ -77,7 +77,7 @@ async def inbox_edit_modal(
         "inbox/_inbox_modal.jinja2",
         {
             "txn": txn,
-            "external_accounts": external_accounts,
+            "counter_accounts": counter_accounts,
             "categories": categories,
             "categories_data": categories_data,
             "descriptions": descriptions,

@@ -48,16 +48,18 @@
       </div>
       <div class="form-control w-full">
         <label class="label">
-          <span class="label-text">External Account</span>
+          <span class="label-text">Counter Account</span>
         </label>
-        {% set external_display = external_accounts|selectattr('id', 'equalto', txn.external_id)|map(attribute='name')|first or '' %}
-        {% set external_names = external_accounts|map(attribute='name')|list %}
+        {% set counter_account_display = counter_accounts|selectattr('id', 'equalto', txn.counter_account_id)|map(attribute='name')|first or '' %}
+        {% set counter_account_names = counter_accounts|map(attribute='name')|list %}
         <select class="ts-json-select w-full"
-                data-field="external_id"
-                data-options='{{ external_names | tojson }}'
+                data-field="counter_account_id"
+                data-options='{{ counter_account_names | tojson }}'
                 placeholder="Type to search..."
                 autocomplete="off">
-          {% if external_display %}<option value="{{ external_display }}" selected>{{ external_display }}</option>{% endif %}
+          {% if counter_account_display %}
+            <option value="{{ counter_account_display }}" selected>{{ counter_account_display }}</option>
+          {% endif %}
         </select>
       </div>
       <div class="form-control w-full">
@@ -81,7 +83,7 @@
               class="btn {% if txn.marked_for_approval %}btn-warning{% else %}btn-primary{% endif %} btn-lg"
               data-modal-approve
               data-approve-value="{{ 'false' if txn.marked_for_approval else 'true' }}"
-              {% if not txn.marked_for_approval and not (txn.description and txn.external) %}disabled{% endif %}>
+              {% if not txn.marked_for_approval and not (txn.description and txn.counter_account) %}disabled{% endif %}>
         {{ 'Unapprove' if txn.marked_for_approval else 'Approve' }}
       </button>
     </div>

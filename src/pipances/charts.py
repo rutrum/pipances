@@ -106,7 +106,7 @@ def monthly_income_expenses_chart(df: pl.DataFrame) -> str:
 def top_expenses_chart(df: pl.DataFrame, n: int = 10) -> str:
     expenses = (
         df.filter(pl.col("amount_cents") < 0)
-        .group_by("external_name")
+        .group_by("counter_account_name")
         .agg(pl.col("amount_cents").sum().abs().alias("total"))
         .sort("total", descending=True)
         .head(n)
@@ -118,8 +118,8 @@ def top_expenses_chart(df: pl.DataFrame, n: int = 10) -> str:
         .mark_bar()
         .encode(
             x=alt.X("total:Q", title="Total ($)"),
-            y=alt.Y("external_name:N", title="", sort="-x"),
-            tooltip=["external_name:N", alt.Tooltip("total:Q", format="$,.2f")],
+            y=alt.Y("counter_account_name:N", title="", sort="-x"),
+            tooltip=["counter_account_name:N", alt.Tooltip("total:Q", format="$,.2f")],
             color=alt.value("#f87272"),
         )
         .properties(title="Top Expenses by Account", width="container", height=300)

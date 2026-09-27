@@ -16,8 +16,8 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
         ml["description"] = txn.ml_confidence_description
     if txn.ml_confidence_category is not None:
         ml["category"] = txn.ml_confidence_category
-    if txn.ml_confidence_external is not None:
-        ml["external"] = txn.ml_confidence_external
+    if txn.ml_confidence_counter_account is not None:
+        ml["counter_account"] = txn.ml_confidence_counter_account
 
     split_count: int | None = None
     if "splits" not in sa_inspect(txn).unloaded:
@@ -32,16 +32,18 @@ def transaction_to_dict(txn: Transaction) -> dict[str, Any]:
         "description": txn.description,
         "status": txn.status,
         "marked_for_approval": txn.marked_for_approval,
-        "can_approve": bool(txn.description and txn.external_id),
+        "can_approve": bool(txn.description and txn.counter_account_id),
         "split_count": split_count,
         "ml_confidence": ml if ml else None,
         "category_id": txn.category_id,
-        "external_id": txn.external_id,
+        "counter_account_id": txn.counter_account_id,
         "category": (
             {"id": txn.category.id, "name": txn.category.name} if txn.category else None
         ),
-        "external_account": (
-            {"id": txn.external.id, "name": txn.external.name} if txn.external else None
+        "counter_account": (
+            {"id": txn.counter_account.id, "name": txn.counter_account.name}
+            if txn.counter_account
+            else None
         ),
         "internal_account": (
             {"id": txn.internal.id, "name": txn.internal.name} if txn.internal else None

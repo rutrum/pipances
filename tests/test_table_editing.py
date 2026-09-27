@@ -87,7 +87,7 @@ async def test_category_rename_missing_is_404(client, seed_categories):
 
 @pytest.fixture
 async def seed_account_states(session, seed_accounts):
-    """Mark one account closed and add an external account (which must be hidden)."""
+    """Mark one account closed and add a counter account (which must be hidden)."""
     closed = seed_accounts["Credit Card"]
     closed.active = False
     session.add(Account(name="Some Merchant", kind="external"))
@@ -123,8 +123,62 @@ async def test_account_row_shape(client, seed_accounts):
         "kind",
         "starting_balance",
         "balance_date",
+        "last_txn_date",
         "active",
     }
+
+
+async def test_account_last_txn_date(client, session, seed_accounts, seed_import):
+    checking = seed_accounts["Checking"]
+    savings = seed_accounts["Savings"]
+    for internal_id, txn_date in (
+        (checking.id, date(2026, 1, 10)),
+        (checking.id, date(2026, 3, 4)),
+        (savings.id, date(2026, 2, 1)),
+    ):
+        session.add(
+            Transaction(
+                import_id=seed_import.id,
+                internal_id=internal_id,
+                raw_description="TXN",
+                date=txn_date,
+                amount_cents=-500,
+                status="approved",
+            )
+        )
+    await session.commit()
+
+    resp = await _post_table(client, "/api/accounts/table")
+    rows = {row["name"]: row for row in resp.json()["data"]}
+    assert rows["Checking"]["last_txn_date"] == "2026-03-04"
+    assert rows["Savings"]["last_txn_date"] == "2026-02-01"
+
+
+async def test_account_last_txn_date_null_without_transactions(client, seed_accounts):
+    resp = await _post_table(client, "/api/accounts/table")
+    assert all(row["last_txn_date"] is None for row in resp.json()["data"])
+
+
+async def test_account_last_txn_date_sort(client, session, seed_accounts, seed_import):
+    checking = seed_accounts["Checking"]
+    session.add(
+        Transaction(
+            import_id=seed_import.id,
+            internal_id=checking.id,
+            raw_description="TXN",
+            date=date(2026, 3, 4),
+            amount_cents=-500,
+            status="approved",
+        )
+    )
+    await session.commit()
+
+    resp = await _post_table(
+        client,
+        "/api/accounts/table",
+        sort=[{"field": "last_txn_date", "dir": "desc"}],
+    )
+    assert resp.json()["data"][0]["name"] == "Checking"
 
 
 async def test_account_patch_fields(client, seed_accounts):
@@ -159,7 +213,9 @@ async def test_account_patch_can_clear_balance_date(client, seed_accounts):
 
 async def test_account_patch_invalid_kind_rejected(client, seed_accounts):
     checking = seed_accounts["Checking"]
-    resp = await client.patch(f"/api/accounts/{checking.id}", json={"kind": "external"})
+    resp = await client.patch(
+        f"/api/accounts/{checking.id}", json={"kind": "counter_account"}
+    )
     assert resp.status_code == 422
 
 
@@ -190,7 +246,9 @@ async def test_account_create(client, seed_accounts):
 
 
 async def test_account_create_invalid_kind_rejected(client, seed_accounts):
-    resp = await client.post("/api/accounts", json={"name": "Bad", "kind": "external"})
+    resp = await client.post(
+        "/api/accounts", json={"name": "Bad", "kind": "counter_account"}
+    )
     assert resp.status_code == 422
 
 

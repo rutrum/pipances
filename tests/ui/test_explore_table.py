@@ -23,7 +23,14 @@ def test_explore_table_renders(page: Page, goto):
     goto("/explore")
 
     expect(page.locator("#transactions-table.tabulator")).to_be_visible()
-    for title in ("Date", "Amount", "Description", "Category", "External", "Internal"):
+    for title in (
+        "Date",
+        "Amount",
+        "Description",
+        "Category",
+        "Counter Account",
+        "Internal",
+    ):
         expect(
             page.locator(".tabulator-col-title", has_text=title).first
         ).to_be_visible()

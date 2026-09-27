@@ -6,9 +6,6 @@
   if (!container) return;
 
   var editors = window.PipancesEditors;
-  var headerFilterParams = {
-    elementAttributes: { class: "input input-xs" },
-  };
   var KIND_OPTIONS = [
     { value: "checking", text: "Checking" },
     { value: "savings", text: "Savings" },
@@ -42,7 +39,6 @@
     paginationSizeSelector: [25, 50, 100],
     paginationCounter: "rows",
     sortMode: "remote",
-    filterMode: "remote",
     initialSort: [{ column: "name", dir: "asc" }],
     columns: [
       {
@@ -53,9 +49,6 @@
         editorParams: {
           elementAttributes: { class: "input input-sm w-full" },
         },
-        headerFilter: "input",
-        headerFilterParams: headerFilterParams,
-        headerFilterPlaceholder: "Search...",
         cellEdited: function (cell) {
           editors.saveCell(cell, { url: editUrl(cell), field: "name" });
         },
@@ -102,6 +95,15 @@
         },
         cellEdited: function (cell) {
           editors.saveCell(cell, { url: editUrl(cell), field: "balance_date" });
+        },
+      },
+      {
+        title: "Last Transaction",
+        field: "last_txn_date",
+        sorter: "string",
+        width: 160,
+        formatter: function (cell) {
+          return cell.getValue() || "—";
         },
       },
       {

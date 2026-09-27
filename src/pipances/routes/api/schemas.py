@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 class MlConfidence(BaseModel):
     description: float | None = None
     category: float | None = None
-    external: float | None = None
+    counter_account: float | None = None
 
 
 class TransactionRef(BaseModel):
@@ -35,9 +35,9 @@ class TransactionResponse(BaseModel):
     split_count: int | None = None
     ml_confidence: MlConfidence | None = None
     category_id: int | None = None
-    external_id: int | None = None
+    counter_account_id: int | None = None
     category: TransactionRef | None = None
-    external_account: TransactionRef | None = None
+    counter_account: TransactionRef | None = None
     internal_account: TransactionRef | None = None
     import_id: int | None = None
     splits: list[dict[str, Any]] | None = None
@@ -53,7 +53,7 @@ class InboxRowUpdate(BaseModel):
 
     description: str | None = None
     category_id: int | str | None = None
-    external_id: int | str | None = None
+    counter_account_id: int | str | None = None
     marked_for_approval: bool | None = None
 
 
@@ -67,7 +67,7 @@ class InboxRowBatchUpdate(BaseModel):
     id: int
     description: str | None = None
     category_id: int | str | None = None
-    external_id: int | str | None = None
+    counter_account_id: int | str | None = None
 
 
 class InboxBatchUpdate(BaseModel):
@@ -87,7 +87,7 @@ class CommitSummaryResponse(BaseModel):
 
     count: int
     new_categories: list[str]
-    new_externals: list[str]
+    new_external_accounts: list[str]
 
 
 class CommitResult(BaseModel):
@@ -132,13 +132,13 @@ class TabulatorRequest(BaseModel):
 class TransactionsTableRequest(TabulatorRequest):
     """Body for /api/transactions/table; adds server-side name filters.
 
-    Optional exact-name filters (internal account, external account,
+    Optional exact-name filters (internal account, counter account,
     category) applied server-side, independent of Tabulator header filters.
     Used to seed Explore from query params without bespoke dropdowns.
     """
 
     internal: str | None = None
-    external: str | None = None
+    counter_account: str | None = None
     category: str | None = None
 
 
@@ -219,6 +219,7 @@ class AccountRow(BaseModel):
     kind: str
     starting_balance: float
     balance_date: str | None = None
+    last_txn_date: str | None = None
     active: bool
 
 

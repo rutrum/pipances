@@ -1,10 +1,16 @@
 """JSON API for account tables and account edits."""
 
+from datetime import date
+
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.exc import IntegrityError
 
 from pipances.db import DatabaseDep
-from pipances.db.accounts import fetch_accounts_page, fetch_external_accounts_page
+from pipances.db.accounts import (
+    fetch_accounts_page,
+    fetch_external_accounts_page,
+    last_transaction_date_for_account,
+)
 from pipances.models import Account
 from pipances.routes.api.queries import tabulator_envelope
 from pipances.routes.api.schemas import (
@@ -22,13 +28,14 @@ router = APIRouter(prefix="/api", tags=["accounts"])
 _VALID_KINDS = {"checking", "savings", "credit_card"}
 
 
-def _account_to_dict(account: Account) -> dict:
+def _account_to_dict(account: Account, last_txn_date: date | None = None) -> dict:
     return {
         "id": account.id,
         "name": account.name,
         "kind": account.kind,
         "starting_balance": account.starting_balance_cents / 100,
         "balance_date": str(account.balance_date) if account.balance_date else None,
+        "last_txn_date": str(last_txn_date) if last_txn_date else None,
         "active": account.active,
     }
 
@@ -83,12 +90,14 @@ async def accounts_table(
             session,
             show_closed=payload.show_closed,
             sorters=[s.model_dump() for s in payload.sort],
-            filters=[f.model_dump() for f in payload.filter],
             page=max(payload.page, 1),
             page_size=min(max(payload.size, 1), 100),
         )
     return tabulator_envelope(
-        [_account_to_dict(account) for account in page.rows],
+        [
+            _account_to_dict(account, last_txn_date)
+            for account, last_txn_date in page.rows
+        ],
         page.total_count,
         page.total_pages,
     )
@@ -130,7 +139,8 @@ async def create_account(
                 detail="An account with that name already exists.",
             ) from None
         await session.refresh(account)
-    return _account_to_dict(account)
+        last_txn_date = await last_transaction_date_for_account(session, account.id)
+    return _account_to_dict(account, last_txn_date)
 
 
 @router.patch(
@@ -178,4 +188,5 @@ async def update_account(
                 detail="An account with that name already exists.",
             ) from None
         await session.refresh(account)
-    return _account_to_dict(account)
+        last_txn_date = await last_transaction_date_for_account(session, account.id)
+    return _account_to_dict(account, last_txn_date)
