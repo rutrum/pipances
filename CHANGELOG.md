@@ -4,14 +4,29 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-28
+
+DuckDB SQL importers replace the filesystem Python importers, and a transaction's other side is redefined as a counter account that can reference any account.
+
+### Added
+
+- DuckDB SQL importers stored in the database: each is a single `SELECT` over a type-inferred `raw` relation returning `date`, `amount`, and `description`, executed in memory server-side. Detection, preview, and real imports share the same engine (`duckdb_transform.py`).
+- Browser importer builder at dedicated `/data/importers/new` and `/data/importers/{id}/edit` pages: upload a sample CSV for an immediate `SELECT * FROM raw` preview, edit the SQL with debounced re-runs, validate before saving, and see structured `{stage, message}` errors.
+- Importer CRUD and preview JSON API under `/api/importers`.
+- `Import` provenance columns (`importer_id`, `importer_name`, `importer_sql`) for audit.
+- Seeded `Example Bank` and `Metro Credit Union` SQL importers.
+- "Last Transaction" column on `/data/accounts`.
+- `Discover Credit` seed account (an internal credit card that never receives seeded transactions) to exercise empty states.
 
 ### Changed
 
-- Replaced filesystem Python importers with DuckDB SQL importers. Importers are now
-  built and edited at `/data/importers` in the browser and stored in the database:
-  each is a single DuckDB `SELECT` over an all-`VARCHAR` `raw` relation returning
-  `date`, `amount`, and `description`, executed in memory server-side.
+- Replaced the filesystem Python importers with the DuckDB SQL importers described above.
+- A transaction's other side is now the **counter account** (`Transaction.counter_account_id`, `ml_confidence_counter_account`). It may reference any account, so transfers can select another of the user's own accounts. Account kinds stay `internal`/`external`; `AccountKind.EXTERNAL` and `/data/external-accounts` are unchanged. Idempotent migrations rename the legacy transaction columns and settle the account kind on `external`.
+- The counter-account picker offers every account and resolves a name to an existing account of any kind before creating a new external one.
+- The commit summary reports newly inferred accounts as new external accounts and never flags the user's own internal accounts.
+- Tabulator headers wrap long titles onto multiple lines by default.
+- Added `duckdb` and `fsspec` dependencies.
+- Nix-managed static assets are described by `nix/assets.nix` (relocated from `nix/lib/`).
 
 ### Removed
 
