@@ -18,7 +18,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     daisyui-css = {
-      url = "https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css";
+      url = "https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css";
       flake = false;
     };
     htmx-js = {

@@ -34,13 +34,13 @@
     "daisyui-css": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-7r39HN9hkNCNG5PcGJ1MGX7wRhmstc+Mj/mVjs8CgVU=",
+        "narHash": "sha256-eD49F70rMXxWjuiaHwaMDheswlnFTbijK1uZ2RsFahg=",
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css"
+        "url": "https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css"
       },
       "original": {
         "type": "file",
-        "url": "https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css"
+        "url": "https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css"
       }
     },
     "htmx-js": {
