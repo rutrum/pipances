@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-27
+
+Pins the daisyUI CSS flake input to an exact release so the lock no longer goes stale.
+
+### Fixed
+
+- The `daisyui-css` flake input is pinned to daisyUI `5.7.50` instead of floating on the `@5` major range. jsDelivr resolves the range to whatever 5.x is current, so the locked `narHash` went stale whenever daisyUI published and consumers failed with a hash mismatch.
+
 ## [0.3.0] - 2026-09-28
 
 DuckDB SQL importers replace the filesystem Python importers, and a transaction's other side is redefined as a counter account that can reference any account.
